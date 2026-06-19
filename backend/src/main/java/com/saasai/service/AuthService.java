@@ -45,10 +45,10 @@ public class AuthService {
 
     public Map<String, String> loginUser(LoginRequestDTO request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new AuthException("Email hoặc mật khẩu không chính xác"));
+                .orElseThrow(() -> new AuthException("Email hoặc mật khẩu không chính xác", org.springframework.http.HttpStatus.UNAUTHORIZED));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new AuthException("Email hoặc mật khẩu không chính xác");
+            throw new AuthException("Email hoặc mật khẩu không chính xác", org.springframework.http.HttpStatus.UNAUTHORIZED);
         }
 
         String role = user.getRole().toString();

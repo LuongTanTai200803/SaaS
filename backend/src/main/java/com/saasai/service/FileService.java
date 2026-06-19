@@ -78,11 +78,25 @@ public class FileService {
                 ? AdminPackageConfig.PackageType.valueOf(currentUser.getPackageType().name())
                 : AdminPackageConfig.PackageType.FREE;
         AdminPackageConfig config = adminService.getPackageConfig(packageType);
-        long usedBytes = fileUploadRepository.sumFileSizeByUserId(currentUser.getId());
-        long allowedBytes = config.getStorageQuotaMb() * 1024L * 1024L;
-        if (usedBytes + (incomingSize != null ? incomingSize : 0L) > allowedBytes) {
-            throw new IllegalArgumentException("Vượt quá hạn mức lưu trữ của gói hiện tại");
+        Long storageQuotaMb = config.getStorageQuotaMb();
+        if (storageQuotaMb == null) {
+            storageQuotaMb = getDefaultStorageQuotaMb(packageType);
         }
+
+        long usedBytes = fileUploadRepository.sumFileSizeByUserId(currentUser.getId());
+        long allowedBytes = storageQuotaMb * 1024L * 1024L;
+        long totalBytes = usedBytes + (incomingSize != null ? incomingSize : 0L);
+        if (totalBytes > allowedBytes) {
+            throw new IllegalArgumentException("Vượt quá hạn mức lưu trữ của gói " + packageType + ". Hạn mức: " + storageQuotaMb + "MB.");
+        }
+    }
+
+    private Long getDefaultStorageQuotaMb(AdminPackageConfig.PackageType packageType) {
+        return switch (packageType) {
+            case FREE, BASIC -> 100L;
+            case PROFESSIONAL -> 1024L;
+            case ENTERPRISE -> 5120L;
+        };
     }
 
     private void validateFile(MultipartFile file) {

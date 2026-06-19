@@ -2,6 +2,8 @@ package com.saasai.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saasai.exception.AuthException;
+import com.saasai.exception.GlobalExceptionHandler;
+import com.saasai.security.TokenBlacklistService;
 import com.saasai.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,9 @@ class AuthControllerTest {
     @Mock
     private AuthService authService;
 
+    @Mock
+    private TokenBlacklistService tokenBlacklistService;
+
     @InjectMocks
     private AuthController authController;
 
@@ -36,7 +41,9 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(authController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(authController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     @Test
@@ -57,7 +64,7 @@ class AuthControllerTest {
 
     @Test
     void registerShouldReturnBadRequestWhenEmailExists() throws Exception {
-        doThrow(new AuthException("Email đã tồn tại!")).when(authService)
+        doThrow(new AuthException("Email đã tồn tại!", org.springframework.http.HttpStatus.BAD_REQUEST)).when(authService)
                 .registerUser(org.mockito.ArgumentMatchers.any());
 
         mockMvc.perform(post("/api/v1/auth/register")
@@ -68,7 +75,8 @@ class AuthControllerTest {
                         "password", "password"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Email đã tồn tại!"));
+                .andExpect(jsonPath("$.message").value("Email đã tồn tại!"))
+                .andExpect(jsonPath("$.statusCode").value(400));
     }
 
     @Test
@@ -91,7 +99,7 @@ class AuthControllerTest {
     @Test
     void loginShouldReturnUnauthorizedWhenCredentialsInvalid() throws Exception {
         when(authService.loginUser(org.mockito.ArgumentMatchers.any()))
-                .thenThrow(new AuthException("Email hoặc mật khẩu không chính xác"));
+                .thenThrow(new AuthException("Email hoặc mật khẩu không chính xác", org.springframework.http.HttpStatus.UNAUTHORIZED));
 
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -100,6 +108,28 @@ class AuthControllerTest {
                         "password", "wrong-password"))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Email hoặc mật khẩu không chính xác"));
+                .andExpect(jsonPath("$.message").value("Email hoặc mật khẩu không chính xác"))
+                .andExpect(jsonPath("$.statusCode").value(401));
+    }
+
+    @Test
+    void logoutShouldReturnBadRequestWhenAuthorizationHeaderInvalid() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Authorization header không hợp lệ"))
+                .andExpect(jsonPath("$.statusCode").value(400));
+    }
+
+    @Test
+    void logoutShouldReturnSuccessWhenTokenProvided() throws Exception {
+        doNothing().when(tokenBlacklistService).blacklistToken(org.mockito.ArgumentMatchers.anyString());
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                .header("Authorization", "Bearer dummy-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Đăng xuất thành công"))
+                .andExpect(jsonPath("$.statusCode").value(200));
     }
 }

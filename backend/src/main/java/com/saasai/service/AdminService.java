@@ -57,8 +57,17 @@ public class AdminService {
 
     @Cacheable(cacheNames = "adminPackageConfig", key = "#packageType")
     public AdminPackageConfig getPackageConfig(AdminPackageConfig.PackageType packageType) {
-        return adminPackageConfigRepository.findByPackageType(packageType)
+        AdminPackageConfig config = adminPackageConfigRepository.findByPackageType(packageType)
                 .orElseThrow(() -> new RuntimeException("Admin package config không tồn tại cho gói " + packageType));
+        if (config.getStorageQuotaMb() == null) {
+            config.setStorageQuotaMb(defaultStorageQuota(packageType));
+            config = adminPackageConfigRepository.save(config);
+        }
+        return config;
+    }
+
+    public Long getDefaultStorageQuotaMb(AdminPackageConfig.PackageType packageType) {
+        return defaultStorageQuota(packageType);
     }
 
     public AdminStatsResponseDTO getFinanceStats() {

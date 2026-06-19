@@ -31,4 +31,16 @@ public class ApiResponseDTO<T> {
                 .statusCode(200)
                 .build();
     }
+
+    public static <T> ApiResponseDTO<T> failure(String message, int statusCode) {
+        return ApiResponseDTO.<T>builder()
+                .success(false)
+                .message(message)
+                .statusCode(statusCode)
+                .build();
+    }
+
+    public static <T> ApiResponseDTO<T> failure(String message) {
+        return failure(message, 400);
+    }
 }
