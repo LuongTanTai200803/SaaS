@@ -1,5 +1,12 @@
 package com.saasai.service;
 
+import com.saasai.dto.FileUploadResponseDTO;
+import com.saasai.entity.AdminPackageConfig;
+import com.saasai.entity.FileUpload;
+import com.saasai.entity.User;
+import com.saasai.repository.FileUploadRepository;
+import com.saasai.repository.UserRepository;
+import com.saasai.storage.StorageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -7,16 +14,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.saasai.dto.FileUploadResponseDTO;
-import com.saasai.entity.FileUpload;
-import com.saasai.entity.User;
-import com.saasai.repository.FileUploadRepository;
-import com.saasai.repository.UserRepository;
-
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
@@ -31,31 +29,32 @@ public class FileService {
     @Autowired
     private UserRepository userRepository;
 
-    @Value("${app.upload.dir:uploads/}")
-    private String uploadDir;
+    @Autowired
+    private AdminService adminService;
+
+    @Autowired
+    private StorageService storageService;
+
+    @Value("${storage.base-url:http://localhost:8080/uploads/}")
+    private String storageBaseUrl;
 
     public FileUploadResponseDTO uploadFile(MultipartFile file, String category) throws IOException {
         User currentUser = userRepository.findByEmail(resolveCurrentEmail())
                 .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
 
         validateFile(file);
+        enforceStorageQuota(currentUser, file.getSize());
 
         String originalFileName = file.getOriginalFilename();
         String storedFileName = buildStoredFileName(originalFileName);
         FileUpload.FileCategory fileCategory = normalizeCategory(category);
 
-        Path uploadPath = Paths.get(uploadDir);
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
-        }
-
-        Path filePath = uploadPath.resolve(storedFileName);
-        Files.write(filePath, file.getBytes());
+        storageService.storeFile(file, storedFileName);
 
         FileUpload fileUpload = FileUpload.builder()
                 .userId(currentUser.getId())
                 .fileName(originalFileName)
-                .fileUrl("https://storage.trolyai.vn/inputs/" + storedFileName)
+                .fileUrl(storageBaseUrl + storedFileName)
                 .fileSize(file.getSize())
                 .category(fileCategory)
                 .mimeType(file.getContentType())
@@ -72,6 +71,18 @@ public class FileService {
                 .uploadedAt(saved.getUploadedAt())
                 .uploadedBy(currentUser.getFullName())
                 .build();
+    }
+
+    private void enforceStorageQuota(User currentUser, Long incomingSize) {
+        AdminPackageConfig.PackageType packageType = currentUser.getPackageType() != null
+                ? AdminPackageConfig.PackageType.valueOf(currentUser.getPackageType().name())
+                : AdminPackageConfig.PackageType.FREE;
+        AdminPackageConfig config = adminService.getPackageConfig(packageType);
+        long usedBytes = fileUploadRepository.sumFileSizeByUserId(currentUser.getId());
+        long allowedBytes = config.getStorageQuotaMb() * 1024L * 1024L;
+        if (usedBytes + (incomingSize != null ? incomingSize : 0L) > allowedBytes) {
+            throw new IllegalArgumentException("Vượt quá hạn mức lưu trữ của gói hiện tại");
+        }
     }
 
     private void validateFile(MultipartFile file) {

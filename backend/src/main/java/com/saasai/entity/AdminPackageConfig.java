@@ -31,6 +31,8 @@ public class AdminPackageConfig {
 
     private String description;
 
+    private Long storageQuotaMb;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -40,14 +42,29 @@ public class AdminPackageConfig {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (storageQuotaMb == null) {
+            storageQuotaMb = defaultStorageQuotaMb();
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        if (storageQuotaMb == null) {
+            storageQuotaMb = defaultStorageQuotaMb();
+        }
     }
 
     public enum PackageType {
-        FREE, PROFESSIONAL, ENTERPRISE
+        FREE, BASIC, PROFESSIONAL, ENTERPRISE
+    }
+
+    private Long defaultStorageQuotaMb() {
+        return switch (packageType) {
+            case FREE -> 100L;
+            case BASIC -> 100L;
+            case PROFESSIONAL -> 1024L;
+            case ENTERPRISE -> 5120L;
+        };
     }
 }

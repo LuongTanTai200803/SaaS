@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saasai.dto.AIStreamResponseDTO;
 import com.saasai.service.AIService;
 import org.junit.jupiter.api.AfterEach;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +23,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -58,13 +61,19 @@ class AIControllerTest {
 
     @Test
     void completionsShouldStreamSseEvents() throws Exception {
-        List<AIStreamResponseDTO> events = List.of(
-                AIStreamResponseDTO.builder().type("content").text("chunk-1").build(),
-                AIStreamResponseDTO.builder().type("verify_done").actualCreditDeducted(4.1).refundedCredit(0.4).currentBalance(345.9).build()
-        );
-
-        when(aiService.processCompletion(502L, USER_ID, "{}", "Rewrite", true, "claude-sonnet-4.6"))
-                .thenReturn(events);
+        doAnswer(invocation -> {
+                    SseEmitter emitter = invocation.getArgument(6);
+                    emitter.send(AIStreamResponseDTO.builder().type("content").text("chunk-1").build());
+                    emitter.send(AIStreamResponseDTO.builder()
+                            .type("verify_done")
+                            .actualCreditDeducted(4.1)
+                            .refundedCredit(0.4)
+                            .currentBalance(345.9)
+                            .build());
+                    emitter.complete();
+                    return null;
+                }).when(aiService)
+                .processCompletion(eq(502L), eq(USER_ID), eq("{}"), eq("Rewrite"), eq(true), eq("claude-sonnet-4.6"), any());
 
         MvcResult mvcResult = mockMvc.perform(post("/api/v1/ai/completions")
                         .contentType(MediaType.APPLICATION_JSON)

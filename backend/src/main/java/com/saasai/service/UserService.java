@@ -69,6 +69,11 @@ public class UserService {
                                 .build();
         }
 
+        public User getUserById(Long userId) {
+                return userRepository.findById(userId)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
+        }
+
         public PaginatedResponseDTO<DocumentDTO> getUserDocuments(Long userId, int page, int size) {
                 Pageable pageable = PageRequest.of(page, size);
                 Page<com.saasai.entity.ChatSession> sessions = chatSessionRepository

@@ -1,10 +1,12 @@
 package com.saasai.service;
 
 import com.saasai.dto.FileUploadResponseDTO;
+import com.saasai.entity.AdminPackageConfig;
 import com.saasai.entity.FileUpload;
 import com.saasai.entity.User;
 import com.saasai.repository.FileUploadRepository;
 import com.saasai.repository.UserRepository;
+import com.saasai.storage.StorageService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +44,12 @@ class FileServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private AdminService adminService;
+
+    @Mock
+    private StorageService storageService;
+
     @InjectMocks
     private FileService fileService;
 
@@ -50,7 +60,7 @@ class FileServiceTest {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(fileService, "uploadDir", tempDir.toString());
+        ReflectionTestUtils.setField(fileService, "storageBaseUrl", tempDir.toUri().toString());
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(10293L, null);
         authentication.setDetails("user@example.com");
         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -58,8 +68,17 @@ class FileServiceTest {
                 .id(10293L)
                 .email("user@example.com")
                 .fullName("Nguyễn Văn A")
+                .packageType(User.PackageType.FREE)
                 .build();
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(currentUser));
+        lenient().when(adminService.getPackageConfig(AdminPackageConfig.PackageType.FREE))
+                .thenReturn(AdminPackageConfig.builder()
+                        .packageType(AdminPackageConfig.PackageType.FREE)
+                        .price(0L)
+                        .creditLimit(0.0)
+                        .storageQuotaMb(100L)
+                        .build());
+        lenient().when(fileUploadRepository.sumFileSizeByUserId(currentUser.getId())).thenReturn(0L);
     }
 
     @AfterEach
@@ -91,6 +110,7 @@ class FileServiceTest {
     void uploadFileShouldSaveMetadataAndReturnDto() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "test.pdf", "application/pdf", "mock-content".getBytes());
 
+        when(storageService.storeFile(any(), anyString())).thenReturn(tempDir.resolve("test.pdf").toString());
         when(fileUploadRepository.save(any(FileUpload.class))).thenAnswer(invocation -> {
             FileUpload upload = invocation.getArgument(0);
             upload.setFileId(15L);
@@ -107,7 +127,7 @@ class FileServiceTest {
         assertEquals(10293L, saved.getUserId());
         assertEquals("test.pdf", saved.getFileName());
         assertEquals(FileUpload.FileCategory.LEGAL, saved.getCategory());
-        assertTrue(Files.list(tempDir).findAny().isPresent());
+        verify(storageService).storeFile(any(), anyString());
         assertEquals("file_15", response.getFileId());
         assertEquals("Nguyễn Văn A", response.getUploadedBy());
     }

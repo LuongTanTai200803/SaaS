@@ -35,3 +35,78 @@ PUT /api/v1/admin/packages/{packageType}
 GET /api/v1/admin/stats/finance
 Mục tiêu: quản lý gói và xem thống kê tài chính.
 ================================================================================
+
+THÀNH PHẦN 1: 4 LỖ HỔNG LOGIC NGHIỆP VỤ (BUSINESS LOGIC GAPS)
+
+1. Lỗ hổng vòng đời Hóa đơn (BillingInvoice) và Đồng bộ Gói cước
+
+Hiện tại trong code: Ông có Entity BillingInvoice lưu gói cước người dùng mua (packageType, durationMonths) và trạng thái (PENDING, PAID).
+
+Logic bị thiếu: Khi một hóa đơn chuyển trạng thái từ PENDING sang PAID (người dùng đã nạp tiền thành công), ai sẽ là người cập nhật lại số dư ví Credit và thời hạn gói cước cho User?
+
+Giải pháp bổ sung: Cần một hàm logic gác ngầm (hoặc API webhook đối soát): Khi hóa đơn thành PAID, lập tức lấy packageType truy vấn sang bảng cấu hình Admin để biết gói này được bao nhiêu Credit, rồi lấy User tương ứng để cộng tịnh tiến số credit mới và gia hạn thời gian hết hạn gói (packageExpiry). Nếu thiếu luồng này, người dùng nạp tiền xong ví vẫn trống rỗng.
+
+2. Logic Trừ tiền bất đồng bộ khi AI đang Stream (SSE)
+
+Hiện tại trong code: API /completions sinh dữ liệu theo dạng Stream (SSE) trả về từng từ một cho Frontend React.
+
+Logic bị thiếu: Việc trừ credit của người dùng đang được ước tính hoặc trừ một cục sau khi hoàn thành. Nếu người dùng đang stream nửa chừng thì bấm tắt trình duyệt (Disconnect) hoặc mạng bị nghẽn thì sao?
+
+Giải pháp bổ sung: Tầng Backend khi handle SseEmitter phải bắt được event onCompletion và onTimeout/onError. Số lượng credit khấu trừ cuối cùng phải dựa trên số lượng token AI thực tế đã phun ra trước khi kết nối bị ngắt, tránh việc user bị trừ oan (nếu lỗi mạng) hoặc user "bùng" tiền (nếu tắt client giữa chừng).
+
+3. Logic dọn dẹp dung lượng file (FileUpload)
+
+Hiện tại trong code: Cán bộ upload file PDF/Word lên để AI đọc, lưu metadata xuống DB và lưu file vật lý vào thư mục.
+
+Logic bị thiếu: Không thấy cấu hình giới hạn tổng dung lượng lưu trữ tối đa cho mỗi tài khoản (Storage Quota). Ví dụ: Gói BASIC chỉ được lưu tối đa 100MB file, gói PROFESSIONAL được 5GB.
+
+Giải pháp bổ sung: Khi tính toán ở API POST /files/upload, trước khi lưu file mới, Backend phải chạy một câu lệnh phụ: SELECT SUM(file_size) FROM file_uploads WHERE user_email = ... để check xem tổng dung lượng hiện tại đã chạm ngưỡng giới hạn của gói họ đang dùng chưa. Nếu vượt quá, lập tức chặn lại và bắt nâng cấp gói.
+
+
+
+⚙️ THÀNH PHẦN 2: 3 ĐIỂM THIẾU SÓT VỀ HẠ TẦNG BÊN DƯỚI (INFRASTRUCTURE GAPS)
+
+Nếu để hệ thống này chạy thật (Production Deployment) trên con server Ubuntu của ông, 3 yếu tố hạ tầng sau đây nếu thiếu sẽ làm app bị nghẽn:
+
+
+
+1. Thiếu cơ chế Quản lý tiến trình lưu file vật lý (Storage Abstraction)
+
+Vấn đề: Hiện tại code lưu file trực tiếp vào một thư mục cục bộ (Local Directory) trên đĩa cứng server. Khi ông scale hệ thống lên chạy dual-node hoặc sập server Linux, toàn bộ file của người dùng sẽ bay màu hoặc node này không đọc được file của node kia.
+
+Giải pháp: Cần thiết kế một lớp giao diện (Interface) tên là StorageService, môi trường Test thì lưu đĩa cục bộ, nhưng khi bật Production chỉ cần đổi cấu hình để nó tự động đẩy sang các dịch vụ Object Storage độc lập (như AWS S3 hoặc Cloudflare R2). Nhưng hiện tại tôi muốn dùng thẳng dung lượng chung của vps còn S3 hay R2 thì vẫn code kiểu mở rộng để dùng sau này
+
+2. Thiếu tầng Cache đệm cho Cấu hình Admin
+
+Vấn đề: API POST /credits/estimate hoặc luồng kiểm tra quyền Model của User chạy liên tục với tần suất cực cao. Cứ mỗi request gửi lên, Backend lại phải phóng một câu lệnh SELECT xuống bảng admin_package_configs để check xem gói đó có giá bao nhiêu, được dùng model nào. Việc này làm MySQL bị "gõ" liên tục vào các dữ liệu ít khi thay đổi.
+
+Giải pháp: Cấu hình Spring Cache (Sử dụng Memory hoặc Redis). Các cấu hình định mức gói của Admin chỉ nên tải từ DB lên một lần, khi nào Admin dùng API PUT /admin/packages để sửa cấu hình thì mới clear cache để nạp lại dữ liệu mới.
+
+3. Cơ chế xử lý dọn dẹp Token hết hạn ngầm (JWT Blacklist / Revocation)
+
+Vấn đề: JWT bản chất là Stateless. Nếu người dùng bấm "Đăng xuất" (Logout) ở Frontend, ông chỉ xóa token ở LocalStorage của họ. Nếu hacker bằng cách nào đó đã chép lại cục token đó trước đó, chúng vẫn có thể dùng nó để gọi API Profile hay xem Chat hợp pháp cho đến khi token tự hết hạn.
+
+Giải pháp: Cần một bảng ngầm hoặc một vùng lưu trữ Redis tạm để lưu các Token đã bị "Đăng xuất trước hạn" (Blacklisted Tokens). Khi JwtAuthenticationFilter quét qua, nó phải check xem token này có nằm trong danh sách đen không trước khi cho phép nạp vào SecurityContextHolder.
+
+🔴 GIAI ĐOẠN 1 CRITICAL (Làm ngay):
+  ☐ [8] Migrate DB credentials → environment variables (${DB_USER}, ${DB_PASS})
+  ☐ [9] Fix CORS: allowedOrigins=["https://yourdomain.com"] (whitelist only)
+  ☐ [10] Change jwt.secret từ default, inject từ ENV variable
+  ☐ [SSL] Enable useSSL=true, remove allowPublicKeyRetrieval
+  
+  + 2 vấn đề gốc:
+  ☐ [1.1] Billing webhook PENDING→PAID
+  ☐ [1.2] SSE Stream disconnect handling
+
+🟡 GIAI ĐOẠN 2 SCALING (Sau MVP):
+  ☐ [11] Tạo GlobalExceptionHandler + consistent error responses
+  ☐ [12] Thêm Rate Limiting (Spring Cloud Gateway hoặc Bucket4j)
+  ☐ [2.1] Storage abstraction
+  ☐ [2.2] Cache admin config
+  ☐ [2.3] JWT blacklist
+
+🟢 GIAI ĐOẠN 3 (Nice-to-have):
+  ☐ Add health check endpoint (/actuator/health)
+  ☐ Add request size limits (max-request-size)
+  ☐ Add HTTP security headers (HSTS, X-Content-Type-Options)
+  ☐ [1.3] Storage quota

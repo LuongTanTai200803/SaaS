@@ -1,15 +1,16 @@
 package com.saasai.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import com.saasai.dto.AdminPackageUpdateDTO;
 import com.saasai.dto.AdminStatsResponseDTO;
 import com.saasai.entity.AdminPackageConfig;
 import com.saasai.entity.SystemStats;
 import com.saasai.repository.AdminPackageConfigRepository;
 import com.saasai.repository.SystemStatsRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
 
 @Service
 public class AdminService {
@@ -21,6 +22,7 @@ public class AdminService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @CacheEvict(cacheNames = "adminPackageConfig", allEntries = true)
     public AdminPackageConfig upsertPackageConfig(String packageType, AdminPackageUpdateDTO request) {
         if (request == null) {
             throw new IllegalArgumentException("Request body cannot be null");
@@ -41,6 +43,9 @@ public class AdminService {
 
         config.setPrice(request.getPrice());
         config.setCreditLimit(request.getCreditLimit());
+        if (config.getStorageQuotaMb() == null) {
+            config.setStorageQuotaMb(defaultStorageQuota(normalizedType));
+        }
         try {
             config.setAllowedModels(objectMapper.writeValueAsString(request.getAllowedModels() != null ? request.getAllowedModels() : java.util.List.of()));
         } catch (Exception ex) {
@@ -50,8 +55,13 @@ public class AdminService {
         return adminPackageConfigRepository.save(config);
     }
 
+    @Cacheable(cacheNames = "adminPackageConfig", key = "#packageType")
+    public AdminPackageConfig getPackageConfig(AdminPackageConfig.PackageType packageType) {
+        return adminPackageConfigRepository.findByPackageType(packageType)
+                .orElseThrow(() -> new RuntimeException("Admin package config không tồn tại cho gói " + packageType));
+    }
+
     public AdminStatsResponseDTO getFinanceStats() {
-        // Get the latest stats from database
         SystemStats stats = systemStatsRepository.findAll().stream()
                 .sorted((a, b) -> b.getUpdatedAt().compareTo(a.getUpdatedAt()))
                 .findFirst()
@@ -69,5 +79,13 @@ public class AdminService {
 
     public void updateStats(SystemStats stats) {
         systemStatsRepository.save(stats);
+    }
+
+    private Long defaultStorageQuota(AdminPackageConfig.PackageType packageType) {
+        return switch (packageType) {
+            case FREE, BASIC -> 100L;
+            case PROFESSIONAL -> 1024L;
+            case ENTERPRISE -> 5120L;
+        };
     }
 }

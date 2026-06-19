@@ -60,3 +60,17 @@ Test và mức độ tin cậy
 Controller tests đã cập nhật theo contract mới ở upload/estimate.
 Có thêm service test cho credit estimate (bao gồm case IDOR, parse fileId sai, insufficient credits).
 Admin có test security riêng.
+
+AI module status
+SSE completions: đang ở mức mô phỏng chunk, chưa tích hợp provider thật.
+Exporter: đang trả byte cơ bản, chưa hoàn thiện DOCX/PDF production.
+Billing status
+Contract đang giữ theo test hiện tại.
+Còn thiếu webhook đối soát thanh toán và cập nhật trạng thái từ PENDING sang PAID/CANCELLED.
+Test snapshot
+Ghi rõ lần chạy gần nhất: tổng test, pass/fail, ngày giờ.
+Ghi chú test nào flaky (nếu có timeout SSE).
+Next actions (ưu tiên)
+Hoàn thiện AI stream production path.
+Hoàn thiện export DOCX/PDF.
+Bổ sung test integration cho security + ownership ở AI/Billing.

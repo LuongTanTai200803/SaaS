@@ -9,23 +9,17 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import com.saasai.dto.AICompletionRequestDTO;
-import com.saasai.dto.AIStreamResponseDTO;
 import com.saasai.dto.ExportRequestDTO;
 import com.saasai.service.AIService;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/v1/ai")
-@CrossOrigin(origins = "*")
+@CrossOrigin
 public class AIController {
     @Autowired
     private AIService aiService;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostMapping(value = "/completions", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter processCompletion(@RequestBody AICompletionRequestDTO request) {
@@ -34,21 +28,14 @@ public class AIController {
 
         CompletableFuture.runAsync(() -> {
             try {
-                List<AIStreamResponseDTO> events = aiService.processCompletion(
+                aiService.processCompletion(
                         request.getSessionId(),
                         userId,
                         request.getWizardStateJson(),
                         request.getPromptCommand(),
                         request.getPinEditorContext(),
-                        request.getModel());
-
-                for (AIStreamResponseDTO event : events) {
-                    emitter.send(objectMapper.writeValueAsString(event));
-                }
-
-                emitter.complete();
-            } catch (IOException e) {
-                emitter.completeWithError(e);
+                        request.getModel(),
+                        emitter);
             } catch (Exception e) {
                 emitter.completeWithError(e);
             }

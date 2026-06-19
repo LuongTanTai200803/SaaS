@@ -1,11 +1,5 @@
 package com.saasai.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-
 import com.saasai.dto.CreditEstimateDTO;
 import com.saasai.dto.CreditEstimateResponseDTO;
 import com.saasai.entity.CreditTransaction;
@@ -14,7 +8,14 @@ import com.saasai.entity.User;
 import com.saasai.repository.CreditTransactionRepository;
 import com.saasai.repository.FileUploadRepository;
 import com.saasai.repository.UserRepository;
+import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -135,20 +136,42 @@ public class CreditService {
         return Math.round(value * 10.0) / 10.0;
     }
 
-    public void recordTransaction(Long userId, Double inputCredit, Double outputCredit, Double totalHold, String description) {
+    public Long recordHoldTransaction(Long userId, Double totalHold, String description) {
         CreditTransaction transaction = CreditTransaction.builder()
                 .userId(userId)
-                .inputCredit(inputCredit)
-                .outputCredit(outputCredit)
                 .totalCreditHold(totalHold)
-                .type(CreditTransaction.TransactionType.HOLD)
                 .description(description)
+                .type(CreditTransaction.TransactionType.HOLD)
                 .build();
 
+        return creditTransactionRepository.save(transaction).getTransactionId();
+    }
+
+    @Transactional
+    public void deductCredit(Long transactionId, Double actualDeducted, Double refunded) {
+        CreditTransaction transaction = creditTransactionRepository.findById(transactionId)
+                .orElseThrow(() -> new RuntimeException("Transaction không tồn tại"));
+
+        User user = userRepository.findById(transaction.getUserId())
+                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
+
+        double currentBalance = user.getCreditBalance() != null ? user.getCreditBalance() : 0.0;
+        user.setCreditBalance(currentBalance - (actualDeducted != null ? actualDeducted : 0.0));
+        userRepository.save(user);
+
+        transaction.setActualCreditDeducted(actualDeducted);
+        transaction.setRefundedCredit(refunded);
+        transaction.setType(CreditTransaction.TransactionType.DEDUCT);
         creditTransactionRepository.save(transaction);
     }
 
-    public void deductCredit(Long transactionId, Double actualDeducted, Double refunded) {
-        // Update transaction with actual deduction and refund
+    @Transactional
+    public void refundHold(Long transactionId, Double refunded) {
+        CreditTransaction transaction = creditTransactionRepository.findById(transactionId)
+                .orElseThrow(() -> new RuntimeException("Transaction không tồn tại"));
+        transaction.setRefundedCredit(refunded);
+        transaction.setActualCreditDeducted(0.0);
+        transaction.setType(CreditTransaction.TransactionType.REFUND);
+        creditTransactionRepository.save(transaction);
     }
 }

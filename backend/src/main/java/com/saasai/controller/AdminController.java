@@ -12,7 +12,7 @@ import com.saasai.service.AdminService;
 
 @RestController
 @RequestMapping("/api/v1/admin")
-@CrossOrigin(origins = "*")
+@CrossOrigin
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
     @Autowired

@@ -15,7 +15,7 @@ import com.saasai.service.ChatSessionService;
 
 @RestController
 @RequestMapping("/api/v1/chat-sessions")
-@CrossOrigin(origins = "*")
+@CrossOrigin
 public class ChatSessionController {
     @Autowired
     private ChatSessionService chatSessionService;

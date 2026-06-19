@@ -11,7 +11,7 @@ import com.saasai.service.CreditService;
 
 @RestController
 @RequestMapping("/api/v1/credits")
-@CrossOrigin(origins = "*")
+@CrossOrigin
 public class CreditController {
     @Autowired
     private CreditService creditService;

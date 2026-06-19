@@ -65,6 +65,6 @@ public class User {
     }
 
     public enum PackageType {
-        FREE, PROFESSIONAL, ENTERPRISE
+        FREE, BASIC, PROFESSIONAL, ENTERPRISE
     }
 }

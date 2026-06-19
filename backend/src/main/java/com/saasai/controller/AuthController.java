@@ -4,7 +4,9 @@ import com.saasai.dto.ApiResponseDTO;
 import com.saasai.dto.LoginRequestDTO;
 import com.saasai.dto.RegisterRequestDTO;
 import com.saasai.exception.AuthException;
+import com.saasai.security.TokenBlacklistService;
 import com.saasai.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,10 +16,13 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@CrossOrigin(origins = "*")
+@CrossOrigin
 public class AuthController {
 
         private final AuthService authService;
+
+        @Autowired
+        private TokenBlacklistService tokenBlacklistService;
 
         @PostMapping("/register")
         public ResponseEntity<ApiResponseDTO<Object>> register(@Valid @RequestBody RegisterRequestDTO request) {
@@ -52,6 +57,25 @@ public class AuthController {
                                         .message(e.getMessage())
                                         .build());
                 }
+        }
+
+        @PostMapping("/logout")
+        public ResponseEntity<ApiResponseDTO<Object>> logout(HttpServletRequest request) {
+                String bearerToken = request.getHeader("Authorization");
+                if (bearerToken == null || !bearerToken.startsWith("Bearer ")) {
+                        return ResponseEntity.badRequest().body(ApiResponseDTO.builder()
+                                        .success(false)
+                                        .message("Authorization header không hợp lệ")
+                                        .build());
+                }
+
+                String token = bearerToken.substring(7);
+                tokenBlacklistService.blacklistToken(token);
+                return ResponseEntity.ok(ApiResponseDTO.builder()
+                                .success(true)
+                                .message("Đăng xuất thành công")
+                                .statusCode(200)
+                                .build());
         }
 
         public AuthController(AuthService authService) {

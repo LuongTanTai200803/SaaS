@@ -11,7 +11,7 @@ import com.saasai.service.FileService;
 
 @RestController
 @RequestMapping("/api/v1/files")
-@CrossOrigin(origins = "*")
+@CrossOrigin
 public class FileController {
     @Autowired
     private FileService fileService;
