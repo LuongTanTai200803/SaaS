@@ -8,6 +8,10 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class CreditEstimateResponseDTO {
+    private Double estimatedCredits;
+    private Double currentCredits;
+    private Boolean isEligible;
+
     private Double inputCreditEstimate;
     private Double outputCreditEstimate;
     private Double totalCreditHold;

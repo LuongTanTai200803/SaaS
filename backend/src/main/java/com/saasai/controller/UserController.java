@@ -37,8 +37,8 @@ public class UserController {
     public ResponseEntity<PaginatedResponseDTO<DocumentDTO>> getRecentDocuments(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        PaginatedResponseDTO<DocumentDTO> documents = userService.getUserDocuments(userId, page, size);
+        String email = (String) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        PaginatedResponseDTO<DocumentDTO> documents = userService.getUserDocumentsByUserEmail(email, page, size);
         return ResponseEntity.ok(documents);
     }
 }

@@ -1,5 +1,6 @@
 package com.saasai.controller;
 
+import com.saasai.dto.ApiResponseDTO;
 import com.saasai.dto.FileUploadResponseDTO;
 import com.saasai.service.FileService;
 import org.junit.jupiter.api.AfterEach;
@@ -17,6 +18,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -39,7 +41,9 @@ class FileControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(fileController).build();
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(USER_ID, null));
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(USER_ID, null);
+        authentication.setDetails("user@example.com");
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
     @AfterEach
@@ -66,16 +70,18 @@ class FileControllerTest {
                 .uploadedBy("Nguyễn Văn A")
                 .build();
 
-        when(fileService.uploadFile(eq(USER_ID), org.mockito.ArgumentMatchers.any(), eq("LEGAL")))
+            when(fileService.uploadFile(any(), eq("LEGAL")))
                 .thenReturn(response);
 
         mockMvc.perform(multipart("/api/v1/files/upload")
                         .file(file)
                         .param("category", "LEGAL"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.fileId").value("file_abc123"))
-                .andExpect(jsonPath("$.fileName").value("test.pdf"))
-                .andExpect(jsonPath("$.category").value("LEGAL"))
-                .andExpect(jsonPath("$.uploadedBy").value("Nguyễn Văn A"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Tải file thành công"))
+                .andExpect(jsonPath("$.data.fileId").value("file_abc123"))
+                .andExpect(jsonPath("$.data.fileName").value("test.pdf"))
+                .andExpect(jsonPath("$.data.category").value("LEGAL"))
+                .andExpect(jsonPath("$.data.uploadedBy").value("Nguyễn Văn A"));
     }
 }

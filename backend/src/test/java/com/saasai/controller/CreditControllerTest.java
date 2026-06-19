@@ -1,6 +1,7 @@
 package com.saasai.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saasai.dto.CreditEstimateDTO;
 import com.saasai.dto.CreditEstimateResponseDTO;
 import com.saasai.service.CreditService;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +16,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -40,23 +42,25 @@ class CreditControllerTest {
     @Test
     void estimateCreditShouldReturnEstimate() throws Exception {
         CreditEstimateResponseDTO response = CreditEstimateResponseDTO.builder()
-                .inputCreditEstimate(1.5)
-                .outputCreditEstimate(3.0)
-                .totalCreditHold(4.5)
+            .estimatedCredits(6.5)
+            .currentCredits(10.0)
+            .isEligible(true)
                 .build();
 
-        when(creditService.estimateCredit(12500.0, "LONG", "claude-sonnet-4.6")).thenReturn(response);
+        when(creditService.estimateCredits(any(CreditEstimateDTO.class))).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/credits/estimate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "inputLength", 12500.0,
-                                "outputOption", "LONG",
-                                "modelSelected", "claude-sonnet-4.6"
+                    "modelName", "claude-sonnet-4.6",
+                    "features", new String[] { "LEGAL_REVIEW", "EXPORT_DOCX" },
+                    "fileId", "file_15"
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.inputCreditEstimate").value(1.5))
-                .andExpect(jsonPath("$.outputCreditEstimate").value(3.0))
-                .andExpect(jsonPath("$.totalCreditHold").value(4.5));
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.message").value("Ước tính credit thành công"))
+            .andExpect(jsonPath("$.data.estimatedCredits").value(6.5))
+            .andExpect(jsonPath("$.data.currentCredits").value(10.0))
+            .andExpect(jsonPath("$.data.isEligible").value(true));
     }
 }

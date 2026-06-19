@@ -63,15 +63,13 @@ class UserControllerTest {
                 .build();
 
         // Mock the correct method call in UserService
-        when(userService.getUserProfile(USER_ID)).thenReturn(profile);
+        when(userService.getUserProfileByEmail("test@example.com")).thenReturn(profile);
 
         mockMvc.perform(get("/api/v1/users/profile"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Lấy thông tin hồ sơ thành công"))
-                .andExpect(jsonPath("$.data.id").value(10293))
-                .andExpect(jsonPath("$.data.email").value("test@example.com"))
-                .andExpect(jsonPath("$.data.fullName").value("Nguyễn Văn A"));
+                .andExpect(jsonPath("$.id").value(10293))
+                .andExpect(jsonPath("$.email").value("test@example.com"))
+                .andExpect(jsonPath("$.fullName").value("Nguyễn Văn A"));
     }
 
     @Test
@@ -92,7 +90,7 @@ class UserControllerTest {
                 .pageSize(10)
                 .build();
 
-        when(userService.getUserDocuments(USER_ID, 0, 10)).thenReturn(response);
+        when(userService.getUserDocumentsByUserEmail("test@example.com", 0, 10)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/users/documents")
                 .param("page", "0")

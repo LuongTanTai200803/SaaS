@@ -112,14 +112,22 @@ Bảo mật hệ thống: Yêu cầu Header 'Authorization: Bearer <JWT_TOKEN>' 
 * Endpoint: /api/v1/files/upload
 * Content-Type: multipart/form-data
 * Form Data:
-  - file: (Binary File: .docx, .xlsx, .pdf, .mp4, v.v...)
+  - file: (Binary File: .docx, .pdf, .txt)
   - category: "INPUT_DIRECTIVE" (Văn bản chỉ đạo) hoặc "EVIDENCE" (Tài liệu minh chứng)
 * Response Body (200 OK):
 {
-  "fileId": "file_abc123xyz",
-  "fileName": "Cong_van_302_TUV.pdf",
-  "fileUrl": "https://storage.trolyai.vn/inputs/file_abc123xyz.pdf",
-  "fileSize": 1542300
+  "success": true,
+  "message": "Tải file thành công",
+  "data": {
+    "fileId": "file_15",
+    "fileName": "Cong_van_302_TUV.pdf",
+    "fileUrl": "https://storage.trolyai.vn/inputs/20240619123000123_Cong_van_302_TUV.pdf",
+    "fileSize": 1542300,
+    "category": "INPUT_DIRECTIVE",
+    "uploadedAt": "2026-06-19T12:30:00",
+    "uploadedBy": "Nguyễn Văn A"
+  },
+  "statusCode": 200
 }
 
 3.2. Tính toán Credit tạm tính (Cơ chế Hold tiền trước khi chạy lệnh)
@@ -127,15 +135,27 @@ Bảo mật hệ thống: Yêu cầu Header 'Authorization: Bearer <JWT_TOKEN>' 
 * Endpoint: /api/v1/credits/estimate
 * Request Body:
 {
-  "inputLength": 12500, 
-  "outputOption": "LONG", 
-  "modelSelected": "claude-sonnet-4.6"
+  "modelName": "claude-sonnet-4.6",
+  "features": ["LEGAL_REVIEW", "EXPORT_DOCX"],
+  "fileId": "file_15"
 }
+* Notes:
+  - fileId hỗ trợ cả định dạng "file_15" hoặc "15".
+  - Nếu fileId không parse được, trả lỗi 400 Bad Request với thông báo "fileId không hợp lệ".
+  - Nếu fileId thuộc về user khác, trả 403 Access Denied.
 * Response Body (200 OK):
 {
-  "inputCreditEstimate": 1.5,
-  "outputCreditEstimate": 3.0,
-  "totalCreditHold": 4.5
+  "success": true,
+  "message": "Ước tính credit thành công",
+  "data": {
+    "estimatedCredits": 6.5,
+    "currentCredits": 10.0,
+    "isEligible": true,
+    "inputCreditEstimate": 4.0,
+    "outputCreditEstimate": 2.5,
+    "totalCreditHold": 6.5
+  },
+  "statusCode": 200
 }
 
 --------------------------------------------------------------------------------

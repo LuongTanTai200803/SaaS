@@ -10,4 +10,7 @@ import java.util.Optional;
 @Repository
 public interface FileUploadRepository extends JpaRepository<FileUpload, Long> {
     Optional<FileUpload> findByFileIdAndUserId(Long fileId, Long userId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT f FROM FileUpload f JOIN User u ON f.userId = u.id WHERE u.email = :email")
+    org.springframework.data.domain.Page<FileUpload> findByUserEmail(@org.springframework.data.repository.query.Param("email") String email, org.springframework.data.domain.Pageable pageable);
 }

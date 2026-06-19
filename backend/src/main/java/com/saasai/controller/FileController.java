@@ -3,9 +3,9 @@ package com.saasai.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.saasai.dto.ApiResponseDTO;
 import com.saasai.dto.FileUploadResponseDTO;
 import com.saasai.service.FileService;
 
@@ -17,15 +17,10 @@ public class FileController {
     private FileService fileService;
 
     @PostMapping("/upload")
-    public ResponseEntity<FileUploadResponseDTO> uploadFile(
+    public ResponseEntity<ApiResponseDTO<FileUploadResponseDTO>> uploadFile(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("category") String category) {
-        try {
-            Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            FileUploadResponseDTO response = fileService.uploadFile(userId, file, category);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            throw new RuntimeException("File upload failed: " + e.getMessage());
-        }
+            @RequestParam("category") String category) throws java.io.IOException {
+        FileUploadResponseDTO response = fileService.uploadFile(file, category);
+        return ResponseEntity.ok(ApiResponseDTO.success("Tải file thành công", response));
     }
 }

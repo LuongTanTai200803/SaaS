@@ -22,8 +22,8 @@ public class ChatSessionController {
 
     @PostMapping
     public ResponseEntity<ChatSessionDTO> createSession(@RequestBody ChatSessionCreateRequestDTO request) {
-        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        ChatSessionDTO session = chatSessionService.createSession(userId, request);
+        String email = (String) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        ChatSessionDTO session = chatSessionService.createSession(email, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(session);
     }
 
@@ -31,8 +31,8 @@ public class ChatSessionController {
     public ResponseEntity<ApiResponseDTO<Object>> updateEditorContent(
             @PathVariable Long sessionId,
             @RequestBody EditorContentUpdateDTO request) {
-        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        chatSessionService.updateEditorContent(sessionId, userId, request.getHtmlContent());
+        String email = (String) SecurityContextHolder.getContext().getAuthentication().getDetails();
+        chatSessionService.updateEditorContent(sessionId, email, request.getHtmlContent());
 
         return ResponseEntity.ok(ApiResponseDTO.builder()
                 .success(true)

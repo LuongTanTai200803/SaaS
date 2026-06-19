@@ -27,7 +27,7 @@ public class AuthService {
 
     public void registerUser(RegisterRequestDTO request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new AuthException("Email đã tồn tại!");
+            throw new AuthException("Email này đã được đăng ký trong hệ thống!");
         }
 
         User user = User.builder()

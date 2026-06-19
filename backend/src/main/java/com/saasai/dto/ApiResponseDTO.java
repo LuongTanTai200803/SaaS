@@ -14,4 +14,21 @@ public class ApiResponseDTO<T> {
     private String message;
     private T data;
     private Integer statusCode;
+
+    public static <T> ApiResponseDTO<T> success(String message, T data) {
+        return ApiResponseDTO.<T>builder()
+                .success(true)
+                .message(message)
+                .data(data)
+                .statusCode(200)
+                .build();
+    }
+
+    public static <T> ApiResponseDTO<T> success(String message) {
+        return ApiResponseDTO.<T>builder()
+                .success(true)
+                .message(message)
+                .statusCode(200)
+                .build();
+    }
 }

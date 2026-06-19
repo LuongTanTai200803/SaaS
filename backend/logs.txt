@@ -1,0 +1,62 @@
+19/6/2026
+Tổng hợp nhanh các logic API đã triển khai/điều chỉnh đến thời điểm hiện tại:
+
+Chat Session
+POST tạo phiên làm việc:
+Lấy danh tính user hiện tại từ SecurityContext.
+Kiểm tra user tồn tại.
+Tự gán tên mặc định nếu sessionName rỗng.
+Tạo session mới với nội dung editor rỗng.
+PUT lưu editor:
+Tìm session theo sessionId.
+Kiểm tra quyền sở hữu session theo user hiện tại.
+Cập nhật nội dung editor + thời gian updatedAt.
+Mục tiêu chính đã đi theo hướng chống giả mạo ownership.
+File Upload
+POST upload:
+Lấy user hiện tại từ SecurityContext.
+Validate file không rỗng.
+Chỉ cho phép định dạng pdf/docx/txt.
+Sinh tên file duy nhất theo timestamp.
+Lưu file vật lý vào thư mục cấu hình.
+Lưu metadata vào DB (fileName, fileSize, fileUrl, category, uploadedAt, uploadedBy).
+Trả response bọc success/message/data theo chuẩn API mới.
+Credit Estimate
+POST estimate:
+Lấy user hiện tại từ SecurityContext, không tin dữ liệu user từ client.
+Hỗ trợ cả request mới và legacy:
+mới: modelName, features, fileId
+cũ: modelSelected, outputOption, inputLength
+Tính estimatedCredits từ modelCost + featureCost + fileCost.
+Nếu có fileId:
+parse được cả file_15 và 15
+kiểm tra file thuộc đúng user hiện tại (chống IDOR)
+Trả data gồm:
+estimatedCredits
+currentCredits
+isEligible
+inputCreditEstimate
+outputCreditEstimate
+totalCreditHold
+API spec đã cập nhật theo hướng này.
+Admin Module
+Đã bật method-level security.
+Đã chặn backend bằng role admin cho nhóm endpoint admin.
+PUT cập nhật package:
+Từ mock chuyển sang gọi service thật.
+Upsert cấu hình package theo packageType.
+Validate packageType hợp lệ.
+Lưu price, creditLimit, allowedModels.
+Response vẫn giữ message/statusCode cũ để không gãy contract test.
+GET finance stats:
+Giữ contract trả trực tiếp object thống kê như hiện tại (không đổi sang wrapper trong phase này).
+Security tổng thể
+Frontend protect chỉ là lớp giao diện.
+Backend đã tăng enforcement ở các API nhạy cảm:
+Role admin cho admin endpoints.
+Ownership check cho file dùng trong estimate.
+Cơ chế 401/403 theo security filter và role.
+Test và mức độ tin cậy
+Controller tests đã cập nhật theo contract mới ở upload/estimate.
+Có thêm service test cho credit estimate (bao gồm case IDOR, parse fileId sai, insufficient credits).
+Admin có test security riêng.

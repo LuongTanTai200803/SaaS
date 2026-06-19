@@ -12,6 +12,7 @@ import com.saasai.dto.UserProfileDTO;
 import com.saasai.entity.User;
 import com.saasai.repository.ChatSessionRepository;
 import com.saasai.repository.UserRepository;
+import com.saasai.repository.FileUploadRepository;
 
 import java.util.stream.Collectors;
 
@@ -22,6 +23,9 @@ public class UserService {
 
         @Autowired
         private ChatSessionRepository chatSessionRepository;
+
+        @Autowired
+        private FileUploadRepository fileUploadRepository;
 
         public UserProfileDTO getUserProfileByEmail(String email) {
                 User user = userRepository.findByEmail(email)
@@ -82,6 +86,27 @@ public class UserService {
                                                 .collect(Collectors.toList()))
                                 .totalPages(sessions.getTotalPages())
                                 .totalElements(sessions.getTotalElements())
+                                .currentPage(page)
+                                .pageSize(size)
+                                .build();
+        }
+
+        public PaginatedResponseDTO<DocumentDTO> getUserDocumentsByUserEmail(String email, int page, int size) {
+                Pageable pageable = PageRequest.of(page, size);
+                Page<com.saasai.entity.FileUpload> files = fileUploadRepository.findByUserEmail(email, pageable);
+
+                return PaginatedResponseDTO.<DocumentDTO>builder()
+                                .content(files.getContent().stream()
+                                                .map(file -> DocumentDTO.builder()
+                                                                .sessionId(file.getFileId())
+                                                                .sessionName(file.getFileName())
+                                                                .tagId(file.getCategory() != null ? file.getCategory().name() : null)
+                                                                .updatedAt(file.getUploadedAt())
+                                                                .status(file.getMimeType())
+                                                                .build())
+                                                .collect(Collectors.toList()))
+                                .totalPages(files.getTotalPages())
+                                .totalElements(files.getTotalElements())
                                 .currentPage(page)
                                 .pageSize(size)
                                 .build();

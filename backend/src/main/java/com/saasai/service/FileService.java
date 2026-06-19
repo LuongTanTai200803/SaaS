@@ -1,6 +1,9 @@
 package com.saasai.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,55 +17,98 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Set;
 
 @Service
 public class FileService {
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "docx", "txt");
+
     @Autowired
     private FileUploadRepository fileUploadRepository;
 
     @Autowired
     private UserRepository userRepository;
 
-    private final String UPLOAD_DIR = "uploads/";
+    @Value("${app.upload.dir:uploads/}")
+    private String uploadDir;
 
-    public FileUploadResponseDTO uploadFile(Long userId, MultipartFile file, String category) throws IOException {
-        String fileId = UUID.randomUUID().toString();
-        String fileName = fileId + "_" + file.getOriginalFilename();
+    public FileUploadResponseDTO uploadFile(MultipartFile file, String category) throws IOException {
+        User currentUser = userRepository.findByEmail(resolveCurrentEmail())
+                .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
+
+        validateFile(file);
+
+        String originalFileName = file.getOriginalFilename();
+        String storedFileName = buildStoredFileName(originalFileName);
         FileUpload.FileCategory fileCategory = normalizeCategory(category);
 
-        // Create directories if not exist
-        Path uploadPath = Paths.get(UPLOAD_DIR);
+        Path uploadPath = Paths.get(uploadDir);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
 
-        // Save file to disk
-        Path filePath = uploadPath.resolve(fileName);
+        Path filePath = uploadPath.resolve(storedFileName);
         Files.write(filePath, file.getBytes());
 
-        // Save metadata to database
         FileUpload fileUpload = FileUpload.builder()
-                .userId(userId)
-                .fileName(file.getOriginalFilename())
-                .fileUrl("https://storage.trolyai.vn/inputs/" + fileName)
+                .userId(currentUser.getId())
+                .fileName(originalFileName)
+                .fileUrl("https://storage.trolyai.vn/inputs/" + storedFileName)
                 .fileSize(file.getSize())
-            .category(fileCategory)
+                .category(fileCategory)
                 .mimeType(file.getContentType())
                 .build();
 
         FileUpload saved = fileUploadRepository.save(fileUpload);
-        User uploadedByUser = userRepository.findById(userId).orElse(null);
 
         return FileUploadResponseDTO.builder()
-                .fileId("file_" + fileId)
-                .fileName(file.getOriginalFilename())
+                .fileId("file_" + saved.getFileId())
+                .fileName(originalFileName)
                 .fileUrl(saved.getFileUrl())
                 .fileSize(saved.getFileSize())
                 .category(saved.getCategory() != null ? saved.getCategory().name() : null)
-            .uploadedAt(saved.getUploadedAt())
-            .uploadedBy(uploadedByUser != null ? uploadedByUser.getFullName() : null)
+                .uploadedAt(saved.getUploadedAt())
+                .uploadedBy(currentUser.getFullName())
                 .build();
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File upload không được để trống");
+        }
+
+        String originalFileName = file.getOriginalFilename();
+        if (originalFileName == null || !originalFileName.contains(".")) {
+            throw new IllegalArgumentException("Định dạng file không hợp lệ");
+        }
+
+        String extension = originalFileName.substring(originalFileName.lastIndexOf('.') + 1).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+            throw new IllegalArgumentException("Chỉ hỗ trợ file pdf, docx hoặc txt");
+        }
+    }
+
+    private String buildStoredFileName(String originalFileName) {
+        String safeFileName = originalFileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"));
+        return timestamp + "_" + safeFileName;
+    }
+
+    private String resolveCurrentEmail() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new RuntimeException("Không tìm thấy thông tin đăng nhập");
+        }
+        if (authentication.getDetails() instanceof String details && !details.isBlank()) {
+            return details;
+        }
+        String name = authentication.getName();
+        if (name != null && !name.isBlank() && !"anonymousUser".equalsIgnoreCase(name)) {
+            return name;
+        }
+        throw new RuntimeException("Không tìm thấy email người dùng hiện tại");
     }
 
     private FileUpload.FileCategory normalizeCategory(String category) {

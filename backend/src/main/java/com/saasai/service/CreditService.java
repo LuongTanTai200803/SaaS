@@ -1,42 +1,138 @@
 package com.saasai.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import com.saasai.dto.CreditEstimateDTO;
 import com.saasai.dto.CreditEstimateResponseDTO;
 import com.saasai.entity.CreditTransaction;
+import com.saasai.entity.FileUpload;
+import com.saasai.entity.User;
 import com.saasai.repository.CreditTransactionRepository;
+import com.saasai.repository.FileUploadRepository;
+import com.saasai.repository.UserRepository;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 
 @Service
 public class CreditService {
     @Autowired
     private CreditTransactionRepository creditTransactionRepository;
 
-    public CreditEstimateResponseDTO estimateCredit(Double inputLength, String outputOption, String model) {
-        // Credit calculation logic based on input length and output option
-        Double inputCredit = calculateInputCredit(inputLength);
-        Double outputCredit = calculateOutputCredit(outputOption);
-        Double totalHold = inputCredit + outputCredit;
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private FileUploadRepository fileUploadRepository;
+
+    public CreditEstimateResponseDTO estimateCredits(CreditEstimateDTO request) {
+        User currentUser = userRepository.findByEmail(resolveCurrentEmail())
+                .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
+
+        String modelName = request.getModelName() != null ? request.getModelName() : request.getModelSelected();
+        List<String> features = request.getFeatures() != null ? request.getFeatures() : deriveLegacyFeatures(request);
+        double legacyLengthCost = request.getInputLength() != null ? calculateLegacyLengthCost(request.getInputLength()) : 0.0;
+
+        double modelCost = calculateModelCost(modelName);
+        double featureCost = calculateFeatureCost(features) + legacyLengthCost;
+        double fileCost = calculateFileCost(request.getFileId(), currentUser);
+        double estimatedCredits = roundOneDecimal(modelCost + featureCost + fileCost);
+        double currentCredits = currentUser.getCreditBalance() != null ? currentUser.getCreditBalance() : 0.0;
 
         return CreditEstimateResponseDTO.builder()
-                .inputCreditEstimate(inputCredit)
-                .outputCreditEstimate(outputCredit)
-                .totalCreditHold(totalHold)
+                .estimatedCredits(estimatedCredits)
+                .currentCredits(currentCredits)
+                .isEligible(currentCredits >= estimatedCredits)
+                .inputCreditEstimate(roundOneDecimal(modelCost + legacyLengthCost))
+                .outputCreditEstimate(roundOneDecimal(featureCost - legacyLengthCost + fileCost))
+                .totalCreditHold(estimatedCredits)
                 .build();
     }
 
-    private Double calculateInputCredit(Double inputLength) {
-        // 1 credit per 1000 characters
-        return (inputLength / 1000) * 0.15;
+    private List<String> deriveLegacyFeatures(CreditEstimateDTO request) {
+        if (request.getOutputOption() == null) {
+            return Collections.emptyList();
+        }
+        return List.of(request.getOutputOption());
     }
 
-    private Double calculateOutputCredit(String outputOption) {
-        return switch (outputOption) {
-            case "SHORT" -> 1.0;
-            case "MEDIUM" -> 2.0;
-            case "LONG" -> 3.0;
-            default -> 1.5;
-        };
+    private double calculateModelCost(String modelName) {
+        if (modelName == null || modelName.isBlank()) {
+            return 3.0;
+        }
+
+        String normalized = modelName.toLowerCase(Locale.ROOT);
+        if (normalized.contains("opus") || normalized.contains("gpt-5") || normalized.contains("o1")) {
+            return 6.0;
+        }
+        if (normalized.contains("sonnet") || normalized.contains("gpt-4")) {
+            return 4.0;
+        }
+        if (normalized.contains("haiku") || normalized.contains("mini")) {
+            return 2.0;
+        }
+        return 3.0;
+    }
+
+    private double calculateFeatureCost(List<String> features) {
+        if (features == null || features.isEmpty()) {
+            return 0.0;
+        }
+        return roundOneDecimal(features.size() * 0.75);
+    }
+
+    private double calculateLegacyLengthCost(Double inputLength) {
+        return roundOneDecimal((inputLength / 1000.0) * 0.15);
+    }
+
+    private double calculateFileCost(String rawFileId, User currentUser) {
+        if (rawFileId == null || rawFileId.isBlank()) {
+            return 0.0;
+        }
+
+        Long fileId = parseFileId(rawFileId);
+        FileUpload fileUpload = fileUploadRepository.findById(fileId)
+                .orElseThrow(() -> new RuntimeException("Tệp không tồn tại"));
+
+        if (!fileUpload.getUserId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Bạn không có quyền sử dụng tệp này để ước tính credit");
+        }
+
+        double fileSizeInMb = fileUpload.getFileSize() == null ? 0.0 : fileUpload.getFileSize() / (1024.0 * 1024.0);
+        return roundOneDecimal(Math.max(0.5, Math.ceil(fileSizeInMb)));
+    }
+
+    private Long parseFileId(String rawFileId) {
+        String normalized = rawFileId.startsWith("file_") ? rawFileId.substring(5) : rawFileId;
+        try {
+            return Long.parseLong(normalized);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("fileId không hợp lệ");
+        }
+    }
+
+    private String resolveCurrentEmail() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new RuntimeException("Không tìm thấy thông tin đăng nhập");
+        }
+        if (authentication.getDetails() instanceof String details && !details.isBlank()) {
+            return details;
+        }
+        String name = authentication.getName();
+        if (name != null && !name.isBlank() && !"anonymousUser".equalsIgnoreCase(name)) {
+            return name;
+        }
+        throw new RuntimeException("Không tìm thấy email người dùng hiện tại");
+    }
+
+    private double roundOneDecimal(double value) {
+        return Math.round(value * 10.0) / 10.0;
     }
 
     public void recordTransaction(Long userId, Double inputCredit, Double outputCredit, Double totalHold, String description) {

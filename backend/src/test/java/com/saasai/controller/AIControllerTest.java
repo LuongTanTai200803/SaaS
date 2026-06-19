@@ -78,6 +78,8 @@ class AIControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
+        mvcResult.getAsyncResult(5000);
+
         mockMvc.perform(asyncDispatch(mvcResult))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("\"type\":\"content\"")))

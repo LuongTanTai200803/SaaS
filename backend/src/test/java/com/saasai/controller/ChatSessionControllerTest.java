@@ -45,7 +45,9 @@ class ChatSessionControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(chatSessionController).build();
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(USER_ID, null));
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(USER_ID, null);
+        authentication.setDetails("user@example.com");
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
     @AfterEach
@@ -63,7 +65,7 @@ class ChatSessionControllerTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        when(chatSessionService.createSession(eq(USER_ID), org.mockito.ArgumentMatchers.any()))
+        when(chatSessionService.createSession(eq("user@example.com"), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(session);
 
         mockMvc.perform(post("/api/v1/chat-sessions")
@@ -79,7 +81,7 @@ class ChatSessionControllerTest {
 
     @Test
     void updateEditorContentShouldReturnSuccess() throws Exception {
-        doNothing().when(chatSessionService).updateEditorContent(502L, USER_ID, "<p>Nội dung</p>");
+        doNothing().when(chatSessionService).updateEditorContent(502L, "user@example.com", "<p>Nội dung</p>");
 
         mockMvc.perform(put("/api/v1/chat-sessions/502/editor")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -88,6 +90,6 @@ class ChatSessionControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Đã lưu bản nháp văn bản thành công"));
 
-        verify(chatSessionService).updateEditorContent(502L, USER_ID, "<p>Nội dung</p>");
+        verify(chatSessionService).updateEditorContent(502L, "user@example.com", "<p>Nội dung</p>");
     }
 }

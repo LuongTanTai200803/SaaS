@@ -41,6 +41,7 @@ public class AIService {
 
         // Save updated content to session
         session.setHtmlContent(aiResponse);
+        session.setEditorContent(aiResponse);
         session.setStatus(ChatSession.SessionStatus.COMPLETED);
         chatSessionRepository.save(session);
 
@@ -65,8 +66,30 @@ public class AIService {
         ChatSession session = chatSessionRepository.findBySessionIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
 
-        // In production, use a library to convert HTML to DOCX/PDF
-        // For now, return empty bytes
-        return new byte[0];
+        String content = session.getHtmlContent();
+        if (content == null || content.isBlank()) {
+            content = session.getEditorContent();
+        }
+        if (content == null) {
+            content = "";
+        }
+
+        String normalizedFormat = format == null ? "TXT" : format.trim().toUpperCase();
+        byte[] bytes;
+        switch (normalizedFormat) {
+            case "TXT":
+                bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                break;
+            case "DOCX":
+            case "PDF":
+                String fallback = "Document export fallback for " + normalizedFormat + "\n\n" + content;
+                bytes = fallback.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                break;
+            default:
+                String defaultExport = "Unsupported format " + normalizedFormat + ". Export content:\n\n" + content;
+                bytes = defaultExport.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                break;
+        }
+        return bytes;
     }
 }
