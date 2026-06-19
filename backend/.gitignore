@@ -1,0 +1,39 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.backup
+release.properties
+.flattened-pom.xml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+*.iws
+
+# Spring Boot
+.m2/
+.gradle/
+
+# Logs
+logs/
+*.log
+log4j.properties
+
+# File uploads
+uploads/
+
+# Environment
+.env
+.env.local
+*.properties.local
+
+# OS
+.DS_Store
+Thumbs.db

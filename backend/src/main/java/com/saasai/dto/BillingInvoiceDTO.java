@@ -1,0 +1,20 @@
+package com.saasai.dto;
+
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class BillingInvoiceDTO {
+    private String invoiceId;
+    private String memoId;
+    private Long originalAmount;
+    private Long discountAmount;
+    private Long finalAmount;
+    private String qrCodeUrl;
+    private String status;
+    private LocalDateTime createdAt;
+}
