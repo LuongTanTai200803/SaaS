@@ -29,11 +29,25 @@ export function Navbar({ onNavigate }: NavbarProps) {
   const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
   const [activeNav, setActiveNav] = useState<NavItem>('home'); // Navbar manages its own activeNav
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [assistantMenuOpen, setAssistantMenuOpen] = useState(false);
+
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [currentLang, setCurrentLang] = useState<'vi' | 'en' | 'zh'>('vi');
 
+
   const navigate = useNavigate();
 
+  const assistantMenu = [
+    { id: '1', title: 'Văn kiện Đảng' },
+    { id: '2', title: 'Văn bản Nhà nước' },
+    { id: '3', title: 'Quản lý Giáo dục' },
+    { id: '4', title: 'Biên tập & Phát biểu' },
+    { id: '5', title: 'Rút gọn & Kiểm tra' },
+    { id: '6', title: 'Soạn Giáo án' },
+    { id: '7', title: 'Ma trận & Đề thi' },
+    { id: '8', title: 'Chấm & Đánh giá' },
+    { id: '9', title: 'Báo cáo Thành tích' },
+  ];
   const handleProtectedNavigate = (page: 'home' | 'wizard', assistantId?: string) => {
     if (page === 'wizard' && !isLoggedIn) {
       openAuthModal('login'); // Sử dụng openAuthModal từ AuthContext
@@ -59,22 +73,82 @@ export function Navbar({ onNavigate }: NavbarProps) {
 
           {/* Nav */}
           <nav className="hidden lg:flex items-center gap-1">
-            {navItems.map(item => (
-              <button
-                key={item.key}
-                onClick={() => { setActiveNav(item.key); setShowDashboard(false); }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeNav === item.key
-                    ? 'text-[#1E3A8A] bg-blue-50'
-                    : 'text-gray-600 hover:text-[#1F2937] hover:bg-gray-50'
-                }`}
-              >
-                {item.label}
-                {item.key === 'affiliate' && (
-                  <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">Mới</span>
-                )}
-              </button>
-            ))}
+            {navItems.map(item => {
+              
+              // 🏛️ XỬ LÝ RIÊNG CHO NÚT MENU TRỢ LÝ
+              if (item.key === 'assistants') {
+                return (
+                  <div key={item.key} className="relative"> {/* Neo vị trí dropdown ăn theo nút này */}
+                    <button
+                      onClick={() => {
+                        setActiveNav('assistants');
+                        setShowDashboard(false);
+                        setAssistantMenuOpen(prev => !prev); // Đảo trạng thái đóng/mở chuẩn xác
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        activeNav === 'assistants' || assistantMenuOpen
+                          ? 'text-[#1E3A8A] bg-blue-50'
+                          : 'text-gray-600 hover:text-[#1F2937] hover:bg-gray-50'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+
+                    {/* Khối Dropdown đổ xuống khi trạng thái bằng true */}
+                    {assistantMenuOpen && (
+                      <>
+                        {/* 🛡️ Tấm khiên ảo: Bấm trượt ra ngoài hoặc bấm lại nút cha là tự động đóng */}
+                        <div 
+                          className="fixed inset-0 z-10" 
+                          onClick={(e) => {
+                            e.stopPropagation(); // Chặn nổi bọt sự kiện
+                            setAssistantMenuOpen(false);
+                          }} 
+                        />
+                        
+                        {/* Nội dung thực của Dropdown menu */}
+                        <div className="absolute left-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1">
+                          {assistantMenu.map(subItem => (
+                            <button
+                              key={subItem.id}
+                              onClick={() => {
+                                setAssistantMenuOpen(false); // Chọn xong trợ lý ➡️ Đóng ngay lập tức
+                                setActiveNav('assistants');
+                                handleProtectedNavigate('wizard', subItem.id);
+                              }}
+                              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm text-gray-700 transition-colors block"
+                            >
+                              {subItem.title}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              }
+
+              // 🟢 XỬ LÝ CÁC NÚT ĐIỀU HƯỚNG THƯỜNG KHÁC (Trang chủ, Bảng giá, Hướng dẫn...)
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => {
+                    setActiveNav(item.key);
+                    setAssistantMenuOpen(false); // Cán bộ chuyển trang khác ➡️ Ép đóng menu trợ lý lại
+                    setShowDashboard(false);
+                    if (item.key === 'home') handleProtectedNavigate('home');
+                    // Thêm các điều hướng trang khác của Tài tại đây...
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    activeNav === item.key
+                      ? 'text-[#1E3A8A] bg-blue-50'
+                      : 'text-gray-600 hover:text-[#1F2937] hover:bg-gray-50'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
           </nav>
 
           {/* Actions */}

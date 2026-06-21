@@ -18,6 +18,9 @@ public class JwtTokenProvider {
     @Value("${jwt.expiration}")
     private long jwtExpirationMs;
 
+    @Value("${jwt.access-expiration:900000}")
+    private long jwtAccessExpirationMs;
+
     @PostConstruct
     public void validateSecret() {
         if (jwtSecret == null || jwtSecret.isBlank() || jwtSecret.length() < 32) {
@@ -32,6 +35,19 @@ public class JwtTokenProvider {
     public String generateToken(Long userId, String email, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+        return Jwts.builder()
+                .subject(email)
+                .claim("userId", userId)
+                .claim("role", role)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    public String generateAccessToken(Long userId, String email, String role) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtAccessExpirationMs);
         return Jwts.builder()
                 .subject(email)
                 .claim("userId", userId)
@@ -62,12 +78,27 @@ public class JwtTokenProvider {
         return claims.getExpiration();
     }
 
-    public boolean validateToken(String authToken) {
-        try {
-            Jwts.parser().verifyWith(getSigningKey()).build().parseSignedClaims(authToken);
-            return true;
-        } catch (JwtException | IllegalArgumentException ex) {
-            return false;
+    public enum TokenError {
+    MISSING,
+    EXPIRED,
+    INVALID
+    }
+
+        public TokenError getTokenError(String token) {
+            if (token == null || token.isBlank()) {
+                return TokenError.MISSING;
+            }
+            try {
+                Jwts.parser().verifyWith(getSigningKey()).build().parseSignedClaims(token);
+                return null;
+            } catch (ExpiredJwtException ex) {
+                return TokenError.EXPIRED;
+            } catch (JwtException | IllegalArgumentException ex) {
+                return TokenError.INVALID;
+            }
+        }
+
+        public boolean validateToken(String authToken) {
+            return getTokenError(authToken) == null;
         }
     }
-}

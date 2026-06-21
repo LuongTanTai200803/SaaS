@@ -1,23 +1,24 @@
-import { useState, useRef } from 'react';
-// import { useNavigate } from 'react-router-dom'; // useNavigate is not directly used in AIWorkspace
-import { X, // Import X icon for close button
-  Save, FileText, Download, Send, Pin, Zap,
+import { useState, useRef, lazy, Suspense } from 'react';
+import { X, Save, FileText, Download, Send, Pin, Zap,
   ChevronLeft, Sparkles, LayoutGrid, MessageSquare,
   PanelLeftClose, PanelLeftOpen, Bell, Shield
 } from 'lucide-react';
-import { VanKienDangForm } from '../features/wizard/VanKienDangForm';
-import { VanBanNhaNuocForm } from '../features/wizard/VanBanNhaNuocForm';
-import { QuanLyGiaoDucForm } from '../features/wizard/QuanLyGiaoDucForm';
-import { BienTapPhatBieuForm } from '../features/wizard/BienTapPhatBieuForm';
-import { RutGonKiemTraForm } from '../features/wizard/RutGonKiemTraForm';
-import { SoanGiaoAnForm } from '../features/wizard/SoanGiaoAnForm';
-import { MaTranDeThiForm } from '../features/wizard/MaTranDeThiForm';
-import { ChamDanhGiaForm } from '../features/wizard/ChamDanhGiaForm';
-import { BaoCaoThanhTichForm } from '../features/wizard/BaoCaoThanhTichForm';
-import { BillingModal } from './BillingModal'; // Import BillingModal
+import { BillingModal } from './BillingModal';
+import { Dashboard } from './Dashboard';
+import { useAuth } from '../context/AuthContext';
 
-import { Dashboard } from './Dashboard'; // Import Dashboard component
-import { useAuth } from '../context/AuthContext'; // Import useAuth
+/* 🚚 CHUYỂN SANG LAZY LOADING VỚI NAMED EXPORT CHUẨN KỸ THUẬT */
+const FormComponents: Record<string, React.ComponentType<{ onGenerate: (data: any) => void }>> = {
+  '1': lazy(() => import('../features/wizard/VanKienDangForm').then(m => ({ default: m.VanKienDangForm }))),
+  '2': lazy(() => import('../features/wizard/VanBanNhaNuocForm').then(m => ({ default: m.VanBanNhaNuocForm }))),
+  '3': lazy(() => import('../features/wizard/QuanLyGiaoDucForm').then(m => ({ default: m.QuanLyGiaoDucForm }))),
+  '4': lazy(() => import('../features/wizard/BienTapPhatBieuForm').then(m => ({ default: m.BienTapPhatBieuForm }))),
+  '5': lazy(() => import('../features/wizard/RutGonKiemTraForm').then(m => ({ default: m.RutGonKiemTraForm }))),
+  '6': lazy(() => import('../features/wizard/SoanGiaoAnForm').then(m => ({ default: m.SoanGiaoAnForm }))),
+  '7': lazy(() => import('../features/wizard/MaTranDeThiForm').then(m => ({ default: m.MaTranDeThiForm }))),
+  '8': lazy(() => import('../features/wizard/ChamDanhGiaForm').then(m => ({ default: m.ChamDanhGiaForm }))),
+  '9': lazy(() => import('../features/wizard/BaoCaoThanhTichForm').then(m => ({ default: m.BaoCaoThanhTichForm }))),
+};
 
 interface Assistant {
   id: string;
@@ -174,6 +175,14 @@ export function AIWorkspace({ onBack, initialAssistantId, onGenerated }: AIWorks
       timestamp: new Date(),
     }]);
     setDocContent('');
+  };
+  
+  const handleFormGenerate = (data: any) => {
+    console.log('Generated document data:', data);
+    setDocContent(activeId === '4' ? 'Bài phát biểu đang được tạo từ AI...' : 'Văn bản đang được tạo từ AI...');
+    if (onGenerated && activeAssistant) {
+      onGenerated(data, activeAssistant.title, activeAssistant.id);
+    }
   };
 
   // If admin dashboard is shown, render it
@@ -364,64 +373,27 @@ export function AIWorkspace({ onBack, initialAssistantId, onGenerated }: AIWorks
           {/* === WORKSPACE VIEW (assistant selected) === */}
           {activeAssistant && (
             <div className="flex flex-1 overflow-hidden">
-              {/* For "Văn kiện Đảng" assistant, show the specialized form */}
-              {activeAssistant.id === '1' ? (
-                <VanKienDangForm onGenerate={(data) => {
-                  console.log('Generated document data:', data);
-                  setDocContent('Văn bản đang được tạo từ AI...');
-                  if (onGenerated) onGenerated(data, activeAssistant.title, activeAssistant.id);
-                }} />
-              ) : activeAssistant.id === '2' ? (
-                <VanBanNhaNuocForm onGenerate={(data) => {
-                  console.log('Generated document data:', data);
-                  setDocContent('Văn bản đang được tạo từ AI...');
-                  if (onGenerated) onGenerated(data, activeAssistant.title, activeAssistant.id);
-                }} />
-              ) : activeAssistant.id === '3' ? (
-                <QuanLyGiaoDucForm onGenerate={(data) => {
-                  console.log('Generated document data:', data);
-                  setDocContent('Văn bản đang được tạo từ AI...');
-                  if (onGenerated) onGenerated(data, activeAssistant.title, activeAssistant.id);
-                }} />
-              ) : activeAssistant.id === '4' ? (
-                <BienTapPhatBieuForm onGenerate={(data) => {
-                  console.log('Generated document data:', data);
-                  setDocContent('Bài phát biểu đang được tạo từ AI...');
-                  if (onGenerated) onGenerated(data, activeAssistant.title, activeAssistant.id);
-                }} />
-              ) : activeAssistant.id === '5' ? (
-                <RutGonKiemTraForm onGenerate={(data) => {
-                  console.log('Generated document data:', data);
-                  setDocContent('Văn bản đã được xử lý...');
-                  if (onGenerated) onGenerated(data, activeAssistant.title, activeAssistant.id);
-                }} />
-              ) : activeAssistant.id === '6' ? (
-                <SoanGiaoAnForm onGenerate={(data) => {
-                  console.log('Generated document data:', data);
-                  setDocContent('Giáo án đang được tạo từ AI...');
-                  if (onGenerated) onGenerated(data, activeAssistant.title, activeAssistant.id);
-                }} />
-              ) : activeAssistant.id === '7' ? (
-                <MaTranDeThiForm onGenerate={(data) => {
-                  console.log('Generated document data:', data);
-                  setDocContent('Ma trận và đề thi đang được tạo từ AI...');
-                  if (onGenerated) onGenerated(data, activeAssistant.title, activeAssistant.id);
-                }} />
-              ) : activeAssistant.id === '8' ? (
-                <ChamDanhGiaForm onGenerate={(data) => {
-                  console.log('Generated document data:', data);
-                  setDocContent('Kết quả chấm bài và đánh giá đang được tạo từ AI...');
-                  if (onGenerated) onGenerated(data, activeAssistant.title, activeAssistant.id);
-                }} />
-              ) : activeAssistant.id === '9' ? (
-                <BaoCaoThanhTichForm onGenerate={(data) => {
-                  console.log('Generated document data:', data);
-                  setDocContent('Báo cáo thành tích đang được tạo từ AI...');
-                  if (onGenerated) onGenerated(data, activeAssistant.title, activeAssistant.id);
-                }} />
+              {activeId && activeId !== '10' && FormComponents[activeId] ? (
+                <Suspense 
+                  fallback={
+                    <div className="flex-1 flex items-center justify-center bg-slate-50">
+                      <div className="text-center">
+                        <div className="inline-block animate-spin mb-3">
+                          <Sparkles size={24} className="text-slate-400" />
+                        </div>
+                        <p className="text-xs text-slate-400">Đang nạp {activeAssistant.title}...</p>
+                      </div>
+                    </div>
+                  }
+                >
+                  {(() => {
+                    const SelectedForm = FormComponents[activeId];
+                    return SelectedForm ? <SelectedForm onGenerate={handleFormGenerate} /> : null;
+                  })()}
+                </Suspense>
               ) : (
                 <>
-                  {/* Editor panel */}
+                  {/* Editor panel (ChatPro ID 10) */}
                   <div className="flex-[6] flex flex-col border-r border-gray-100">
                     {/* Toolbar */}
                     <div className="h-12 px-4 flex items-center gap-2 border-b border-gray-100 bg-white flex-shrink-0">

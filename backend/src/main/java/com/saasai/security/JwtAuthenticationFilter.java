@@ -18,6 +18,12 @@ import java.util.Collections;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    public static final String AUTH_ERROR_ATTR = "AUTH_ERROR";
+    public static final String AUTH_ERROR_TOKEN_MISSING = "TOKEN_MISSING";
+    public static final String AUTH_ERROR_TOKEN_EXPIRED = "TOKEN_EXPIRED";
+    public static final String AUTH_ERROR_TOKEN_INVALID = "TOKEN_INVALID";
+    public static final String AUTH_ERROR_TOKEN_BLACKLISTED = "TOKEN_BLACKLISTED";
+
     @Autowired
     private JwtTokenProvider tokenProvider;
 
@@ -34,32 +40,48 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
-        try {
-            String jwt = getJwtFromRequest(request);
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt) && !tokenBlacklistService.isBlacklisted(jwt)) {
+protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+        throws ServletException, IOException {
+    try {
+        String jwt = getJwtFromRequest(request);
+
+        JwtTokenProvider.TokenError tokenError = tokenProvider.getTokenError(jwt);
+        if (tokenError == null) {
+            if (tokenBlacklistService.isBlacklisted(jwt)) {
+                request.setAttribute(AUTH_ERROR_ATTR, AUTH_ERROR_TOKEN_BLACKLISTED);
+            } else {
                 Long userId = tokenProvider.getUserIdFromJWT(jwt);
                 String email = tokenProvider.getEmailFromJWT(jwt);
                 String role = tokenProvider.getRoleFromJWT(jwt);
-                if (role == null)
-                    role = "ROLE_USER"; // Dự phòng cho các token cũ chưa chứa role
+                if (role == null) {
+                    role = "ROLE_USER";
+                }
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         userId, null, Collections.singletonList(new SimpleGrantedAuthority(role)));
                 authentication.setDetails(email);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-        } catch (Exception ex) {
-            logger.error("Could not set user authentication in security context", ex);
+        } else if (tokenError == JwtTokenProvider.TokenError.MISSING) {
+            request.setAttribute(AUTH_ERROR_ATTR, AUTH_ERROR_TOKEN_MISSING);
+        } else if (tokenError == JwtTokenProvider.TokenError.EXPIRED) {
+            request.setAttribute(AUTH_ERROR_ATTR, AUTH_ERROR_TOKEN_EXPIRED);
+        } else {
+            request.setAttribute(AUTH_ERROR_ATTR, AUTH_ERROR_TOKEN_INVALID);
         }
-        filterChain.doFilter(request, response);
+    } catch (Exception ex) {
+        logger.error("Could not set user authentication in security context", ex);
+        request.setAttribute(AUTH_ERROR_ATTR, AUTH_ERROR_TOKEN_INVALID);
+    }
+
+    filterChain.doFilter(request, response);
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer "))
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
+        }
         return null;
     }
 }

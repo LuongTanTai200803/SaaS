@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     status VARCHAR(50) DEFAULT 'DRAFT',
     wizard_state JSON, -- Lưu trữ thông tin wizard ban đầu
     chat_history JSON, -- Lưu lịch sử chat AI dạng mảng JSON
-    current_editor_content LONGTEXT, -- Nội dung editor hiện tại
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    current_editor_content LONGTEXT, -- Nội dung editor hiện tại    html_content LONGTEXT,
+    export_format VARCHAR(50),    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_chat_sessions_user_id (user_id),
@@ -64,4 +64,16 @@ CREATE TABLE IF NOT EXISTS transactions (
     UNIQUE INDEX idx_trans_memo_id (memo_id), -- Đánh Index Unique để Webhook rà soát nhanh
     INDEX idx_trans_user_id (user_id),
     INDEX idx_trans_status (status) -- Hỗ trợ truy vấn trạng thái thanh toán hoặc job quét giao dịch treo
+);
+
+-- 5. Bảng refresh_tokens: Quản lý Refresh Token stateful để đổi Access Token
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(255) NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    expiry_date DATETIME NOT NULL,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE INDEX idx_refresh_tokens_token (token),
+    INDEX idx_refresh_tokens_user_email (user_email)
 );

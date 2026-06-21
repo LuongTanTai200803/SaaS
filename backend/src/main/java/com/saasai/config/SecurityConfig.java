@@ -47,10 +47,29 @@ public class SecurityConfig {
                 .cors(cors -> cors.configure(http))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) -> response
-                                .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized")))
+                        .authenticationEntryPoint((request, response, authException) -> {
+                                Object authErrorObj = request.getAttribute(JwtAuthenticationFilter.AUTH_ERROR_ATTR);
+                                String authError = authErrorObj != null ? authErrorObj.toString() : "";
+
+                                String message;
+                                if (JwtAuthenticationFilter.AUTH_ERROR_TOKEN_EXPIRED.equals(authError)) {
+                                    message = "Access token đã hết hạn, vui lòng đăng nhập lại.";
+                                } else if (JwtAuthenticationFilter.AUTH_ERROR_TOKEN_BLACKLISTED.equals(authError)) {
+                                    message = "Phiên đăng nhập đã bị thu hồi, vui lòng đăng nhập lại.";
+                                } else if (JwtAuthenticationFilter.AUTH_ERROR_TOKEN_INVALID.equals(authError)) {
+                                    message = "Access token không hợp lệ.";
+                                } else {
+                                    message = "Bạn chưa đăng nhập. Vui lòng đăng nhập lại.";
+                                }
+
+                                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                                response.setContentType("application/json;charset=UTF-8");
+                                response.getWriter().write(
+                                        "{\"success\":false,\"message\":\"" + message + "\",\"statusCode\":401}"
+                                );
+                            }))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login").permitAll()
+                        .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .permitAll()
                         .anyRequest().authenticated() // Các API còn lại bắt buộc phải có Token

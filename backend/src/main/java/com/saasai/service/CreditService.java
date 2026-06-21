@@ -2,18 +2,25 @@ package com.saasai.service;
 
 import com.saasai.dto.CreditEstimateDTO;
 import com.saasai.dto.CreditEstimateResponseDTO;
+
 import com.saasai.entity.CreditTransaction;
 import com.saasai.entity.FileUpload;
 import com.saasai.entity.User;
+
 import com.saasai.repository.CreditTransactionRepository;
 import com.saasai.repository.FileUploadRepository;
 import com.saasai.repository.UserRepository;
+
 import jakarta.transaction.Transactional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+
+import com.saasai.exception.AuthException;
+import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -80,33 +87,27 @@ public class CreditService {
         return 3.0;
     }
 
-    private double calculateFeatureCost(List<String> features) {
-        if (features == null || features.isEmpty()) {
-            return 0.0;
-        }
-        return roundOneDecimal(features.size() * 0.75);
+    private double calculateFileCost(String rawFileId, User currentUser) {
+    if (rawFileId == null || rawFileId.isBlank()) {
+        throw new AuthException("file_id is required", HttpStatus.UNAUTHORIZED);
     }
+
+    Long fileId = parseFileId(rawFileId);
+    FileUpload fileUpload = fileUploadRepository.findById(fileId)
+            .orElseThrow(() -> new RuntimeException("Tệp không tồn tại"));
+
+    if (!fileUpload.getUserId().equals(currentUser.getId())) {
+        throw new AccessDeniedException("Bạn không có quyền sử dụng tệp này để ước tính credit");
+    }
+
+    double fileSizeInMb = fileUpload.getFileSize() == null ? 0.0 : fileUpload.getFileSize() / (1024.0 * 1024.0);
+    return roundOneDecimal(Math.max(0.5, Math.ceil(fileSizeInMb)));
+}
 
     private double calculateLegacyLengthCost(Double inputLength) {
         return roundOneDecimal((inputLength / 1000.0) * 0.15);
     }
 
-    private double calculateFileCost(String rawFileId, User currentUser) {
-        if (rawFileId == null || rawFileId.isBlank()) {
-            return 0.0;
-        }
-
-        Long fileId = parseFileId(rawFileId);
-        FileUpload fileUpload = fileUploadRepository.findById(fileId)
-                .orElseThrow(() -> new RuntimeException("Tệp không tồn tại"));
-
-        if (!fileUpload.getUserId().equals(currentUser.getId())) {
-            throw new AccessDeniedException("Bạn không có quyền sử dụng tệp này để ước tính credit");
-        }
-
-        double fileSizeInMb = fileUpload.getFileSize() == null ? 0.0 : fileUpload.getFileSize() / (1024.0 * 1024.0);
-        return roundOneDecimal(Math.max(0.5, Math.ceil(fileSizeInMb)));
-    }
 
     private Long parseFileId(String rawFileId) {
         String normalized = rawFileId.startsWith("file_") ? rawFileId.substring(5) : rawFileId;

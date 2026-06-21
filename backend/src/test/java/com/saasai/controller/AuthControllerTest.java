@@ -1,10 +1,14 @@
 package com.saasai.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saasai.dto.AuthResponseDTO;
+import com.saasai.dto.RefreshTokenRequestDTO;
 import com.saasai.exception.AuthException;
 import com.saasai.exception.GlobalExceptionHandler;
 import com.saasai.security.TokenBlacklistService;
 import com.saasai.service.AuthService;
+import com.saasai.service.RefreshTokenService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +16,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -33,6 +39,9 @@ class AuthControllerTest {
     @Mock
     private TokenBlacklistService tokenBlacklistService;
 
+    @Mock
+    private RefreshTokenService refreshTokenService;
+
     @InjectMocks
     private AuthController authController;
 
@@ -44,6 +53,11 @@ class AuthControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -80,9 +94,15 @@ class AuthControllerTest {
     }
 
     @Test
-    void loginShouldReturnTokenWhenCredentialsValid() throws Exception {
+    void loginShouldReturnAccessAndRefreshTokensWhenCredentialsValid() throws Exception {
+        AuthResponseDTO responseDTO = AuthResponseDTO.builder()
+                .accessToken("access-token")
+                .refreshToken("refresh-token")
+                .role("ROLE_USER")
+                .build();
+
         when(authService.loginUser(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(Map.of("token", "jwt-token", "role", "ROLE_USER"));
+                .thenReturn(responseDTO);
 
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -92,8 +112,25 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Đăng nhập thành công"))
-                .andExpect(jsonPath("$.data.token").value("jwt-token"))
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("refresh-token"))
                 .andExpect(jsonPath("$.data.role").value("ROLE_USER"));
+    }
+
+    @Test
+    void refreshShouldReturnNewAccessTokenWhenRefreshTokenValid() throws Exception {
+        when(authService.refreshAccessToken(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn("new-access-token");
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of(
+                        "refreshToken", "refresh-token"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Làm mới Access Token thành công"))
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"));
     }
 
     @Test
@@ -124,6 +161,12 @@ class AuthControllerTest {
     @Test
     void logoutShouldReturnSuccessWhenTokenProvided() throws Exception {
         doNothing().when(tokenBlacklistService).blacklistToken(org.mockito.ArgumentMatchers.anyString());
+        doNothing().when(refreshTokenService).revokeAllByEmail(org.mockito.ArgumentMatchers.anyString());
+
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(1L, null, java.util.List.of()) {{
+                    setDetails("test@example.com");
+                }});
 
         mockMvc.perform(post("/api/v1/auth/logout")
                 .header("Authorization", "Bearer dummy-token"))

@@ -14,34 +14,41 @@ import java.time.LocalDateTime;
 public class ChatSession {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "session_id")
     private Long sessionId;
 
-    @Column(nullable = false)
+    @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(nullable = false)
+    @Column(name = "tag_id")
     private String tagId;
 
-    @Column(nullable = false)
+    @Column(name = "session_name", nullable = false)
     private String sessionName;
 
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(name = "editor_content", columnDefinition = "LONGTEXT")
     private String editorContent;
 
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(name = "html_content", columnDefinition = "LONGTEXT")
     private String htmlContent;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status")
     private SessionStatus status;
 
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(name = "wizard_state_json", columnDefinition = "LONGTEXT")
     private String wizardStateJson;
 
+    @Column(name = "chat_history_json", columnDefinition = "LONGTEXT")
+    private String chatHistoryJson;
+
+    @Column(name = "export_format")
     private String exportFormat;
 
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @PrePersist
