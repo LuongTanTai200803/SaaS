@@ -12,7 +12,6 @@ type NavItem = 'home' | 'assistants' | 'templates' | 'pricing' | 'guide' | 'affi
 type Tab = 'login' | 'register';
 
 const navItems: { key: NavItem; label: string }[] = [
-  { key: 'home', label: 'Trang chủ' },
   { key: 'assistants', label: 'Menu Trợ lý' },
   { key: 'templates', label: 'Văn bản của Tôi' },
   { key: 'guide', label: 'Hướng dẫn' },
@@ -62,13 +61,23 @@ export function Navbar({ onNavigate }: NavbarProps) {
         <div className="max-w-[1280px] mx-auto px-8 h-16 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#1E3A8A] rounded-lg flex items-center justify-center shadow-md">
-              <Sparkles size={18} className="text-white" />
-            </div>
-            <div className="leading-none">
-              <span className="font-bold text-[#1F2937] text-base tracking-tight">Văn phòng số</span>
-              <span className="hidden md:block text-[10px] text-gray-400 font-normal">vanphongso.ai.vn</span>
-            </div>
+            <button
+              onClick={() => {
+                setActiveNav('home');
+                setAssistantMenuOpen(false);
+                setShowDashboard(false);
+                onNavigate('home');
+              }}
+              className="flex items-center gap-2"
+            >
+              <div className="w-9 h-9 bg-[#1E3A8A] rounded-lg flex items-center justify-center shadow-md">
+                <Sparkles size={18} className="text-white" />
+              </div>
+              <div className="leading-none">
+                <span className="font-bold text-[#1F2937] text-base tracking-tight">Văn phòng số</span>
+                <span className="hidden md:block text-[10px] text-gray-400 font-normal">vanphongso.ai.vn</span>
+              </div>
+            </button>
           </div>
 
           {/* Nav */}

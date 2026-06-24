@@ -228,15 +228,14 @@ export function AIWorkspace({ onBack, initialAssistantId, onGenerated }: AIWorks
       {/* ── TOPBAR ── */}
       <header className="h-14 bg-white border-b border-gray-100 flex items-center justify-between px-5 flex-shrink-0 shadow-sm z-30">
         <div className="flex items-center gap-3">
-          {onBack && (
-            <button onClick={onBack} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-500">
-              <ChevronLeft size={18} />
-            </button>
-          )}
-          <div className="w-8 h-8 bg-[#1E3A8A] rounded-lg flex items-center justify-center shadow">
-            <Sparkles size={16} className="text-white" />
-          </div>
-          <span className="font-bold text-[#1F2937] text-sm tracking-tight">Trợ lý Văn phòng AI</span>
+          <button onClick={onBack} className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-[#1E3A8A] rounded-lg flex items-center justify-center shadow-md">
+                <Sparkles size={18} className="text-white" />
+              </div>
+            <h1 className="text-xl font-semibold" style={{ color: '#1F2937' }}>
+              Trợ lý Văn phòng AI
+            </h1>
+          </button>
           {activeAssistant && (
             <>
               <span className="text-gray-300 text-lg">/</span>

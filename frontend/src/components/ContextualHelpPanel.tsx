@@ -12,7 +12,7 @@ export function ContextualHelpPanel({ focusedField, onExampleClick }: Contextual
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Danh sách các ID có chức năng upload file, sẽ không hiển thị description và examples
-  const fieldsWithUpload = [  '14'];
+  const fieldsWithUpload = [ ''];
 
   useEffect(() => {
     if (focusedField && contextualHelpData[focusedField]) {

@@ -42,7 +42,7 @@ const ASSISTANT_CONFIGS: Record<string, AssistantConfig> = {
     colorClass: 'text-red-700',
     bgClass: 'bg-red-50',
     borderClass: 'border-red-100',
-    quickActions: ['Chuẩn hóa giọng điệu hành chính', 'Thêm lời mở đầu trang nghiêm', 'Kiểm tra thể thức Đảng'],
+    quickActions: ['Bạn muốn viết đầy đủ / chi tiết? ', 'Phần / Mục nào cần tập trung?', 'Nội dung nào cần nhấn mạnh?'],
   },
   '2': {
     title: 'Văn bản Nhà nước',
@@ -365,30 +365,7 @@ export function DocumentWorkspace({
           
           {/* PANEL TRÁI: Trình soạn thảo văn bản A4 (Mặc định chiếm 55% độ rộng) */}
           <ResizablePanel defaultSize={55} minSize={40} maxSize={75} className="flex flex-col h-full bg-slate-50">
-            {/* Action Bar */}
-            <div className="bg-white border-b border-slate-200 px-6 h-12 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSave}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                    isSaved ? 'bg-green-100 text-green-700' : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {isSaved ? <Check size={14} /> : <Save size={14} />}
-                  {isSaved ? 'Đã lưu!' : 'Lưu bản nháp'}
-                </button>
-                <span className="text-slate-300">|</span>
-                <span className="text-xs text-slate-400 max-w-[200px] truncate font-medium">{documentTitle}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button onClick={() => console.log('Word')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">
-                  <Download size={13} /> Word
-                </button>
-                <button onClick={() => console.log('PDF')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-md">
-                  PDF
-                </button>
-              </div>
-            </div>
+            
 
             {/* WYSIWYG Mini Toolbar */}
             <div className="bg-white border-b border-slate-200 px-6 h-10 flex items-center gap-1 flex-shrink-0">
@@ -424,6 +401,30 @@ export function DocumentWorkspace({
                   </div>
                 ) : null}
                 <div dangerouslySetInnerHTML={{ __html: initialContentString || defaultDocumentContent }} />
+              </div>
+            </div>
+            {/* Action Bar */}
+            <div className="bg-white border-b border-slate-200 px-6 h-12 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSave}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    isSaved ? 'bg-green-100 text-green-700' : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {isSaved ? <Check size={14} /> : <Save size={14} />}
+                  {isSaved ? 'Đã lưu!' : 'Lưu bản nháp'}
+                </button>
+                <span className="text-slate-300">|</span>
+                <span className="text-xs text-slate-400 max-w-[200px] truncate font-medium">{documentTitle}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => console.log('Word')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">
+                  <Download size={13} /> Word
+                </button>
+                <button onClick={() => console.log('PDF')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-md">
+                  PDF
+                </button>
               </div>
             </div>
           </ResizablePanel>
@@ -502,9 +503,9 @@ export function DocumentWorkspace({
                   className="w-full px-3 py-2.5 pr-20 bg-transparent border-0 focus:outline-none text-xs leading-normal resize-none"
                 />
                 <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
-                  <button className="p-1 text-slate-400 hover:text-slate-600"><Paperclip size={14} /></button>
+                  <button className="p-1 text-slate-400 hover:text-slate-600"><Paperclip size={20} /></button>
                   <button onClick={handleSendMessage} className="p-1.5 bg-[#1E3A8A] hover:bg-blue-800 text-white rounded-lg transition-colors">
-                    <Send size={13} />
+                    <Send size={20} />
                   </button>
                 </div>
               </div>

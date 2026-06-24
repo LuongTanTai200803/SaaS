@@ -26,7 +26,7 @@ interface FormData {
   diaDanh: string;
   nguoiKy: string;
   soKyHieu: string;
-  noiNhan: string;
+  kinhGui: string;
   noiNhanBaoCao: string;
   ngayBanHanh: string;
 
@@ -81,7 +81,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
     diaDanh: '',
     nguoiKy: '',
     soKyHieu: '',
-    noiNhan: '',
+    kinhGui: '',
     noiNhanBaoCao: '',
     ngayBanHanh: new Date().toISOString().split('T')[0],
     vanBanChiDao: '',
@@ -124,7 +124,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
       formData.diaDanh,
       formData.nguoiKy,
       formData.soKyHieu,
-      formData.noiNhan,
+      formData.kinhGui,
       formData.noiNhanBaoCao,
       formData.vanBanChiDao,
       formData.vanBanPhapLy,
@@ -141,7 +141,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
     formData.diaDanh,
     formData.nguoiKy,
     formData.soKyHieu,
-    formData.noiNhan,
+    formData.kinhGui,
     formData.noiNhanBaoCao,
     formData.vanBanChiDao,
     formData.vanBanPhapLy,
@@ -252,7 +252,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
       '3': 'coQuanBanHanh',
       '4': 'diaDanh',
       '5': 'soKyHieu',
-      '6': 'noiNhan',
+      '6': 'kinhGui',
       '7': 'noiNhanBaoCao',
       '8': 'vanBanChiDao',
       '9': 'vanBanPhapLy',
@@ -416,8 +416,8 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     <TooltipIcon text="Cơ quan, đơn vị, cá nhân nhận văn bản" />
                   </label>
                   <textarea
-                    value={formData.noiNhan}
-                    onChange={e => updateField('noiNhan', e.target.value)}
+                    value={formData.kinhGui}
+                    onChange={e => updateField('kinhGui', e.target.value)}
                     onFocus={() => setFocusedField('6')}
                     placeholder="Ví dụ: Các ban Đảng, các đơn vị trực thuộc..."
                     rows={3}
@@ -428,7 +428,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
                     Nơi nhận (báo cáo / biết / thực hiện) [7]
-                    <TooltipIcon text="Nơi nhận (báo cao / biết / thực hiện)" />
+                    <TooltipIcon text="Nơi nhận (báo cáo / biết / thực hiện)" />
                   </label>
                   <textarea
                     value={formData.noiNhanBaoCao}
@@ -483,7 +483,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     value={formData.vanBanChiDao}
                     onChange={e => updateField('vanBanChiDao', e.target.value)}
                     onFocus={() => setFocusedField('8')}
-                    placeholder="Hoặc nhập nội dung văn bản chỉ đạo tại đây..."
+                    placeholder="Yêu cầu: sử dụng văn bản này để  làm gì?"
                     rows={6}
                     className="w-full mt-3 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white resize-none"
                   />
@@ -492,7 +492,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
                     Văn bản pháp lý [9]
-                    <TooltipIcon text="Upload tối đa 5 file văn bản pháp lý liên quan" />
+                    <TooltipIcon text="Căn cứ liên quan" />
                   </label>
                   {/* Văn bản pháp lý */}
                     <FileUploadZone
@@ -510,7 +510,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     value={formData.vanBanPhapLy}
                     onChange={e => updateField('vanBanPhapLy', e.target.value)}
                     onFocus={() => setFocusedField('9')}
-                    placeholder="Hoặc nhập nội dung văn bản pháp lý tại đây..."
+                    placeholder="Sử dụng văn bản này để làm gì?"
                     rows={6}
                     className="w-full mt-3 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white resize-none"
                   />
@@ -546,7 +546,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     value={formData.noiDungChinh}
                     onChange={e => updateField('noiDungChinh', e.target.value)}
                     onFocus={() => setFocusedField('10')}
-                    placeholder="Hoặc nhập nội dung chính tại đây..."
+                    placeholder="Trình bày Nội dung chính / kết quả thực hiện"
                     rows={8}
                     className="w-full mt-3 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white resize-none"
                   />
@@ -572,7 +572,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     value={formData.bangBieuSoLieu}
                     onChange={e => updateField('bangBieuSoLieu', e.target.value)}
                     onFocus={() => setFocusedField('11')}
-                    placeholder="Hoặc nhập diễn giải tài liệu minh chứng, bảng biểu số liệu tại đây..."
+                    placeholder="Xác định cách thức AI khai thác tệp văn bản pháp lý luận cứ vững chắc, bám sát luật hiện hành"
                     rows={4}
                     className="w-full mt-3 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white resize-none"
                   />
@@ -607,7 +607,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     value={formData.mauVanBan}
                     onChange={e => updateField('mauVanBan', e.target.value)}
                     onFocus={() => setFocusedField('12')}
-                    placeholder="Hoặc nhập nội dung mẫu văn bản tại đây..."
+                    placeholder="Yêu cầu: sử dụng nội dung nào làm mẫu?"
                     rows={8}
                     className="w-full mt-3 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white resize-none"
                   />
@@ -625,7 +625,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
                     Văn bản / Tài liệu liên quan [14]
-                    <TooltipIcon text="Upload nhiều file văn bản liên quan (tối đa 150 văn bản)" />
+                    <TooltipIcon text="Yêu cầu theo từng văn bản dùng để làm gì?" />
                   </label>
                   <FileUploadZone
                       multiple
@@ -639,6 +639,14 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                         }))
                       }
                     />
+                    <textarea
+                    value={formData.vanBanLienQuan}
+                    onChange={e => updateField('vanBanLienQuan', e.target.value)}
+                    onFocus={() => setFocusedField('14')}
+                    placeholder="Yêu cầu: sử dụng nội dung nào làm mẫu?"
+                    rows={8}
+                    className="w-full mt-3 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white resize-none"
+                  />
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-5 space-y-4">
@@ -946,7 +954,7 @@ function generateDocumentContent(formData: FormData): string {
     </div>
 
     <div style="margin-bottom: 24px;">
-      ${formData.noiNhan ? `<p style="text-indent: 40px; margin-bottom: 16px;">Kính gửi: ${formData.noiNhan}</p>` : ''}
+      ${formData.kinhGui ? `<p style="text-indent: 40px; margin-bottom: 16px;">Kính gửi: ${formData.kinhGui}</p>` : ''}
 
       ${formData.noiDungChinh ? `
         <p style="text-indent: 40px; margin-bottom: 16px; white-space: pre-wrap;">${formData.noiDungChinh}</p>
@@ -993,63 +1001,124 @@ function generateDocumentContent(formData: FormData): string {
 
 /* Helper Components[cite: 2] */
 
-function DocumentPreview({ formData }: { formData: FormData }) {
+function DocumentPreview({ formData }: { formData: any }) {
+  // Hàm format ngày tháng năm an toàn để tránh crash nếu formData.ngayBanHanh chưa được nạp
+  const formatNgayBanHanh = () => {
+    if (!formData.ngayBanHanh) return '[Địa danh], ngày ... tháng ... năm ...';
+    const date = new Date(formData.ngayBanHanh);
+    if (isNaN(date.getTime())) return '[Địa danh], ngày ... tháng ... năm ...';
+    return `${formData.diaDanh || '[Địa danh]'}, ngày ${date.getDate()} tháng ${date.getMonth() + 1} năm ${date.getFullYear()}`;
+  };
+
   return (
-    <div className="max-w-2xl mx-auto py-12 px-12 bg-white min-h-full">
-      <div className="text-center mb-8">
-        <div className="text-xs font-semibold mb-2">[CƠ QUAN BAN HÀNH]</div>
-        <div className="text-sm font-bold mb-1">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-        <div className="text-xs mb-1">Độc lập - Tự do - Hạnh phúc</div>
-        <div className="w-32 h-px bg-gray-400 mx-auto mb-1" />
-        <div className="text-xs text-gray-500 italic">
-          [{formData.diaDanh || 'Địa danh'}, ngày {new Date(formData.ngayBanHanh).getDate()} tháng {new Date(formData.ngayBanHanh).getMonth() + 1} năm {new Date(formData.ngayBanHanh).getFullYear()}]
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <div className="text-xs font-semibold mb-2">Số: {formData.soKyHieu || '01/TB-XXX'}</div>
-      </div>
-
-      <div className="text-center mb-8">
-        <h1 className="text-lg font-bold mb-2">
-          {formData.loaiVanBan || 'THÔNG BÁO'}
-        </h1>
-        <div className="text-sm">
-          Về việc {formData.tenVanBan || '___________'}
-        </div>
-        <div className="w-20 h-px bg-gray-900 mx-auto mt-2" />
-      </div>
-
-      <div className="space-y-4 text-sm leading-relaxed">
-        <div>
-          <span className="font-semibold">Nơi nhận:</span>
-          <div className="ml-4 mt-1 text-gray-700">
-            {formData.noiNhan || '[CHỨC VỤ]'}
+    <div className="max-w-3xl mx-auto py-12 px-12 bg-white min-h-full border border-gray-200/50 shadow-sm" style={{ fontFamily: 'Inter, sans-serif' }}>
+      
+      {/* ── 🏛️ HEADER CHIA ĐÔI THEO CHUẨN THỂ THỨC VĂN KIỆN ĐẢNG ── */}
+      <div className="grid grid-cols-2 gap-4 items-start mb-8 text-sm">
+        
+        {/* KHỐI BÊN TRÁI: Cơ quan chủ quản, Cơ quan ban hành & Số hiệu */}
+        <div className="text-center uppercase">
+          <div className="text-xs font-medium text-gray-500 tracking-wide">
+            {formData.coQuanChuQuan || '[CƠ QUAN CHỦ QUẢN]'}
+          </div>
+          <div className="text-xs font-bold text-gray-800 mt-0.5 tracking-tight">
+            {formData.coQuanBanHanh || '[CƠ QUAN BAN HÀNH]'}
+          </div>
+          <div className="w-24 h-px bg-gray-300 mx-auto mt-2" />
+          
+          {/* Di chuyển Số ký hiệu xuống dưới khối Cơ quan ban hành đúng chuẩn */}
+          <div className="text-[11px] font-medium text-gray-600 normal-case mt-2">
+            Số: {formData.soKyHieu || '01-QĐ/TW'}
           </div>
         </div>
 
-        {formData.noiDungChinh && (
-          <div className="mt-6">
-            <div className="whitespace-pre-wrap text-gray-700">
+        {/* KHỐI BÊN PHẢI: Tiêu ngữ Đảng & Định danh ngày tháng */}
+        <div className="text-center">
+          <div className="text-xs font-bold text-gray-900 uppercase tracking-widest">
+            ĐẢNG CỘNG SẢN VIỆT NAM
+          </div>
+          <div className="w-32 h-px bg-gray-400 mx-auto mt-2 mb-2" />
+          
+          {/* Định danh vị trí nằm ngay bên dưới tiêu ngữ Đảng */}
+          <div className="text-xs text-gray-500 italic">
+            {formatNgayBanHanh()}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 📝 TIÊU ĐỀ VĂN BẢN (GIỮ NGUYÊN HOẶC TINH CHỈNH SẠCH) ── */}
+      <div className="text-center mb-8">
+        <h1 className="text-base font-bold text-gray-900 mb-1 tracking-tight uppercase">
+          {formData.loaiVanBan || 'THÔNG BÁO'}
+        </h1>
+        <div className="text-sm font-medium text-gray-700">
+          Về việc {formData.tenVanBan || '___________'}
+        </div>
+        <div className="w-16 h-px bg-gray-900 mx-auto mt-2" />
+      </div>
+      {/* Kính gửi */}
+      <div className="text-left">
+            <span className="font-bold text-gray-900 block mb-1">Kính gửi:</span>
+            <div className="ml-3 text-xs text-gray-700 font-medium whitespace-pre-line leading-relaxed">
+              {formData.kinhGui || '- Như trên;\n- Lưu văn phòng.'}
+            </div>
+      </div>
+
+      {/* ── 💬 NỘI DUNG VĂN BẢN ── */}
+      <div className="space-y-4 text-sm leading-relaxed text-gray-800">
+        
+
+        {formData.noiDungChinh ? (
+          <div className="mt-6 border-t border-gray-50 pt-4">
+            <div className="whitespace-pre-wrap text-gray-700 leading-relaxed text-[14px]">
               {formData.noiDungChinh}
             </div>
           </div>
-        )}
-
-        {!formData.noiDungChinh && (
-          <div className="text-gray-400 text-center py-8 italic text-xs">
-            AI có thể mắc sai sót. Hãy kiểm tra lại thông tin quan trọng.
+        ) : (
+          <div className="text-gray-400 text-center py-12 italic text-xs bg-gray-50/50 rounded-xl border border-dashed border-gray-200 mt-6">
+            ✨ Hệ thống Trợ lý AI đang chờ nạp thông tin để tự động sinh cấu trúc văn bản...
           </div>
         )}
+
+        {/* ── 📝 PHẦN CUỐI VĂN BẢN: CẤU HÌNH NƠI NHẬN VÀ CHỮ KÝ NGANG NHAU ── */}
+        <div className="grid grid-cols-2 gap-4 items-start mt-12 text-sm">
+          
+          {/* ⬅️ CỘT BÊN TRÁI: KHU VỰC NƠI NHẬN */}
+          <div className="text-left">
+            <span className="font-bold text-gray-900 block mb-1">Nơi nhận:</span>
+            <div className="ml-3 text-xs text-gray-700 font-medium whitespace-pre-line leading-relaxed">
+              {formData.noiNhanBaoCao || '- Như trên;\n- Lưu văn phòng.'}
+            </div>
+          </div>
+
+          {/* ➡️ CỘT BÊN PHẢI: KHU VỰC CHỮ KÝ VÀ HỌ TÊN CÁN BỘ */}
+          <div className="flex justify-end">
+            <div className="text-center min-w-[220px]">
+              {/* Chức vụ người ký viết hoa, đậm */}
+              <div className="font-bold text-gray-900 uppercase tracking-tight">
+                {formData.chucVuNguoiKy || '[CHỨC VỤ LÃNH ĐẠO]'}
+              </div>
+              
+              {/* Chỉ dẫn ký tên */}
+              <div className="text-[11px] text-gray-400 italic mt-1.5 mb-14">
+                (Ký, ghi rõ họ tên)
+              </div>
+              
+              {/* Họ tên người ký nằm dưới cùng */}
+              <div className="font-bold text-gray-800 tracking-wide text-[14px]">
+                {formData.hoTenNguoiKy || '[Họ và tên]'}
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
 
-      <div className="mt-12 text-right text-sm">
-        <div className="font-semibold mb-1">[Họ và tên]</div>
-      </div>
     </div>
   );
 }
 
+// suggestion 
 function TooltipIcon({ text }: { text: string }) {
   return (
     <div className="group relative inline-block">
@@ -1089,13 +1158,15 @@ function FileUploadZone({
       alert(`Đã đạt giới hạn tối đa ${maxFiles} file`);
       return;
     }
-
+    
+    
     const newUploadingFiles: UploadingFile[] = filesToAdd.map((file, index) => ({
       id: `tmp_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
       file: file,
       progress: 0,
       status: 'PENDING'
     }));
+
 
     // Bọc logic cập nhật tương thích với cấu trúc cha Map mới
     const updateHook = (updater: any) => {
@@ -1105,28 +1176,69 @@ function FileUploadZone({
       }
     };
 
-    updateHook([...files, ...newUploadingFiles]);
+    const nextFiles = [...files, ...newUploadingFiles];
 
-    newUploadingFiles.forEach((fileItem) => {
-      uploadFileToServer(
-        fileItem,
-        category,
-        (fileId, progress) => {
-          if (typeof onFilesChange === 'function') {
-            onFilesChange(prev => prev.map(f => f.id === fileId ? { ...f, progress } : f));
-          }
-        },
-        (fileId, status, backendFileId, error) => {
-          if (typeof onFilesChange === 'function') {
-            onFilesChange(prev => prev.map(f => f.id === fileId ? { ...f, status, backendFileId, error } : f));
-          }
+    if (typeof onFilesChange === 'function') {
+      try {
+        (onFilesChange as React.Dispatch<React.SetStateAction<UploadingFile[]>>)(
+          (prev: UploadingFile[]) => [...prev, ...newUploadingFiles]
+        );
+      } catch (err) {
+        console.warn("onFilesChange không phải useState Setter, buộc phải gửi mảng thô.", err);
+        (onFilesChange as (files: UploadingFile[]) => void)(nextFiles);
+      }
+    }
+    
+
+    function safelyUpdateFiles(
+      handler: React.Dispatch<React.SetStateAction<UploadingFile[]>> | ((files: UploadingFile[]) => void),
+      updateFn: (prev: UploadingFile[]) => UploadingFile[]
+    ) {
+      // Chúng ta kiểm tra gián tiếp: Bản chất React useState Setter cho phép nhận hàm làm tham số.
+      // Nhưng nếu đây là một hàm callback nghiệp vụ thông thường từ Cha truyền xuống,
+      // chúng ta bắt buộc phải lấy giá trị hiện tại ra, tính toán mảng mới rồi mới truyền đi.
+      
+      try {
+        // Giả định đây là React useState Setter (Bật functional update dạng prev => ...)
+        // Chúng ta truyền trực tiếp hàm updateFn vào.
+        (handler as Function)(updateFn);
+      } catch (error) {
+        // Nếu xảy ra lỗi hoặc nếu đây là hàm callback thuần túy không hỗ trợ functional update,
+        // Bạn cần đảm bảo hàm handler nhận mảng thô (updatedFilesArray).
+        // Lưu ý: Cách này tối ưu nhất khi handler là useState Setter để tránh Stale State trong vòng lặp Async.
+        console.warn("onFilesChange không phải là một useState Setter, chuyển hướng xử lý mảng thô.");
+      }
+    }
+
+      newUploadingFiles.forEach((fileItem) => {
+    uploadFileToServer(
+      fileItem,
+      category,
+      // 1. Tiến trình upload thay đổi (Progress Callback)
+      (fileId, progress) => {
+        if (typeof onFilesChange === 'function') {
+          // Sử dụng một hàm trợ giúp thông minh để bẫy cả Setter lẫn Callback thông thường
+          safelyUpdateFiles(onFilesChange, (prev) =>
+            prev.map((f) => (f.id === fileId ? { ...f, progress } : f))
+          );
         }
-      );
-    });
+      },
+      // 2. Trạng thái hoàn tất/thất bại thay đổi (Status Callback)
+      (fileId, status, backendFileId, error) => {
+        if (typeof onFilesChange === 'function') {
+          safelyUpdateFiles(onFilesChange, (prev) =>
+            prev.map((f) =>
+              f.id === fileId ? { ...f, status, backendFileId, error } : f
+            )
+          );
+        }
+      }
+    );
+  });
 
-    e.target.value = '';
-  };
-
+  e.target.value = '';
+  }
+  
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1153,7 +1265,7 @@ function FileUploadZone({
       onFilesChange(newFiles);
     }
   };
-
+  
   return (
     <div>
       <label

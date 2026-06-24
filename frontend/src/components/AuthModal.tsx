@@ -53,7 +53,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialTab = 'login' }: 
       const response: any = await api.authApi.login(loginForm); // Sử dụng api.authApi
       
       // Lấy token từ response và lưu vào localStorage (Key 'access_token' khớp với cấu hình axiosClient)
-      const token = response.token || response.access_token || response.data?.token;
+      const token = response.token || response?.data?.accessToken || response.data?.token;
       if (token) {
         localStorage.setItem('access_token', token);
         // Phát sự kiện để cập nhật UI ngay lập tức
@@ -109,7 +109,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialTab = 'login' }: 
         password: registerForm.password
       });
 
-      setSuccess('Đăng ký thành công! Bạn nhận được 3 credits miễn phí.');
+      setSuccess('Đăng ký thành công!.');
       setTimeout(() => {
         onSuccess();
         onClose();
@@ -380,7 +380,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialTab = 'login' }: 
                 {isLoading ? (
                   <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 ) : null}
-                {isLoading ? 'Đang đăng ký...' : 'Tạo tài khoản — 3 credits miễn phí'}
+                {isLoading ? 'Đang đăng ký...' : 'Tạo tài khoản'}
               </button>
 
               <p className="text-center text-sm text-gray-600">
