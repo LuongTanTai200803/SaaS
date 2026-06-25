@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -15,6 +16,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -31,8 +38,6 @@ public class SecurityConfig {
 
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
-        // Yêu cầu Spring Security bỏ qua hoàn toàn các đường dẫn của Swagger,
-        // để nó không bị chặn bởi bất kỳ Security Filter nào (kể cả JWT)
         return (web) -> web.ignoring().requestMatchers(
                 "/v3/api-docs",
                 "/v3/api-docs/**",
@@ -40,11 +45,43 @@ public class SecurityConfig {
                 "/swagger-ui.html");
     }
 
+    // 🎯 BỔ SUNG: Cấu hình CORS chi tiết cho môi trường Production (Vercel) và Local
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        // Cấp quyền cho Local và chính xác Domain Vercel của bạn thông quan
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:5173", 
+                "https://saa-s-zeta-six.vercel.app"
+        ));
+        
+        // Hỗ trợ đầy đủ các phương thức, đặc biệt phải có OPTIONS
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        
+        // Cho phép các Headers cần thiết, bao gồm Authorization và ngrok-skip-browser-warning để né bẫy ngrok
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization", 
+                "Content-Type", 
+                "Accept", 
+                "X-Requested-With", 
+                "ngrok-skip-browser-warning"
+        ));
+        
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L); // Trình duyệt cache cấu hình CORS trong 1 tiếng
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration); // Áp dụng cho toàn bộ API
+        return source;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configure(http))
+                // 🎯 ĐÃ CẬP NHẬT: Trỏ cấu hình CORS về corsConfigurationSource() vừa viết ở trên
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
@@ -69,13 +106,13 @@ public class SecurityConfig {
                                 );
                             }))
                 .authorizeHttpRequests(auth -> auth
+                        // 🚀 CHÍ MẠNG: Cho phép tất cả các request OPTIONS (Preflight) đi qua không cần kiểm tra Token
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
-                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
-                        .permitAll()
-                        .anyRequest().authenticated() // Các API còn lại bắt buộc phải có Token
+                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .anyRequest().authenticated()
                 );
 
-        // Thêm Filter kiểm tra JWT trước bộ lọc mặc định của Spring
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
