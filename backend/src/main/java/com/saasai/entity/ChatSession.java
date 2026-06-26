@@ -36,10 +36,10 @@ public class ChatSession {
     @Column(name = "status")
     private SessionStatus status;
 
-    @Column(name = "wizard_state_json", columnDefinition = "LONGTEXT")
+    @Column(name = "wizard_state_json", columnDefinition = "JSON")
     private String wizardStateJson;
 
-    @Column(name = "chat_history_json", columnDefinition = "LONGTEXT")
+    @Column(name = "chat_history_json", columnDefinition = "JSON")
     private String chatHistoryJson;
 
     @Column(name = "export_format")

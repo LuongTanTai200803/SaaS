@@ -1,9 +1,13 @@
 package com.saasai.storage;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
+@Service
+@ConditionalOnProperty(name = "storage.type", havingValue = "s3")
 public class S3StorageServiceImpl implements StorageService {
 
     public S3StorageServiceImpl() {

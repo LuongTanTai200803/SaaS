@@ -44,7 +44,7 @@ public class AuthService {
                 .agency("")
                 .role(User.UserRole.ROLE_USER)
                 .creditBalance(3.0)
-                .packageType(User.PackageType.FREE)
+                .adminPackage(adminService.getPackageConfig(AdminPackageConfig.PackageType.FREE))
                 .expireDate(LocalDateTime.now().plusDays(30))
                 .build();
         userRepository.save(user);

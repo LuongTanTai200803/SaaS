@@ -1,26 +1,31 @@
 package com.saasai.controller;
 
+import com.saasai.dto.FileUploadResponseDTO;
+import com.saasai.service.FileService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.saasai.dto.ApiResponseDTO;
-import com.saasai.dto.FileUploadResponseDTO;
-import com.saasai.service.FileService;
+import java.io.IOException;
 
 @RestController
-@RequestMapping("/api/v1/files")
-@CrossOrigin
+@RequestMapping("/api/v1/files") // Hoặc endpoint cha tùy cấu hình urls.ts của ông
 public class FileController {
+
     @Autowired
     private FileService fileService;
 
-    @PostMapping("/upload")
-    public ResponseEntity<ApiResponseDTO<FileUploadResponseDTO>> uploadFile(
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<FileUploadResponseDTO> uploadFile(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("category") String category) throws java.io.IOException {
+            @RequestParam(value = "category", required = false) String category
+    ) throws IOException {
+        
+        // Gọi thẳng Service xử lý lưu cục bộ và lưu DB mà ông đã viết
         FileUploadResponseDTO response = fileService.uploadFile(file, category);
-        return ResponseEntity.ok(ApiResponseDTO.success("Tải file thành công", response));
+        
+        return ResponseEntity.ok(response);
     }
 }

@@ -19,8 +19,9 @@ public class BillingInvoice {
     @Column(nullable = false)
     private Long userId;
 
-    @Enumerated(EnumType.STRING)
-    private PackageType packageType;
+    @ManyToOne
+    @JoinColumn(name = "package_id") // Sau này nếu bạn muốn đổi cột DB của bảng invoice sang khóa ngoại luôn
+    private AdminPackageConfig adminPackage;
 
     private Integer durationMonths;
 

@@ -14,7 +14,9 @@ export type UploadFileResponse = {
 export const fileApi = {
   uploadFiles: (formData: FormData, onUploadProgress?: (progressEvent: any) => void) => {
     return ht.post<UploadFileResponse>('/files/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 
+        // 🎯 ĐÈ LẠI GIÁ TRỊ MẶC ĐỊNH: Bắt Axios nhả quyền cấu hình Content-Type ra cho trình duyệt tự xử
+        'Content-Type': undefined },
       onUploadProgress,
     });
   },

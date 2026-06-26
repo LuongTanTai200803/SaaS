@@ -17,7 +17,7 @@ public class FileUpload {
     private Long fileId;
 
     @Column(nullable = false)
-    private Long userId;
+    private Long userId; 
 
     @Column(nullable = false)
     private String fileName;

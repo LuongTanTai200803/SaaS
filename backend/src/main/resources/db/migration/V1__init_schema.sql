@@ -3,49 +3,59 @@ CREATE TABLE IF NOT EXISTS users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    full_name VARCHAR(255),
+    full_name VARCHAR(255) NOT NULL,             -- 🎯 Sửa thành NOT NULL theo Entity
     agency VARCHAR(255),
-    role VARCHAR(50) DEFAULT 'ROLE_USER',
-    credit_balance DECIMAL(15, 2) DEFAULT 0.00,
-    package_type VARCHAR(50) DEFAULT 'FREE',
+    role VARCHAR(50) NOT NULL,                   -- 🎯 Bỏ DEFAULT vì Entity ép nullable = false
+    credit_balance DOUBLE,                       -- 🎯 Sửa DECIMAL thành DOUBLE theo Java (Double)
+    package_type VARCHAR(50),
     expire_date DATETIME,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    -- 🎯 Thêm các trường Affiliate còn thiếu trong SQL cũ:
+    affiliate_code VARCHAR(255),
+    affiliate_link VARCHAR(255),
+    total_earnings DOUBLE,
+    
+    -- 🎯 Sửa TIMESTAMP thành DATETIME để khớp hoàn toàn với LocalDateTime trong Java
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME,
+    
+    -- Tạo Index duy nhất cho Email để tối ưu tìm kiếm và đăng nhập
     UNIQUE INDEX idx_users_email (email)
 );
 
--- 2. Bảng chat_sessions: Lưu lịch sử phiên làm việc
+-- [SỬA TRONG V1] 2. Bảng chat_sessions
 CREATE TABLE IF NOT EXISTS chat_sessions (
     session_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    session_name VARCHAR(255) NOT NULL,
-    tag_id VARCHAR(100),
+    session_name VARCHAR(255) NOT NULL DEFAULT 'Phiên làm việc mới',
+    tag_id VARCHAR(36), -- 🎯 Chuẩn hóa UUID String ngay tại đây
     status VARCHAR(50) DEFAULT 'DRAFT',
-    wizard_state_json LONGTEXT,
-    chat_history_json LONGTEXT,
+    wizard_state_json JSON,     -- Đổi sang kiểu JSON cho chuẩn
+    chat_history_json JSON,     -- Đổi sang kiểu JSON cho chuẩn
     editor_content LONGTEXT,
     html_content LONGTEXT,
     export_format VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_chat_sessions_user_id (user_id),
     INDEX idx_chat_sessions_updated_at (updated_at DESC)
 );
 
--- 3. Bảng document_library: Quản lý file đã bóc tách chữ
+-- [SỬA TRONG V1] 3. Bảng document_library
 CREATE TABLE IF NOT EXISTS document_library (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
     session_id BIGINT,
     file_name VARCHAR(255) NOT NULL,
     file_url VARCHAR(500),
-    category VARCHAR(50),
+    category VARCHAR(50) NOT NULL DEFAULT 'INPUT_DIRECTIVE',
     extracted_text LONGTEXT,
     file_size BIGINT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL, -- Đồng bộ kiểu DATETIME
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE SET NULL,
+    -- 🎯 SỬA KHÓA NGOẠI: Khớp khít với cột session_id của bảng chat_sessions bên trên
+    FOREIGN KEY (session_id) REFERENCES chat_sessions(session_id) ON DELETE SET NULL, 
     INDEX idx_doc_lib_user_id (user_id),
     INDEX idx_doc_lib_session_id (session_id)
 );
@@ -133,7 +143,16 @@ CREATE TABLE IF NOT EXISTS files (
     file_name VARCHAR(255) NOT NULL,
     file_url VARCHAR(255) NOT NULL,
     file_size BIGINT,
-    category VARCHAR(50),
+    -- 🎯 CHỈNH TẠI ĐÂY: Khai báo tường minh đầy đủ 7 danh mục Enum giống hệt file Java
+    category ENUM(
+        'INPUT_DIRECTIVE', 
+        'EVIDENCE', 
+        'LEGAL', 
+        'CONTENT', 
+        'TEMPLATE', 
+        'RELATED', 
+        'OUTPUT_DOCUMENT'
+    ) NOT NULL DEFAULT 'INPUT_DIRECTIVE',
     mime_type VARCHAR(255),
     uploaded_at DATETIME NOT NULL,
     INDEX idx_files_user_id (user_id)

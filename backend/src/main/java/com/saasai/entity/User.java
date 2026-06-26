@@ -33,8 +33,9 @@ public class User {
 
     private Double creditBalance;
 
-    @Enumerated(EnumType.STRING)
-    private PackageType packageType;
+    @ManyToOne
+    @JoinColumn(name = "package_id")
+    private AdminPackageConfig adminPackage;
 
     private LocalDateTime expireDate;
 

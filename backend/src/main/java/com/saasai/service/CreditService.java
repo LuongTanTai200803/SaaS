@@ -108,6 +108,12 @@ public class CreditService {
         return roundOneDecimal((inputLength / 1000.0) * 0.15);
     }
 
+    private double calculateFeatureCost(java.util.List<java.lang.String> features) {
+        if (features == null || features.isEmpty()) {
+            return 0.0;
+        }
+        return roundOneDecimal(features.size() * 0.75);
+    }
 
     private Long parseFileId(String rawFileId) {
         String normalized = rawFileId.startsWith("file_") ? rawFileId.substring(5) : rawFileId;

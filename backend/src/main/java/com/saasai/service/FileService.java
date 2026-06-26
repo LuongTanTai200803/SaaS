@@ -74,8 +74,8 @@ public class FileService {
     }
 
     private void enforceStorageQuota(User currentUser, Long incomingSize) {
-        AdminPackageConfig.PackageType packageType = currentUser.getPackageType() != null
-                ? AdminPackageConfig.PackageType.valueOf(currentUser.getPackageType().name())
+        AdminPackageConfig.PackageType packageType = currentUser.getAdminPackage() != null
+                ? AdminPackageConfig.PackageType.valueOf(currentUser.getAdminPackage().name())
                 : AdminPackageConfig.PackageType.FREE;
         AdminPackageConfig config = adminService.getPackageConfig(packageType);
         Long storageQuotaMb = config.getStorageQuotaMb();

@@ -82,7 +82,7 @@ public class BillingService {
         User user = userRepository.findById(invoice.getUserId())
                 .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
 
-        AdminPackageConfig.PackageType configType = mapToAdminPackageType(invoice.getPackageType());
+        AdminPackageConfig.PackageType configType = mapToAdminPackageType(invoice.getAdminPackage());
         AdminPackageConfig config = adminService.getPackageConfig(configType);
 
         double creditsToAdd = config.getCreditLimit();
@@ -93,7 +93,7 @@ public class BillingService {
                 ? user.getExpireDate()
                 : now;
         user.setExpireDate(base.plusDays(invoice.getDurationMonths() * 30L));
-        user.setPackageType(User.PackageType.valueOf(invoice.getPackageType().name()));
+        user.setPackageType(User.PackageType.valueOf(invoice.getAdminPackage().name()));
         userRepository.save(user);
 
         invoice.setPaymentDate(LocalDateTime.now());
