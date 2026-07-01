@@ -4,11 +4,11 @@ import com.saasai.dto.CreditEstimateDTO;
 import com.saasai.dto.CreditEstimateResponseDTO;
 
 import com.saasai.entity.CreditTransaction;
-import com.saasai.entity.FileUpload;
+import com.saasai.entity.FileMetadata;
 import com.saasai.entity.User;
 
 import com.saasai.repository.CreditTransactionRepository;
-import com.saasai.repository.FileUploadRepository;
+import com.saasai.repository.FileMetadataRepository;
 import com.saasai.repository.UserRepository;
 
 import jakarta.transaction.Transactional;
@@ -36,7 +36,7 @@ public class CreditService {
     private UserRepository userRepository;
 
     @Autowired
-    private FileUploadRepository fileUploadRepository;
+    private FileMetadataRepository fileUploadRepository;
 
     public CreditEstimateResponseDTO estimateCredits(CreditEstimateDTO request) {
         User currentUser = userRepository.findByEmail(resolveCurrentEmail())
@@ -44,7 +44,8 @@ public class CreditService {
 
         String modelName = request.getModelName() != null ? request.getModelName() : request.getModelSelected();
         List<String> features = request.getFeatures() != null ? request.getFeatures() : deriveLegacyFeatures(request);
-        double legacyLengthCost = request.getInputLength() != null ? calculateLegacyLengthCost(request.getInputLength()) : 0.0;
+        double legacyLengthCost = request.getInputLength() != null ? calculateLegacyLengthCost(request.getInputLength())
+                : 0.0;
 
         double modelCost = calculateModelCost(modelName);
         double featureCost = calculateFeatureCost(features) + legacyLengthCost;
@@ -88,21 +89,21 @@ public class CreditService {
     }
 
     private double calculateFileCost(String rawFileId, User currentUser) {
-    if (rawFileId == null || rawFileId.isBlank()) {
-        throw new AuthException("file_id is required", HttpStatus.UNAUTHORIZED);
+        if (rawFileId == null || rawFileId.isBlank()) {
+            throw new AuthException("file_id is required", HttpStatus.UNAUTHORIZED);
+        }
+        
+        String fileId = parseFileId(rawFileId);
+        FileMetadata fileUpload = fileUploadRepository.findById(fileId)
+                .orElseThrow(() -> new RuntimeException("Tệp không tồn tại"));
+
+        if (fileUpload.getUser() == null || !fileUpload.getUser().getUserId().equals(currentUser.getUserId())) {
+            throw new AccessDeniedException("Bạn không có quyền sử dụng tệp này");
+        }
+
+        double fileSizeInMb = fileUpload.getFileSize() == null ? 0.0 : fileUpload.getFileSize() / (1024.0 * 1024.0);
+        return roundOneDecimal(Math.max(0.5, Math.ceil(fileSizeInMb)));
     }
-
-    Long fileId = parseFileId(rawFileId);
-    FileUpload fileUpload = fileUploadRepository.findById(fileId)
-            .orElseThrow(() -> new RuntimeException("Tệp không tồn tại"));
-
-    if (!fileUpload.getUserId().equals(currentUser.getId())) {
-        throw new AccessDeniedException("Bạn không có quyền sử dụng tệp này để ước tính credit");
-    }
-
-    double fileSizeInMb = fileUpload.getFileSize() == null ? 0.0 : fileUpload.getFileSize() / (1024.0 * 1024.0);
-    return roundOneDecimal(Math.max(0.5, Math.ceil(fileSizeInMb)));
-}
 
     private double calculateLegacyLengthCost(Double inputLength) {
         return roundOneDecimal((inputLength / 1000.0) * 0.15);
@@ -115,10 +116,10 @@ public class CreditService {
         return roundOneDecimal(features.size() * 0.75);
     }
 
-    private Long parseFileId(String rawFileId) {
+    private String parseFileId(String rawFileId) {
         String normalized = rawFileId.startsWith("file_") ? rawFileId.substring(5) : rawFileId;
         try {
-            return Long.parseLong(normalized);
+            return String.valueOf(Long.parseLong(normalized));
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("fileId không hợp lệ");
         }
@@ -143,23 +144,26 @@ public class CreditService {
         return Math.round(value * 10.0) / 10.0;
     }
 
-    public Long recordHoldTransaction(Long userId, Double totalHold, String description) {
+    public CreditTransaction recordHoldTransaction(String userId, Double totalHold, String description) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
+
         CreditTransaction transaction = CreditTransaction.builder()
-                .userId(userId)
+                .user(user)
                 .totalCreditHold(totalHold)
                 .description(description)
                 .type(CreditTransaction.TransactionType.HOLD)
                 .build();
 
-        return creditTransactionRepository.save(transaction).getTransactionId();
+        return creditTransactionRepository.save(transaction);
     }
 
     @Transactional
-    public void deductCredit(Long transactionId, Double actualDeducted, Double refunded) {
+    public void deductCredit(String transactionId, Double actualDeducted, Double refunded) {
         CreditTransaction transaction = creditTransactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Transaction không tồn tại"));
 
-        User user = userRepository.findById(transaction.getUserId())
+        User user = userRepository.findById(transaction.getUser().getUserId())
                 .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
 
         double currentBalance = user.getCreditBalance() != null ? user.getCreditBalance() : 0.0;
@@ -173,7 +177,7 @@ public class CreditService {
     }
 
     @Transactional
-    public void refundHold(Long transactionId, Double refunded) {
+    public void refundHold(String transactionId, Double refunded) {
         CreditTransaction transaction = creditTransactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Transaction không tồn tại"));
         transaction.setRefundedCredit(refunded);

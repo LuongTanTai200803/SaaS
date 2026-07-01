@@ -23,7 +23,7 @@ public class AIController {
 
     @PostMapping(value = "/completions", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter processCompletion(@RequestBody AICompletionRequestDTO request) {
-        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String userId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         SseEmitter emitter = new SseEmitter(0L);
 
         CompletableFuture.runAsync(() -> {
@@ -46,7 +46,7 @@ public class AIController {
 
     @PostMapping("/exporter/export")
     public ResponseEntity<byte[]> exportDocument(@RequestBody ExportRequestDTO request) {
-        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String userId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         byte[] fileContent = aiService.exportDocument(
                 request.getSessionId(),

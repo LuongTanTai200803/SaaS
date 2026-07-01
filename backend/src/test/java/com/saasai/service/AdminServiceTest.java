@@ -30,17 +30,17 @@ class AdminServiceTest {
     @Test
     void getPackageConfig_shouldBackfillMissingQuota() {
         AdminPackageConfig config = AdminPackageConfig.builder()
-                .packageType(AdminPackageConfig.PackageType.FREE)
+                .packageType("FREE")
                 .price(0L)
                 .creditLimit(0.0)
                 .storageQuotaMb(null)
                 .build();
 
-        when(adminPackageConfigRepository.findByPackageType(AdminPackageConfig.PackageType.FREE))
+        when(adminPackageConfigRepository.findByPackageType("FREE"))
                 .thenReturn(Optional.of(config));
         when(adminPackageConfigRepository.save(config)).thenReturn(config);
 
-        AdminPackageConfig result = adminService.getPackageConfig(AdminPackageConfig.PackageType.FREE);
+        AdminPackageConfig result = adminService.getPackageConfig("FREE");
 
         assertThat(result.getStorageQuotaMb()).isEqualTo(100L);
         verify(adminPackageConfigRepository).save(config);

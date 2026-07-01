@@ -13,16 +13,17 @@ import java.time.LocalDateTime;
 @Builder
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "user_id", columnDefinition = "CHAR(36)")
+    private String userId;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Column(name = "password_hash", nullable = false)
     private String password;
 
-    @Column(nullable = false)
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
     private String agency;
@@ -33,9 +34,11 @@ public class User {
 
     private Double creditBalance;
 
-    @ManyToOne
+    // QUAN TRỌNG: Thiết lập liên kết khóa ngoại package_id động sang
+    // AdminPackageConfig
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "package_id")
-    private AdminPackageConfig adminPackage;
+    private AdminPackageConfig adminPackageConfig;
 
     private LocalDateTime expireDate;
 
@@ -63,9 +66,5 @@ public class User {
 
     public enum UserRole {
         ROLE_USER, ROLE_ADMIN
-    }
-
-    public enum PackageType {
-        FREE, BASIC, PROFESSIONAL, ENTERPRISE
     }
 }

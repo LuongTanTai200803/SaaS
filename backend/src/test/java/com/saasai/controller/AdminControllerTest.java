@@ -58,8 +58,8 @@ class AdminControllerTest {
     void getFinanceStatsShouldReturnStats() throws Exception {
         AdminStatsResponseDTO stats = AdminStatsResponseDTO.builder()
                 .totalRevenue(158400000L)
-                .newUsersCount(142)
-                .activeAffiliates(28)
+                .newUsersCount(142L)
+                .activeAffiliates(28L)
                 .totalCreditConsumed(45020.0)
                 .build();
 

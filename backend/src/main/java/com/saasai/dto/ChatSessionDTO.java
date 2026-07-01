@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class ChatSessionDTO {
-    private Long sessionId;
+    private Integer sessionId;
     private String tagId;
     private String sessionName;
     private String currentEditorContent;

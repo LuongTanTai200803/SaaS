@@ -18,10 +18,10 @@ public class PaymentTransaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @Column(name = "user_id", nullable = false, columnDefinition = "CHAR(36)")
+    private String userId;
 
-    @Column(name = "invoice_id", nullable = false)
+    @Column(name = "invoice_id", nullable = false, columnDefinition = "CHAR(36)")
     private String invoiceId;
 
     @Column(name = "memo_id", nullable = false)

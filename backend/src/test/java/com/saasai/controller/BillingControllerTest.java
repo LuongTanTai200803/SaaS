@@ -2,6 +2,8 @@ package com.saasai.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saasai.dto.BillingInvoiceDTO;
+import com.saasai.entity.BillingInvoice;
+import com.saasai.entity.BillingInvoice.InvoiceStatus;
 import com.saasai.service.BillingService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class BillingControllerTest {
 
-    private static final Long USER_ID = 10293L;
+    private static final String USER_ID = "user-uuid-10293";
 
     @Mock
     private BillingService billingService;
@@ -50,14 +52,14 @@ class BillingControllerTest {
 
     @Test
     void createInvoiceShouldReturnInvoice() throws Exception {
-        BillingInvoiceDTO invoice = BillingInvoiceDTO.builder()
+        BillingInvoice invoice = BillingInvoice.builder()
                 .invoiceId("INV_99823")
                 .memoId("NAPTIEN_10293_INV99823")
                 .originalAmount(6588000L)
                 .discountAmount(1317600L)
                 .finalAmount(5270400L)
                 .qrCodeUrl("https://img.vietqr.io/image/vietinbank-12345678-qr_only.jpg?amount=5270400&addInfo=NAPTIEN_10293_INV99823")
-                .status("PENDING")
+                .status(InvoiceStatus.PENDING)
                 .build();
 
         when(billingService.createInvoice(USER_ID, "PROFESSIONAL", 12)).thenReturn(invoice);
@@ -69,6 +71,7 @@ class BillingControllerTest {
                                 "durationMonths", 12
                         ))))
                 .andExpect(status().isOk())
+
                 .andExpect(jsonPath("$.invoiceId").value("INV_99823"))
                 .andExpect(jsonPath("$.finalAmount").value(5270400))
                 .andExpect(jsonPath("$.status").value("PENDING"));

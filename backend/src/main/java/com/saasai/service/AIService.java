@@ -2,7 +2,9 @@ package com.saasai.service;
 
 import com.saasai.ai.AiProvider;
 import com.saasai.dto.AIStreamResponseDTO;
+import com.saasai.dto.ExportRequestDTO;
 import com.saasai.entity.ChatSession;
+import com.saasai.entity.CreditTransaction;
 import com.saasai.entity.User;
 import com.saasai.repository.ChatSessionRepository;
 import jakarta.transaction.Transactional;
@@ -35,8 +37,9 @@ public class AIService {
     @Autowired
     private CreditService creditService;
 
-    public void processCompletion(Long sessionId, Long userId, String wizardStateJson, String prompt, Boolean pinEditorContext, String model, SseEmitter emitter) {
-        ChatSession session = chatSessionRepository.findBySessionIdAndUserId(sessionId, userId)
+    public void processCompletion(Integer sessionId, String userId, String wizardStateJson, String prompt,
+            Boolean pinEditorContext, String model, SseEmitter emitter) {
+        ChatSession session = chatSessionRepository.findBySessionIdAndUser_UserId(sessionId, userId)
                 .orElseThrow(() -> new NoSuchElementException("Session not found"));
 
         if (wizardStateJson != null && !wizardStateJson.isBlank()) {
@@ -44,7 +47,9 @@ public class AIService {
         }
 
         double estimatedCredits = estimateCredits(prompt, model);
-        Long transactionId = creditService.recordHoldTransaction(userId, estimatedCredits, "AI completion hold");
+        CreditTransaction transaction = creditService.recordHoldTransaction(userId, estimatedCredits,
+                "AI completion hold");
+        String transactionId = transaction.getTransactionId();
 
         AtomicInteger tokenCount = new AtomicInteger(0);
         AtomicBoolean transactionFinalized = new AtomicBoolean(false);
@@ -152,34 +157,40 @@ public class AIService {
         return Math.round(value * 10.0) / 10.0;
     }
 
-    public byte[] exportDocument(Long sessionId, Long userId, String format) {
-        ChatSession session = chatSessionRepository.findBySessionIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new NoSuchElementException("Session not found"));
+    public byte[] exportDocument(Integer sessionId, String userId, String format) {
+    // 🎯 Tầng Service bây giờ cực kỳ sạch sẽ, chỉ nhận đúng những gì nó cần
+    ChatSession session = chatSessionRepository.findBySessionIdAndUser_UserId(sessionId, userId)
+            .orElseThrow(() -> new NoSuchElementException("Session not found"));
 
-        String content = session.getHtmlContent();
-        if (content == null || content.isBlank()) {
-            content = session.getEditorContent();
-        }
-        if (content == null) {
-            content = "";
-        }
-
-        String normalizedFormat = format == null ? "TXT" : format.trim().toUpperCase();
-        byte[] bytes;
-        switch (normalizedFormat) {
-            case "TXT":
-                bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                break;
-            case "DOCX":
-            case "PDF":
-                String fallback = "Document export fallback for " + normalizedFormat + "\n\n" + content;
-                bytes = fallback.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                break;
-            default:
-                String defaultExport = "Unsupported format " + normalizedFormat + ". Export content:\n\n" + content;
-                bytes = defaultExport.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                break;
-        }
-        return bytes;
+    String content = session.getHtmlContent();
+    if (content == null || content.isBlank()) {
+        content = session.getEditorContent();
     }
+    if (content == null) {
+        content = "";
+    }
+
+    String normalizedFormat = format == null ? "TXT" : format.trim().toUpperCase();
+    byte[] bytes;
+    switch (normalizedFormat) {
+        case "TXT":
+            bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            break;
+        case "DOCX":
+            // Xử lý logic xuất file DOCX thật của ông ở đây...
+            String fallbackDocx = "Document export fallback for DOCX\n\n" + content;
+            bytes = fallbackDocx.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            break;
+        case "PDF":
+            // Xử lý logic xuất file PDF thật của ông ở đây...
+            String fallbackPdf = "Document export fallback for PDF\n\n" + content;
+            bytes = fallbackPdf.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            break;
+        default:
+            String defaultExport = "Unsupported format " + normalizedFormat + ". Export content:\n\n" + content;
+            bytes = defaultExport.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            break;
+    }
+    return bytes;
+}
 }

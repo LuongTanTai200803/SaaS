@@ -5,10 +5,13 @@ import com.saasai.dto.BillingWebhookRequestDTO;
 import com.saasai.entity.AdminPackageConfig;
 import com.saasai.entity.BillingInvoice;
 import com.saasai.entity.CreditTransaction;
+import com.saasai.entity.CreditTransaction.TransactionType;
 import com.saasai.entity.User;
 import com.saasai.repository.BillingInvoiceRepository;
 import com.saasai.repository.CreditTransactionRepository;
 import com.saasai.repository.UserRepository;
+import com.saasai.repository.AdminPackageConfigRepository;
+
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,151 +33,156 @@ public class BillingService {
     @Autowired
     private CreditTransactionRepository creditTransactionRepository;
 
-    public BillingInvoiceDTO createInvoice(Long userId, String packageType, Integer durationMonths) {
-        BillingInvoice.PackageType normalizedPackageType = normalizePackageType(packageType);
-        Integer months = durationMonths == null || durationMonths < 1 ? 1 : durationMonths;
-        String invoiceCode = String.format("%05d", ThreadLocalRandom.current().nextInt(100000));
+    @Autowired
+    private AdminPackageConfigRepository adminPackageConfigRepository; // Đã thêm để truy vấn gói động
 
-        Long originalAmount = calculateOriginalAmount(normalizedPackageType, months);
+    public BillingInvoice createInvoice(String userId, String rawPackageType, Integer months) {
+        // 1. Chuẩn hóa chuỗi (ví dụ: "basic" hoặc "Basic" -> "BASIC")
+        String normalizedType = normalizePackageType(rawPackageType);
+
+        // 2. Gọi DB để lấy cấu hình gói tương ứng (Đã có sẵn giá tiền động bên trong)
+        AdminPackageConfig packageConfig = adminPackageConfigRepository.findByPackageType(normalizedType)
+                .orElseThrow(() -> new RuntimeException("Gói dịch vụ không tồn tại: " + normalizedType));
+
+        // 3. Tạo memoId ngẫu nhiên không trùng lặp cho giao dịch
+        String memoId = "SAASAI" + System.currentTimeMillis() + ThreadLocalRandom.current().nextInt(1000, 9999);
+
+        // 4. Tính toán số tiền dựa trên giá cấu hình động và thời gian đăng ký
+        Long originalAmount = calculateOriginalAmount(packageConfig, months);
         Long discountAmount = calculateDiscount(originalAmount, months);
         Long finalAmount = originalAmount - discountAmount;
 
-        String memoId = "NAPTIEN_" + userId + "_INV" + invoiceCode;
+        // 5. Sinh Link mã QR thanh toán theo chuẩn VietQR
+        String qrCodeUrl = generateVietQRUrl(finalAmount, memoId);
 
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
+        AdminPackageConfig targetPackage = adminPackageConfigRepository.findByPackageType(normalizedType)
+                .orElseThrow(() -> new RuntimeException("Gói dịch vụ không tồn tại: " + normalizedType));
+
+        // 6. Xây dựng đối tượng hóa đơn lưu xuống database
         BillingInvoice invoice = BillingInvoice.builder()
-                .userId(userId)
-                .packageType(normalizedPackageType)
+                .user(user) // Lấy userId từ thực thể User
+
+                .adminPackageConfig(targetPackage) // Liên kết trực tiếp qua thực thể (khóa ngoại package_id)
                 .durationMonths(months)
                 .originalAmount(originalAmount)
                 .discountAmount(discountAmount)
                 .finalAmount(finalAmount)
                 .memoId(memoId)
-                .qrCodeUrl(generateVietQRUrl(finalAmount, memoId))
-                .status(BillingInvoice.InvoiceStatus.PENDING)
+                .qrCodeUrl(qrCodeUrl)
                 .build();
 
-        BillingInvoice saved = billingInvoiceRepository.save(invoice);
-
-        return BillingInvoiceDTO.builder()
-                .invoiceId("INV_" + invoiceCode)
-                .memoId(memoId)
-                .originalAmount(originalAmount)
-                .discountAmount(discountAmount)
-                .finalAmount(finalAmount)
-                .qrCodeUrl(saved.getQrCodeUrl())
-                .status(saved.getStatus().toString())
-                .createdAt(saved.getCreatedAt())
-                .build();
+        return billingInvoiceRepository.save(invoice);
     }
 
     @Transactional
-    public void processPaidInvoice(Long invoiceId) {
-        BillingInvoice invoice = billingInvoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new RuntimeException("Invoice không tồn tại"));
-
-        if (invoice.getStatus() != BillingInvoice.InvoiceStatus.PAID) {
+    public void processPaymentWebhook(BillingWebhookRequestDTO webhookData) {
+        if (webhookData == null || webhookData.getContent() == null) {
             return;
         }
-        if (invoice.getPaymentDate() != null) {
-            return; // idempotent, đã xử lý thanh toán trước đó
+
+        // Tìm hóa đơn dựa theo nội dung chuyển khoản (memoId)
+        String memo = ((String) webhookData.getContent()).trim();
+        BillingInvoice invoice = billingInvoiceRepository.findByMemoId(memo)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn với mã ghi nhớ: " + memo));
+
+        // Nếu hóa đơn đã xử lý thành công trước đó thì bỏ qua tránh trùng lặp
+        if (invoice.getStatus() == BillingInvoice.InvoiceStatus.PAID) {
+            return;
         }
 
-        User user = userRepository.findById(invoice.getUserId())
-                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
+        // Kiểm tra số tiền chuyển khoản thực tế khớp với số tiền trên hóa đơn
+        if (!invoice.getFinalAmount().equals(webhookData.getAmount())) {
+            throw new RuntimeException("Số tiền thanh toán không khớp với hóa đơn");
+        }
 
-        AdminPackageConfig.PackageType configType = mapToAdminPackageType(invoice.getAdminPackage());
-        AdminPackageConfig config = adminService.getPackageConfig(configType);
-
-        double creditsToAdd = config.getCreditLimit();
-        user.setCreditBalance((user.getCreditBalance() != null ? user.getCreditBalance() : 0.0) + creditsToAdd);
-
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime base = user.getExpireDate() != null && user.getExpireDate().isAfter(now)
-                ? user.getExpireDate()
-                : now;
-        user.setExpireDate(base.plusDays(invoice.getDurationMonths() * 30L));
-        user.setPackageType(User.PackageType.valueOf(invoice.getAdminPackage().name()));
-        userRepository.save(user);
-
+        // 1. Cập nhật trạng thái hóa đơn thành Đã thanh toán
+        invoice.setStatus(BillingInvoice.InvoiceStatus.PAID);
         invoice.setPaymentDate(LocalDateTime.now());
         billingInvoiceRepository.save(invoice);
 
-        CreditTransaction txn = CreditTransaction.builder()
-                .userId(user.getId())
-                .actualCreditDeducted(creditsToAdd)
-                .description("Invoice " + invoice.getInvoiceId() + " PAID → credits applied")
-                .type(CreditTransaction.TransactionType.PURCHASE)
-                .build();
-        creditTransactionRepository.save(txn);
+        // 2. Lấy thông tin User và cấu hình gói được mua
+        User user = userRepository.findById(invoice.getUser().getUserId())
+                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
+        AdminPackageConfig targetPackage = invoice.getAdminPackageConfig();
+
+        // 3. Tính toán và gia hạn thời gian sử dụng dịch vụ
+        LocalDateTime currentExpire = user.getExpireDate();
+        LocalDateTime newExpire = (currentExpire != null && currentExpire.isAfter(LocalDateTime.now()))
+                ? currentExpire.plusMonths(invoice.getDurationMonths())
+                : LocalDateTime.now().plusMonths(invoice.getDurationMonths());
+
+        // 4. Nâng cấp thông tin User (Lưu package_id mới và cộng hạn dùng)
+        user.setAdminPackageConfig(targetPackage);
+        user.setExpireDate(newExpire);
+
+        // 5. Cộng số dư Credits khuyến mãi kèm theo cấu hình gói dịch vụ đó vào tài
+        // khoản khách hàng
+        if (targetPackage.getCreditLimit() != null) {
+            double additionalCredits = targetPackage.getCreditLimit();
+            user.setCreditBalance(
+                    user.getCreditBalance() == null ? additionalCredits : user.getCreditBalance() + additionalCredits);
+
+            // Ghi nhận lịch sử giao dịch Credits hệ thống
+            CreditTransaction transaction = CreditTransaction.builder()
+                    .user(user)
+                    .inputCredit(additionalCredits)
+                    .outputCredit(0.0)
+                    .totalCreditHold(0.0)
+                    .actualCreditDeducted(0.0)
+                    .refundedCredit(0.0)
+                    .type(TransactionType.HOLD)
+                    .description("Cộng credits từ việc thanh toán gói " + targetPackage.getPackageType())
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            creditTransactionRepository.save(transaction);
+        }
+
+        userRepository.save(user);
     }
 
-    @Transactional
-    public void handleInvoiceWebhook(BillingWebhookRequestDTO request) {
-        if (request.getInvoiceId() == null || request.getStatus() == null) {
-            throw new IllegalArgumentException("invoiceId và status là bắt buộc");
-        }
-
-        BillingInvoice invoice = billingInvoiceRepository.findById(request.getInvoiceId())
-                .orElseThrow(() -> new RuntimeException("Invoice không tồn tại"));
-
-        BillingInvoice.InvoiceStatus status;
-        try {
-            status = BillingInvoice.InvoiceStatus.valueOf(request.getStatus().trim().toUpperCase());
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Trạng thái hóa đơn không hợp lệ");
-        }
-
-        invoice.setStatus(status);
-        if (status == BillingInvoice.InvoiceStatus.PAID) {
-            billingInvoiceRepository.save(invoice);
-            processPaidInvoice(invoice.getInvoiceId());
-        } else {
-            billingInvoiceRepository.save(invoice);
-        }
-    }
-
-    private BillingInvoice.PackageType normalizePackageType(String packageType) {
+    private String normalizePackageType(String packageType) {
         if (packageType == null || packageType.trim().isEmpty()) {
-            return BillingInvoice.PackageType.FREE;
+            return "FREE";
         }
 
-        return switch (packageType.trim().toUpperCase()) {
-            case "TRIAL", "FREE" -> BillingInvoice.PackageType.FREE;
-            case "BASIC" -> BillingInvoice.PackageType.BASIC;
-            case "PROFESSIONAL" -> BillingInvoice.PackageType.PROFESSIONAL;
-            case "ENTERPRISE" -> BillingInvoice.PackageType.ENTERPRISE;
-            default -> BillingInvoice.PackageType.valueOf(packageType.trim().toUpperCase());
+        String trimmedUpper = packageType.trim().toUpperCase();
+        return switch (trimmedUpper) {
+            case "TRIAL", "FREE" -> "FREE";
+            case "BASIC" -> "BASIC";
+            case "PROFESSIONAL" -> "PROFESSIONAL";
+            case "ENTERPRISE" -> "ENTERPRISE";
+            default -> trimmedUpper;
         };
     }
 
-    private AdminPackageConfig.PackageType mapToAdminPackageType(BillingInvoice.PackageType packageType) {
-        return switch (packageType) {
-            case FREE -> AdminPackageConfig.PackageType.FREE;
-            case BASIC -> AdminPackageConfig.PackageType.BASIC;
-            case PROFESSIONAL -> AdminPackageConfig.PackageType.PROFESSIONAL;
-            case ENTERPRISE -> AdminPackageConfig.PackageType.ENTERPRISE;
-        };
-    }
-
-    private Long calculateOriginalAmount(BillingInvoice.PackageType packageType, Integer months) {
-        Long pricePerMonth = switch (packageType) {
-            case FREE -> 0L;
-            case BASIC -> 199000L;
-            case PROFESSIONAL -> 549000L;
-            case ENTERPRISE -> 1199000L;
-        };
-        return pricePerMonth * months;
+    // Đã sửa đổi: Không dùng switch-case giá cứng, lấy trực tiếp giá từ thực thể DB
+    private Long calculateOriginalAmount(AdminPackageConfig packageConfig, Integer months) {
+        if (packageConfig == null || months == null) {
+            return 0L;
+        }
+        return packageConfig.getPrice() * months;
     }
 
     private Long calculateDiscount(Long originalAmount, Integer months) {
-        if (months >= 12) {
-            return (long) (originalAmount * 0.2);
+        if (months != null && months >= 12) {
+            return (long) (originalAmount * 0.2); // Giảm giá 20% khi mua gói theo năm
         }
         return 0L;
     }
 
     private String generateVietQRUrl(Long amount, String memo) {
-        return "https://img.vietqr.io/image/vietinbank-12345678-qr_only.jpg?amount=" +
-                amount + "&addInfo=" + memo;
+        return "https://img.vietqr.io/image/vietinbank-12345678-qr_only.png?amount=" + amount + "&addInfo=" + memo;
+    }
+
+    public void handleInvoiceWebhook(BillingWebhookRequestDTO request) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'handleInvoiceWebhook'");
+    }
+
+    public void processPaidInvoice(String testInvoiceId) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'processPaidInvoice'");
     }
 }

@@ -2,10 +2,10 @@ package com.saasai.service;
 
 import com.saasai.dto.CreditEstimateDTO;
 import com.saasai.dto.CreditEstimateResponseDTO;
-import com.saasai.entity.FileUpload;
+import com.saasai.entity.FileMetadata; 
 import com.saasai.entity.User;
 import com.saasai.repository.CreditTransactionRepository;
-import com.saasai.repository.FileUploadRepository;
+import com.saasai.repository.FileMetadataRepository;
 import com.saasai.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,14 +37,17 @@ class CreditServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private FileUploadRepository fileUploadRepository;
+    private FileMetadataRepository fileUploadRepository;
 
     @InjectMocks
     private CreditService creditService;
 
+    private final String testUserId = "user-uuid-10293"; // 🎯 ĐÃ SỬA
+
     @BeforeEach
     void setUp() {
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(10293L, null);
+        // Principal bây giờ lưu chuỗi String đại diện cho UUID người dùng
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(testUserId, null);
         authentication.setDetails("user@example.com");
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
@@ -56,7 +59,7 @@ class CreditServiceTest {
 
     @Test
     void estimateCreditsShouldCalculateFromModelAndFeaturesWithoutFile() {
-        User user = User.builder().id(10293L).email("user@example.com").creditBalance(10.0).build();
+        User user = User.builder().userId(testUserId).email("user@example.com").creditBalance(10.0).build();
         CreditEstimateDTO request = CreditEstimateDTO.builder()
                 .modelName("claude-sonnet-4.6")
                 .features(List.of("LEGAL_REVIEW", "EXPORT_DOCX"))
@@ -73,16 +76,17 @@ class CreditServiceTest {
 
     @Test
     void estimateCreditsShouldAddFileCostForOwnedFile() {
-        User user = User.builder().id(10293L).email("user@example.com").creditBalance(20.0).build();
-        FileUpload fileUpload = FileUpload.builder().fileId(15L).userId(10293L).fileSize(2L * 1024 * 1024).build();
+        User user = User.builder().userId(testUserId).email("user@example.com").creditBalance(20.0).build();
+        // Sửa fileId sang String khớp cấu hình flyway schema
+        FileMetadata fileUpload = FileMetadata.builder().fileId("file-uuid-15").user(user).fileSize(2L * 1024 * 1024).build();
         CreditEstimateDTO request = CreditEstimateDTO.builder()
                 .modelName("claude-sonnet-4.6")
                 .features(List.of("LEGAL_REVIEW", "EXPORT_DOCX"))
-                .fileId("file_15")
+                .fileId("file-uuid-15")
                 .build();
 
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
-        when(fileUploadRepository.findById(15L)).thenReturn(Optional.of(fileUpload));
+        when(fileUploadRepository.findById("file-uuid-15")).thenReturn(Optional.of(fileUpload));
 
         CreditEstimateResponseDTO response = creditService.estimateCredits(request);
 
@@ -92,37 +96,24 @@ class CreditServiceTest {
 
     @Test
     void estimateCreditsShouldThrowWhenFileBelongsToAnotherUser() {
-        User user = User.builder().id(10293L).email("user@example.com").creditBalance(20.0).build();
-        FileUpload fileUpload = FileUpload.builder().fileId(15L).userId(99999L).fileSize(1024L).build();
+        User user = User.builder().userId(testUserId).email("user@example.com").creditBalance(20.0).build();
+        User otherUser = User.builder().userId("other-user-uuid").email("other@example.com").creditBalance(20.0).build();
+        FileMetadata fileUpload = FileMetadata.builder().fileId("file-uuid-15").user(otherUser).fileSize(1024L).build();
         CreditEstimateDTO request = CreditEstimateDTO.builder()
                 .modelName("claude-sonnet-4.6")
                 .features(List.of("LEGAL_REVIEW"))
-                .fileId("15")
+                .fileId("file-uuid-15")
                 .build();
 
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
-        when(fileUploadRepository.findById(15L)).thenReturn(Optional.of(fileUpload));
+        when(fileUploadRepository.findById("file-uuid-15")).thenReturn(Optional.of(fileUpload));
 
         assertThrows(AccessDeniedException.class, () -> creditService.estimateCredits(request));
     }
 
     @Test
-    void estimateCreditsShouldThrowOnInvalidFileIdFormat() {
-        User user = User.builder().id(10293L).email("user@example.com").creditBalance(20.0).build();
-        CreditEstimateDTO request = CreditEstimateDTO.builder()
-                .modelName("claude-sonnet-4.6")
-                .features(List.of("LEGAL_REVIEW"))
-                .fileId("file_abc")
-                .build();
-
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
-
-        assertThrows(IllegalArgumentException.class, () -> creditService.estimateCredits(request));
-    }
-
-    @Test
     void estimateCreditsShouldMarkIneligibleWhenCreditsAreInsufficient() {
-        User user = User.builder().id(10293L).email("user@example.com").creditBalance(2.0).build();
+        User user = User.builder().userId(testUserId).email("user@example.com").creditBalance(2.0).build();
         CreditEstimateDTO request = CreditEstimateDTO.builder()
                 .modelName("claude-sonnet-4.6")
                 .features(List.of("LEGAL_REVIEW", "EXPORT_DOCX"))

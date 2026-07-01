@@ -1,6 +1,6 @@
 package com.saasai.controller;
 
-import com.saasai.dto.FileUploadResponseDTO;
+import com.saasai.dto.FileMetadataResponseDTO;
 import com.saasai.service.FileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -18,13 +18,13 @@ public class FileController {
     private FileService fileService;
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<FileUploadResponseDTO> uploadFile(
+    public ResponseEntity<FileMetadataResponseDTO> uploadFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "category", required = false) String category
     ) throws IOException {
         
         // Gọi thẳng Service xử lý lưu cục bộ và lưu DB mà ông đã viết
-        FileUploadResponseDTO response = fileService.uploadFile(file, category);
+        FileMetadataResponseDTO response = fileService.uploadFile(file, category);
         
         return ResponseEntity.ok(response);
     }

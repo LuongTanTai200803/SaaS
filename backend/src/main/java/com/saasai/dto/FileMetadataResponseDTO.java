@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class FileUploadResponseDTO {
+public class FileMetadataResponseDTO {
     private String fileId;
     private String fileName;
     private String fileUrl;

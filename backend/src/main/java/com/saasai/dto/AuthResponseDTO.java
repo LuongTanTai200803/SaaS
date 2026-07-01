@@ -1,5 +1,7 @@
 package com.saasai.dto;
 
+import com.saasai.entity.User.UserRole;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

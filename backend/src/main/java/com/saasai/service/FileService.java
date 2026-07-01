@@ -1,10 +1,10 @@
 package com.saasai.service;
 
-import com.saasai.dto.FileUploadResponseDTO;
+import com.saasai.dto.FileMetadataResponseDTO;
 import com.saasai.entity.AdminPackageConfig;
-import com.saasai.entity.FileUpload;
+import com.saasai.entity.FileMetadata;
 import com.saasai.entity.User;
-import com.saasai.repository.FileUploadRepository;
+import com.saasai.repository.FileMetadataRepository;
 import com.saasai.repository.UserRepository;
 import com.saasai.storage.StorageService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +24,7 @@ public class FileService {
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "docx", "txt");
 
     @Autowired
-    private FileUploadRepository fileUploadRepository;
+    private FileMetadataRepository fileUploadRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -38,7 +38,7 @@ public class FileService {
     @Value("${storage.base-url:http://localhost:8080/uploads/}")
     private String storageBaseUrl;
 
-    public FileUploadResponseDTO uploadFile(MultipartFile file, String category) throws IOException {
+    public FileMetadataResponseDTO uploadFile(MultipartFile file, String category) throws IOException {
         User currentUser = userRepository.findByEmail(resolveCurrentEmail())
                 .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
 
@@ -47,12 +47,12 @@ public class FileService {
 
         String originalFileName = file.getOriginalFilename();
         String storedFileName = buildStoredFileName(originalFileName);
-        FileUpload.FileCategory fileCategory = normalizeCategory(category);
+        FileMetadata.FileCategory fileCategory = normalizeCategory(category);
 
         storageService.storeFile(file, storedFileName);
 
-        FileUpload fileUpload = FileUpload.builder()
-                .userId(currentUser.getId())
+        FileMetadata fileUpload = FileMetadata.builder()
+                .user(currentUser)
                 .fileName(originalFileName)
                 .fileUrl(storageBaseUrl + storedFileName)
                 .fileSize(file.getSize())
@@ -60,9 +60,9 @@ public class FileService {
                 .mimeType(file.getContentType())
                 .build();
 
-        FileUpload saved = fileUploadRepository.save(fileUpload);
+        FileMetadata saved = fileUploadRepository.save(fileUpload);
 
-        return FileUploadResponseDTO.builder()
+        return FileMetadataResponseDTO.builder()
                 .fileId("file_" + saved.getFileId())
                 .fileName(originalFileName)
                 .fileUrl(saved.getFileUrl())
@@ -74,28 +74,33 @@ public class FileService {
     }
 
     private void enforceStorageQuota(User currentUser, Long incomingSize) {
-        AdminPackageConfig.PackageType packageType = currentUser.getAdminPackage() != null
-                ? AdminPackageConfig.PackageType.valueOf(currentUser.getAdminPackage().name())
-                : AdminPackageConfig.PackageType.FREE;
+        // 1. 🎯 ĐÃ SỬA: Lấy trực tiếp chuỗi String packageType từ Object liên kết, check null an toàn
+        String packageType = (currentUser.getAdminPackageConfig() != null)
+                ? currentUser.getAdminPackageConfig().getPackageType()
+                : "FREE";
+                
+        // 2. Tìm cấu hình cấu trúc gói từ adminService
         AdminPackageConfig config = adminService.getPackageConfig(packageType);
         Long storageQuotaMb = config.getStorageQuotaMb();
         if (storageQuotaMb == null) {
-            storageQuotaMb = getDefaultStorageQuotaMb(packageType);
+            storageQuotaMb = getDefaultStorageQuotaMb(packageType); // Hàm bổ trợ của ông
         }
 
-        long usedBytes = fileUploadRepository.sumFileSizeByUserId(currentUser.getId());
+        long usedBytes = fileUploadRepository.sumFileSizeByUserId(currentUser.getUserId());
         long allowedBytes = storageQuotaMb * 1024L * 1024L;
         long totalBytes = usedBytes + (incomingSize != null ? incomingSize : 0L);
         if (totalBytes > allowedBytes) {
-            throw new IllegalArgumentException("Vượt quá hạn mức lưu trữ của gói " + packageType + ". Hạn mức: " + storageQuotaMb + "MB.");
+            throw new IllegalArgumentException(
+                    "Vượt quá hạn mức lưu trữ của gói " + packageType + ". Hạn mức: " + storageQuotaMb + "MB.");
         }
     }
 
-    private Long getDefaultStorageQuotaMb(AdminPackageConfig.PackageType packageType) {
+    private Long getDefaultStorageQuotaMb(String packageType) {
         return switch (packageType) {
-            case FREE, BASIC -> 100L;
-            case PROFESSIONAL -> 1024L;
-            case ENTERPRISE -> 5120L;
+            case "FREE", "BASIC" -> 100L;
+            case "PROFESSIONAL" -> 1024L;
+            case "ENTERPRISE" -> 5120L;
+            default -> 100L;
         };
     }
 
@@ -136,21 +141,21 @@ public class FileService {
         throw new RuntimeException("Không tìm thấy email người dùng hiện tại");
     }
 
-    private FileUpload.FileCategory normalizeCategory(String category) {
+    private FileMetadata.FileCategory normalizeCategory(String category) {
         if (category == null || category.isBlank()) {
-            return FileUpload.FileCategory.INPUT_DIRECTIVE;
+            return FileMetadata.FileCategory.INPUT_DIRECTIVE;
         }
 
         String normalized = category.trim().toUpperCase();
         return switch (normalized) {
-            case "INPUT_DIRECTIVE", "DIRECTIVE" -> FileUpload.FileCategory.INPUT_DIRECTIVE;
-            case "EVIDENCE" -> FileUpload.FileCategory.EVIDENCE;
-            case "LEGAL" -> FileUpload.FileCategory.LEGAL;
-            case "CONTENT" -> FileUpload.FileCategory.CONTENT;
-            case "TEMPLATE" -> FileUpload.FileCategory.TEMPLATE;
-            case "RELATED" -> FileUpload.FileCategory.RELATED;
-            case "OUTPUT_DOCUMENT", "OUTPUT" -> FileUpload.FileCategory.OUTPUT_DOCUMENT;
-            default -> FileUpload.FileCategory.valueOf(normalized);
+            case "INPUT_DIRECTIVE", "DIRECTIVE" -> FileMetadata.FileCategory.INPUT_DIRECTIVE;
+            case "EVIDENCE" -> FileMetadata.FileCategory.EVIDENCE;
+            case "LEGAL" -> FileMetadata.FileCategory.LEGAL;
+            case "CONTENT" -> FileMetadata.FileCategory.CONTENT;
+            case "TEMPLATE" -> FileMetadata.FileCategory.TEMPLATE;
+            case "RELATED" -> FileMetadata.FileCategory.RELATED;
+            case "OUTPUT_DOCUMENT", "OUTPUT" -> FileMetadata.FileCategory.OUTPUT_DOCUMENT;
+            default -> FileMetadata.FileCategory.valueOf(normalized);
         };
     }
 }

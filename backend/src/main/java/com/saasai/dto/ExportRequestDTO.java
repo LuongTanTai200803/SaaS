@@ -8,7 +8,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ExportRequestDTO {
-    private Long sessionId;
+    private Integer sessionId;
     private String exportFormat;
     private String htmlContent;
 }

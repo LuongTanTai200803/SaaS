@@ -32,7 +32,7 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
-    public String generateToken(Long userId, String email, String role) {
+    public String generateToken(String userId, String email, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
         return Jwts.builder()
@@ -45,7 +45,7 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public String generateAccessToken(Long userId, String email, String role) {
+    public String generateAccessToken(String userId, String email, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtAccessExpirationMs);
         return Jwts.builder()
@@ -58,9 +58,9 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public Long getUserIdFromJWT(String token) {
+    public String getUserIdFromJWT(String token) {
         Claims claims = Jwts.parser().verifyWith(getSigningKey()).build().parseSignedClaims(token).getPayload();
-        return claims.get("userId", Long.class);
+        return claims.get("userId", String.class);
     }
 
     public String getEmailFromJWT(String token) {

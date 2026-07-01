@@ -35,7 +35,7 @@ class AdminControllerSecurityTest {
 
     @Test
     void adminRoleShouldAccessPackageUpdate() throws Exception {
-        String token = jwtTokenProvider.generateToken(1L, "admin@example.com", "ROLE_ADMIN");
+        String token = jwtTokenProvider.generateToken("admin-uuid-10293", "admin@example.com", "ROLE_ADMIN");
         when(adminService.upsertPackageConfig(anyString(), any(AdminPackageUpdateDTO.class)))
                 .thenReturn(null);
 
@@ -48,7 +48,7 @@ class AdminControllerSecurityTest {
 
     @Test
     void userRoleShouldBeForbiddenForPackageUpdate() throws Exception {
-        String token = jwtTokenProvider.generateToken(2L, "user@example.com", "ROLE_USER");
+        String token = jwtTokenProvider.generateToken("user-uuid-2", "user@example.com", "ROLE_USER");
 
         mockMvc.perform(put("/api/v1/admin/packages/PROFESSIONAL")
                         .header("Authorization", "Bearer " + token)

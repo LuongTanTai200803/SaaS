@@ -9,11 +9,13 @@ import org.springframework.stereotype.Service;
 import com.saasai.dto.DocumentDTO;
 import com.saasai.dto.PaginatedResponseDTO;
 import com.saasai.dto.UserProfileDTO;
+import com.saasai.entity.FileMetadata;
 import com.saasai.entity.User;
 import com.saasai.repository.ChatSessionRepository;
 import com.saasai.repository.UserRepository;
-import com.saasai.repository.FileUploadRepository;
+import com.saasai.repository.FileMetadataRepository;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,20 +27,22 @@ public class UserService {
         private ChatSessionRepository chatSessionRepository;
 
         @Autowired
-        private FileUploadRepository fileUploadRepository;
+        private FileMetadataRepository fileUploadRepository;
 
         public UserProfileDTO getUserProfileByEmail(String email) {
                 User user = userRepository.findByEmail(email)
                                 .orElseThrow(() -> new RuntimeException("User not found"));
 
                 return UserProfileDTO.builder()
-                                .id(user.getId())
+                                .userId(user.getUserId())
                                 .email(user.getEmail())
                                 .fullName(user.getFullName())
                                 .agency(user.getAgency())
                                 .role(user.getRole().toString())
                                 .creditBalance(user.getCreditBalance())
-                                .packageType(user.getAdminPackage() != null ? user.getAdminPackage().toString() : null)
+                                .packageType(user.getAdminPackageConfig() != null
+                                                ? user.getAdminPackageConfig().toString()
+                                                : null)
                                 .expireDate(user.getExpireDate())
                                 .affiliate(UserProfileDTO.AffiliateDTO.builder()
                                                 .code(user.getAffiliateCode())
@@ -48,18 +52,20 @@ public class UserService {
                                 .build();
         }
 
-        public UserProfileDTO getUserProfile(Long userId) {
+        public UserProfileDTO getUserProfile(String userId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new RuntimeException("User not found"));
 
                 return UserProfileDTO.builder()
-                                .id(user.getId())
+                                .userId(user.getUserId())
                                 .email(user.getEmail())
                                 .fullName(user.getFullName())
                                 .agency(user.getAgency())
                                 .role(user.getRole().toString())
                                 .creditBalance(user.getCreditBalance())
-                                .packageType(user.getAdminPackage() != null ? user.getAdminPackage().toString() : null)
+                                .packageType(user.getAdminPackageConfig() != null
+                                                ? user.getAdminPackageConfig().toString()
+                                                : null)
                                 .expireDate(user.getExpireDate())
                                 .affiliate(UserProfileDTO.AffiliateDTO.builder()
                                                 .code(user.getAffiliateCode())
@@ -69,20 +75,22 @@ public class UserService {
                                 .build();
         }
 
-        public User getUserById(Long userId) {
+        public User getUserById(String userId) {
                 return userRepository.findById(userId)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new RuntimeException("User not found"));
         }
 
-        public PaginatedResponseDTO<DocumentDTO> getUserDocuments(Long userId, int page, int size) {
+        public PaginatedResponseDTO<DocumentDTO> getUserDocuments(String userId, int page, int size) {
                 Pageable pageable = PageRequest.of(page, size);
                 Page<com.saasai.entity.ChatSession> sessions = chatSessionRepository
-                                .findByUserIdOrderByUpdatedAtDesc(userId, pageable);
+                                .findByUser_UserIdOrderByUpdatedAtDesc(userId, pageable);
 
                 return PaginatedResponseDTO.<DocumentDTO>builder()
                                 .content(sessions.getContent().stream()
                                                 .map(session -> DocumentDTO.builder()
-                                                                .sessionId(session.getSessionId())
+                                                                .sessionId(session.getSessionId() != null
+                                                                                ? String.valueOf(session.getSessionId())
+                                                                                : null)
                                                                 .sessionName(session.getSessionName())
                                                                 .tagId(session.getTagId())
                                                                 .updatedAt(session.getUpdatedAt())
@@ -98,18 +106,25 @@ public class UserService {
 
         public PaginatedResponseDTO<DocumentDTO> getUserDocumentsByUserEmail(String email, int page, int size) {
                 Pageable pageable = PageRequest.of(page, size);
-                Page<com.saasai.entity.FileUpload> files = fileUploadRepository.findByUserEmail(email, pageable);
+                Page<FileMetadata> files = fileUploadRepository.findByUserEmail(email, pageable);
+
+                // Ép kiểu tường minh để tránh lỗi suy luận kiểu (type inference)
+                List<DocumentDTO> documentList = files.getContent().stream()
+                                .map(file -> DocumentDTO.builder()
+                                                .sessionId(file.getFileId() != null
+                                                                ? String.valueOf(file.getFileId())
+                                                                : null)
+                                                .sessionName(file.getFileName())
+                                                .tagId(file.getCategory() != null
+                                                                ? file.getCategory().name()
+                                                                : null)
+                                                .updatedAt(file.getUploadedAt())
+                                                .status(file.getMimeType())
+                                                .build())
+                                .collect(Collectors.toList());
 
                 return PaginatedResponseDTO.<DocumentDTO>builder()
-                                .content(files.getContent().stream()
-                                                .map(file -> DocumentDTO.builder()
-                                                                .sessionId(file.getFileId())
-                                                                .sessionName(file.getFileName())
-                                                                .tagId(file.getCategory() != null ? file.getCategory().name() : null)
-                                                                .updatedAt(file.getUploadedAt())
-                                                                .status(file.getMimeType())
-                                                                .build())
-                                                .collect(Collectors.toList()))
+                                .content(documentList)
                                 .totalPages(files.getTotalPages())
                                 .totalElements(files.getTotalElements())
                                 .currentPage(page)
@@ -117,7 +132,7 @@ public class UserService {
                                 .build();
         }
 
-        public Double updateUserCredit(Long userId, Double creditAmount) {
+        public Double updateUserCredit(String userId, Double creditAmount) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new RuntimeException("User not found"));
                 Double currentBalance = user.getCreditBalance() != null ? user.getCreditBalance() : 0.0;

@@ -9,9 +9,9 @@ import lombok.*;
 @Builder
 public class AdminStatsResponseDTO {
     private Long totalRevenue;
-    private Integer newUsersCount;
-    private Integer activeAffiliates;
+    private Long newUsersCount;
+    private Long activeAffiliates;
     private Double totalCreditConsumed;
-    private Integer activeSessionsCount;
-    private Integer totalDocumentsGenerated;
+    private Long activeSessionsCount;
+    private Long totalDocumentsGenerated;
 }

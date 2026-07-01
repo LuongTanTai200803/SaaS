@@ -50,7 +50,7 @@ protected void doFilterInternal(HttpServletRequest request, HttpServletResponse 
             if (tokenBlacklistService.isBlacklisted(jwt)) {
                 request.setAttribute(AUTH_ERROR_ATTR, AUTH_ERROR_TOKEN_BLACKLISTED);
             } else {
-                Long userId = tokenProvider.getUserIdFromJWT(jwt);
+                String userId = tokenProvider.getUserIdFromJWT(jwt);
                 String email = tokenProvider.getEmailFromJWT(jwt);
                 String role = tokenProvider.getRoleFromJWT(jwt);
                 if (role == null) {

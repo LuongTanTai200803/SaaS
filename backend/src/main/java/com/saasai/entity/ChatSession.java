@@ -3,6 +3,25 @@ package com.saasai.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+// CREATE TABLE IF NOT EXISTS chat_sessions (
+//     session_id BIGINT AUTO_INCREMENT PRIMARY KEY,   
+//     session_uuid VARCHAR(36) NOT NULL,
+//     user_id CHAR(36) NOT NULL,
+//     session_name VARCHAR(255) NOT NULL DEFAULT 'Phiên làm việc mới',
+//     tag_id VARCHAR(36),
+//     status VARCHAR(50) DEFAULT 'DRAFT',
+//     wizard_state_json JSON,
+//     chat_history_json JSON,
+//     editor_content LONGTEXT,
+//     html_content LONGTEXT,
+//     export_format VARCHAR(50),
+//     created_at DATETIME NOT NULL,
+//     updated_at DATETIME NOT NULL,
+//     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+//     INDEX idx_chat_sessions_user_id (user_id)
+// );
+
+import org.springframework.web.bind.support.SessionStatus;
 
 @Entity
 @Table(name = "chat_sessions")
@@ -14,17 +33,21 @@ import java.time.LocalDateTime;
 public class ChatSession {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "session_id")
-    private Long sessionId;
+    @Column(name = "session_id" )
+    private Integer sessionId;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @Column(name = "session_uuid", unique = true, nullable = false, updatable = false, length = 36)
+    private String sessionUuid;
 
-    @Column(name = "tag_id")
-    private String tagId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(name = "session_name", nullable = false)
     private String sessionName;
+
+    @Column(name = "tag_id", length = 36)
+    private String tagId;
 
     @Column(name = "editor_content", columnDefinition = "LONGTEXT")
     private String editorContent;
@@ -33,7 +56,6 @@ public class ChatSession {
     private String htmlContent;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
     private SessionStatus status;
 
     @Column(name = "wizard_state_json", columnDefinition = "JSON")
@@ -55,7 +77,18 @@ public class ChatSession {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        status = SessionStatus.DRAFT;
+
+        // 🎯 CHÍ MẠNG: Tự động gen chuỗi UUID ngẫu nhiên bằng Java trước khi bản ghi
+        // được lưu xuống MySQL
+        if (this.sessionUuid == null) {
+            this.sessionUuid = java.util.UUID.randomUUID().toString();
+        }
+        if (this.sessionName == null) {
+            this.sessionName = "Phiên làm việc mới";
+        }
+        if (this.status == null) {
+            this.status = SessionStatus.DRAFT;
+        }
     }
 
     @PreUpdate
@@ -66,4 +99,5 @@ public class ChatSession {
     public enum SessionStatus {
         DRAFT, ACTIVE, COMPLETED, ARCHIVED
     }
+
 }

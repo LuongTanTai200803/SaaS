@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 import com.saasai.entity.CreditTransaction;
 
 @Repository
-public interface CreditTransactionRepository extends JpaRepository<CreditTransaction, Long> {
+public interface CreditTransactionRepository extends JpaRepository<CreditTransaction, String> {
 }

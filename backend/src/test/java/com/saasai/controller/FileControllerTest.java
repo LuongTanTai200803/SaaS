@@ -1,7 +1,7 @@
 package com.saasai.controller;
 
 import com.saasai.dto.ApiResponseDTO;
-import com.saasai.dto.FileUploadResponseDTO;
+import com.saasai.dto.FileMetadataResponseDTO;
 import com.saasai.service.FileService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,7 +60,7 @@ class FileControllerTest {
                 "mock-content".getBytes()
         );
 
-        FileUploadResponseDTO response = FileUploadResponseDTO.builder()
+        FileMetadataResponseDTO response = FileMetadataResponseDTO.builder()
                 .fileId("file_abc123")
                 .fileName("test.pdf")
                 .fileUrl("https://storage.trolyai.vn/inputs/test.pdf")

@@ -8,7 +8,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class AICompletionRequestDTO {
-    private Long sessionId;
+    private Integer sessionId;
     private String wizardStateJson;
     private String promptCommand;
     private Boolean pinEditorContext;
