@@ -53,6 +53,21 @@ public class User {
 
     private LocalDateTime updatedAt;
 
+    @Column(name = "provider")
+    private String provider = "LOCAL";           // LOCAL, GOOGLE, FACEBOOK
+
+    @Column(name = "provider_id")
+    private String providerId;
+
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
+    @Column(name = "password_reset_token")
+    private String passwordResetToken;
+
+    @Column(name = "verification_token")
+    private String verificationToken;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

@@ -33,10 +33,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        return "/api/v1/auth/register".equals(path)
-                || "/api/v1/auth/login".equals(path)
+        
+        // Danh sách các path không cần JWT
+        return path.equals("/api/v1/auth/register")
+                || path.equals("/api/v1/auth/login")
+                || path.equals("/api/v1/auth/google")           // Google Login
+                || path.startsWith("/oauth2/authorization")     // Bắt đầu flow Google
+                || path.startsWith("/login/oauth2/code")        // Callback từ Google
                 || path.startsWith("/v3/api-docs")
-                || path.startsWith("/swagger-ui");
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/h2-console");
     }
 
     @Override

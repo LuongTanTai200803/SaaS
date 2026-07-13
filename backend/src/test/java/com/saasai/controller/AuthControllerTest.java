@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -44,6 +45,8 @@ class AuthControllerTest {
 
     @InjectMocks
     private AuthController authController;
+
+    private AuthResponseDTO authResponseDTO;
 
     private MockMvc mockMvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -175,4 +178,40 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("Đăng xuất thành công"))
                 .andExpect(jsonPath("$.statusCode").value(200));
     }
+
+        @Test
+        void loginWithGoogle_Success() throws Exception {
+        String validToken = "valid.google.id.token";
+
+        when(authService.loginWithGoogle(validToken)).thenReturn(authResponseDTO);
+
+        mockMvc.perform(post("/api/v1/auth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"idToken\":\"" + validToken + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").exists());
+        }
+
+        @Test
+        void loginWithGoogle_InvalidToken() throws Exception {
+        when(authService.loginWithGoogle(anyString()))
+                .thenThrow(new RuntimeException("Token Google không hợp lệ"));
+
+        mockMvc.perform(post("/api/v1/auth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"idToken\":\"invalid.token\"}"))
+                .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void loginWithGoogle_NewUser() throws Exception {
+        // Test case tạo user mới từ Google
+        String newToken = "new.google.token";
+        when(authService.loginWithGoogle(newToken)).thenReturn(authResponseDTO);
+
+        mockMvc.perform(post("/api/v1/auth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"idToken\":\"" + newToken + "\"}"))
+                .andExpect(status().isOk());
+        }
 }

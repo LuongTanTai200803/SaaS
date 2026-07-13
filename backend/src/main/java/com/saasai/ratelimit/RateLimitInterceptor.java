@@ -17,11 +17,21 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String uri = request.getRequestURI();
         String key = getKeyForRequest(request);
 
-        if (uri.equals("/api/v1/auth/login")) {
+        // Rate limit cho Google Login
+        if (uri.equals("/api/v1/auth/google")) {
+            if (!rateLimitService.tryConsume(key + ":google", 5, 60)) { // 5 lần / 60 giây
+                response.setStatus(429);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"Too many Google login attempts. Please try again later.\"}");
+                return false;
+            }
+        } 
+        // Các endpoint cũ
+        else if (uri.equals("/api/v1/auth/login")) {
             rateLimitService.validateLogin(key);
         } else if (uri.equals("/api/v1/credits/estimate")) {
             rateLimitService.validateCreditEstimate(key);

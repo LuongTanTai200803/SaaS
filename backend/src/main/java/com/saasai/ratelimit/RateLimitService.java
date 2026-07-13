@@ -68,4 +68,9 @@ public class RateLimitService {
             return true;
         }
     }
+
+    public boolean tryConsume(String string, int i, int j) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'tryConsume'");
+    }
 }

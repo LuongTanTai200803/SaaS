@@ -19,6 +19,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -87,4 +89,79 @@ public class AuthService {
         String userRoleElement = user.getRole() != null ? user.getRole().toString() : UserRole.ROLE_USER.toString();
         return tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), userRoleElement);
     }
+    
+    // Thêm logic verify Google ID token và cấp JWT nội bộ
+    public AuthResponseDTO loginWithGoogle(String googleIdToken) {
+    if (googleIdToken == null || googleIdToken.trim().isEmpty()) {
+        throw new RuntimeException("Google ID Token không được để trống");
+    }
+
+        try {
+            // Verify Google ID token
+            Map<String, String> googleUserInfo = tokenProvider.verifyGoogleIdToken(googleIdToken);
+            
+            String email = googleUserInfo.get("email");
+            String fullName = googleUserInfo.get("name");
+            String avatarUrl = googleUserInfo.get("picture");
+            String providerId = googleUserInfo.get("sub");
+
+            if (email == null || email.isBlank()) {
+                throw new RuntimeException("Không thể lấy email từ Google token");
+            }
+
+            // Tìm user cũ
+            Optional<User> existingUserOpt = userRepository.findByEmail(email);
+            User user;
+
+            if (existingUserOpt.isPresent()) {
+                user = existingUserOpt.get();
+                // Cập nhật thông tin mới nhất từ Google
+                user.setFullName(fullName);
+                user.setAvatarUrl(avatarUrl);
+                user.setProvider("GOOGLE");
+                user.setProviderId(providerId);
+                System.out.println("[AuthService] User Google tồn tại, cập nhật: " + email);
+            } else {
+                // Tạo user mới
+                AdminPackageConfig freePackage = adminPackageConfigRepository.findByPackageType("FREE")
+                        .orElseThrow(() -> new RuntimeException("Gói FREE chưa được khởi tạo trong DB!"));
+
+                user = User.builder()
+                        .email(email)
+                        .password(passwordEncoder.encode("GOOGLE_" + UUID.randomUUID())) // random password an toàn
+                        .fullName(fullName != null ? fullName : email)
+                        .agency("")
+                        .role(User.UserRole.ROLE_USER)
+                        .creditBalance(3.0)
+                        .adminPackageConfig(freePackage)
+                        .expireDate(LocalDateTime.now().plusDays(30))
+                        .avatarUrl(avatarUrl)
+                        .provider("GOOGLE")
+                        .providerId(providerId)
+                        .build();
+
+                userRepository.save(user);
+                System.out.println("[AuthService] Tạo user mới từ Google: " + email);
+            }
+
+            // Tạo token
+            String role = user.getRole() != null ? user.getRole().toString() : "ROLE_USER";
+            String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), role);
+            String refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
+
+            return AuthResponseDTO.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .role(role)
+                    .build();
+
+        } catch (Exception e) {
+            System.err.println("[AuthService] Lỗi loginWithGoogle: " + e.getMessage());
+            if (e.getMessage().toLowerCase().contains("expired") || e.getMessage().toLowerCase().contains("invalid")) {
+                throw new RuntimeException("Token Google đã hết hạn hoặc không hợp lệ. Vui lòng thử lại.");
+            }
+            throw new RuntimeException("Đăng nhập Google thất bại: " + e.getMessage());
+        }
+    }
+
 }

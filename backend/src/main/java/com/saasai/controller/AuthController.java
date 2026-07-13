@@ -100,4 +100,16 @@ public class AuthController {
         this.tokenBlacklistService = tokenBlacklistService;
         this.refreshTokenService = refreshTokenService;
     }
+
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponseDTO<AuthResponseDTO>> loginWithGoogle(@RequestParam("token") String googleToken) {
+        AuthResponseDTO authResponse = authService.loginWithGoogle(googleToken);
+        return ResponseEntity.ok(ApiResponseDTO.<AuthResponseDTO>builder()
+                .success(true)
+                .message("Đăng nhập bằng Google thành công")
+                .statusCode(200)
+                .data(authResponse)
+                .build());
+
+    }
 }
