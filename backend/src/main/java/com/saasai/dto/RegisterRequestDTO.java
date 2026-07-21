@@ -16,7 +16,14 @@ public class RegisterRequestDTO {
     @NotBlank(message = "Email không được để trống")
     @Email(message = "Email không hợp lệ")
     private String email;
+
+    @NotBlank(message = "Họ và tên không được để trống")
+    private String fullName;
+
     @NotBlank(message = "Mật khẩu không được để trống")
     @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
     private String password;
+
+    @NotBlank(message = "Tên công ty không được để trống")
+    private String agency;
 }

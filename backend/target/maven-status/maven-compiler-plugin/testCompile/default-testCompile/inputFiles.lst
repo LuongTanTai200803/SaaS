@@ -1,0 +1,17 @@
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/controller/AIControllerTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/controller/AdminControllerSecurityTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/controller/AdminControllerTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/controller/AuthControllerTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/controller/BillingControllerTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/controller/ChatSessionControllerTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/controller/CreditControllerTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/controller/FileControllerTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/controller/UserControllerTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/security/TokenBlacklistServiceTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/service/AIServiceTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/service/AdminServiceTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/service/BillingServiceTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/service/CreditServiceTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/service/FileServiceQuotaTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/service/FileServiceTest.java
+/home/kaiju/Document_Project/Web_Assist_AI/backend/src/test/java/com/saasai/service/FileTextServiceTest.java

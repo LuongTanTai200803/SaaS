@@ -3,11 +3,16 @@ package com.saasai.service;
 import com.saasai.dto.FileMetadataResponseDTO;
 import com.saasai.entity.AdminPackageConfig;
 import com.saasai.entity.FileMetadata;
+import com.saasai.entity.FileMetadata.ExtractionStatus;
 import com.saasai.entity.User;
+import com.saasai.extractor.ExtractResult;
+import com.saasai.normalizer.TextNormalizer;
 import com.saasai.repository.FileMetadataRepository;
 import com.saasai.repository.UserRepository;
+import com.saasai.repository.redis.FileNormalizedTextRedisRepository;
 import com.saasai.storage.StorageService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,29 +23,51 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class FileService {
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "docx", "txt");
 
-    @Autowired
-    private FileMetadataRepository fileUploadRepository;
+    private static final Logger log = LoggerFactory.getLogger(FileService.class);
+    private static final Set<String> ALLOWED_EXTENSIONS =
+            Set.of("docx", "xlsx", "txt");
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private AdminService adminService;
-
-    @Autowired
-    private StorageService storageService;
+    private final FileMetadataRepository fileUploadRepository;
+    private final UserRepository userRepository;
+    private final AdminService adminService;
+    private final StorageService storageService;
+    private final FileExtractionService fileExtractionService;
+    private final TextNormalizer textNormalizer;
+    private final FileNormalizedTextRedisRepository fileTextRedisRepository;
 
     @Value("${storage.base-url:http://localhost:8080/uploads/}")
     private String storageBaseUrl;
 
-    public FileMetadataResponseDTO uploadFile(MultipartFile file, String category) throws IOException {
+    public FileService(
+            FileMetadataRepository fileUploadRepository,
+            UserRepository userRepository,
+            AdminService adminService,
+            StorageService storageService,
+            FileExtractionService fileExtractionService,
+            TextNormalizer textNormalizer,
+            FileNormalizedTextRedisRepository fileTextRedisRepository
+    ) {
+        this.fileUploadRepository = fileUploadRepository;
+        this.userRepository = userRepository;
+        this.adminService = adminService;
+        this.storageService = storageService;
+        this.fileExtractionService = fileExtractionService;
+        this.textNormalizer = textNormalizer;
+        this.fileTextRedisRepository = fileTextRedisRepository;
+    }
+
+    public FileMetadataResponseDTO uploadFile(
+            MultipartFile file,
+            String category
+    ) throws IOException {
         User currentUser = userRepository.findByEmail(resolveCurrentEmail())
-                .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại!"));
+                .orElseThrow(() ->
+                        new RuntimeException("Tài khoản không tồn tại!"));
 
         validateFile(file);
         enforceStorageQuota(currentUser, file.getSize());
@@ -51,6 +78,14 @@ public class FileService {
 
         storageService.storeFile(file, storedFileName);
 
+        ExtractResult extractResult =
+                extractContent(storedFileName, originalFileName);
+
+        // Normalize the extracted raw text
+        String rawText = extractResult.getRawText();
+        
+        String normalizedText = textNormalizer.normalize(rawText);
+
         FileMetadata fileUpload = FileMetadata.builder()
                 .user(currentUser)
                 .fileName(originalFileName)
@@ -58,19 +93,73 @@ public class FileService {
                 .fileSize(file.getSize())
                 .category(fileCategory)
                 .mimeType(file.getContentType())
+                .rawText(rawText)
+                .normalizedText(normalizedText)
+                .characterCount(normalizedText.length())
+                .wordCount(countWords(normalizedText))
+                .extractionStatus(ExtractionStatus.EXTRACTED)
                 .build();
 
         FileMetadata saved = fileUploadRepository.save(fileUpload);
 
+        try {
+            fileTextRedisRepository.save(
+                    saved.getFileId(),
+                    normalizedText
+            );
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "Không thể cache normalized text vào Redis cho fileId={}. "
+                    + "Dữ liệu vẫn đã được lưu trong DB.",
+                    saved.getFileId(),
+                    exception
+            );
+        }
+        
         return FileMetadataResponseDTO.builder()
-                .fileId("file_" + saved.getFileId())
-                .fileName(originalFileName)
+                .fileId(saved.getFileId())
+                .fileName(saved.getFileName())
                 .fileUrl(saved.getFileUrl())
                 .fileSize(saved.getFileSize())
-                .category(saved.getCategory() != null ? saved.getCategory().name() : null)
+                .category(saved.getCategory() != null
+                        ? saved.getCategory().name()
+                        : null)
                 .uploadedAt(saved.getUploadedAt())
                 .uploadedBy(currentUser.getFullName())
                 .build();
+    }
+
+    // Normalize the fileId by removing "file_" prefix if present and validating it as a UUID.
+    private String normalizeFileId(String rawFileId) {
+
+        if (rawFileId == null || rawFileId.isBlank()) {
+            throw new IllegalArgumentException("fileId không được để trống");
+        }
+
+        String fileId = rawFileId.startsWith("file_")
+                ? rawFileId.substring(5)
+                : rawFileId;
+
+            try {
+                UUID.fromString(fileId);
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException("fileId không hợp lệ: " + rawFileId);
+            }
+
+        return fileId;
+    }
+    
+
+    // Helper method to count words in a given text. Returns 0 for null or blank text.
+    private int countWords(String text) {
+
+        if (text == null || text.isBlank()) {
+            return 0;
+        }
+
+        return text.trim()
+                .split("\\s+")
+                .length;
     }
 
     private void enforceStorageQuota(User currentUser, Long incomingSize) {
@@ -116,7 +205,7 @@ public class FileService {
 
         String extension = originalFileName.substring(originalFileName.lastIndexOf('.') + 1).toLowerCase();
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            throw new IllegalArgumentException("Chỉ hỗ trợ file pdf, docx hoặc txt");
+            throw new IllegalArgumentException("Chỉ hỗ trợ file docx, xlsx hoặc txt");
         }
     }
 
@@ -157,5 +246,20 @@ public class FileService {
             case "OUTPUT_DOCUMENT", "OUTPUT" -> FileMetadata.FileCategory.OUTPUT_DOCUMENT;
             default -> FileMetadata.FileCategory.valueOf(normalized);
         };
+    }
+
+    // Extracts the content of a stored file using the FileExtractionService.
+    // Throws an IOException if the file cannot be read or extracted.
+    private ExtractResult extractContent(
+        String storedFileName,
+        String originalFileName
+    ) throws IOException {
+
+        java.nio.file.Path filePath = storageService.getFilePath(storedFileName);
+
+        return fileExtractionService.extract(
+                filePath,
+                originalFileName
+        );
     }
 }

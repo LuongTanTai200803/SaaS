@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 public class CreditService {
@@ -116,11 +117,17 @@ public class CreditService {
         return roundOneDecimal(features.size() * 0.75);
     }
 
+    
+    //  nếu bắt đầu bằng file_ thì cắt
+    // UUID.fromString(normalized) để validate
+    // return normalized (string UUID)
+
     private String parseFileId(String rawFileId) {
         String normalized = rawFileId.startsWith("file_") ? rawFileId.substring(5) : rawFileId;
         try {
-            return String.valueOf(Long.parseLong(normalized));
-        } catch (NumberFormatException ex) {
+            UUID.fromString(normalized); // validate UUID
+            return normalized;
+        } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("fileId không hợp lệ");
         }
     }

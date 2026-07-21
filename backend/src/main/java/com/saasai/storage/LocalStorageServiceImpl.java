@@ -40,4 +40,9 @@ public class LocalStorageServiceImpl implements StorageService {
     public boolean exists(String fileName) throws IOException {
         return Files.exists(basePath.resolve(fileName));
     }
+    
+    @Override
+    public Path getFilePath(String storedFileName) {
+        return basePath.resolve(storedFileName);
+    }
 }

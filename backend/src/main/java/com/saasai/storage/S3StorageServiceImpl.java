@@ -28,4 +28,9 @@ public class S3StorageServiceImpl implements StorageService {
     public boolean exists(String fileName) throws IOException {
         throw new UnsupportedOperationException("S3 storage is not implemented yet");
     }
+
+    @Override
+    public java.nio.file.Path getFilePath(String storedFileName) {
+        throw new UnsupportedOperationException("S3 storage is not implemented yet");
+    }
 }

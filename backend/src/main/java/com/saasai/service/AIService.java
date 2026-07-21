@@ -7,6 +7,8 @@ import com.saasai.entity.ChatSession;
 import com.saasai.entity.CreditTransaction;
 import com.saasai.entity.User;
 import com.saasai.repository.ChatSessionRepository;
+
+
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,9 @@ public class AIService {
 
     @Autowired
     private CreditService creditService;
+
+    @Autowired
+    private DraftFileService draftFileService;
 
     public void processCompletion(Integer sessionId, String userId, String wizardStateJson, String prompt,
             Boolean pinEditorContext, String model, SseEmitter emitter) {
@@ -114,6 +119,33 @@ public class AIService {
                 emitter.completeWithError(e);
             }
         }
+    }
+
+    public void processDraftCompletion(
+        Integer sessionId,
+        String userId,
+        String wizardStateJson,
+        String draftId,
+        String instruction,
+        Boolean pinEditorContext,
+        String model,
+        SseEmitter emitter
+    ) {
+        String mergedPrompt = draftFileService.finalizeDraftAndBuildPrompt(draftId, userId);
+
+        if (instruction != null && !instruction.isBlank()) {
+            mergedPrompt = instruction.trim() + "\n\n" + mergedPrompt;
+        }
+
+        processCompletion(
+                sessionId,
+                userId,
+                wizardStateJson,
+                mergedPrompt,
+                pinEditorContext,
+                model,
+                emitter
+        );
     }
 
     private double estimateCredits(String prompt, String model) {

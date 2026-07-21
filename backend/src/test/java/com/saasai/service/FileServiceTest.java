@@ -8,6 +8,8 @@ import com.saasai.entity.User;
 import com.saasai.repository.FileMetadataRepository;
 import com.saasai.repository.UserRepository;
 import com.saasai.storage.StorageService;
+import com.saasai.repository.redis.FileNormalizedTextRedisRepository;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.saasai.repository.redis.FileNormalizedTextRedisRepository;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -52,6 +55,12 @@ class FileServiceTest {
 
     @InjectMocks
     private FileService fileService;
+
+    @Mock
+    private FileNormalizedTextRedisRepository fileTextRedisRepository;
+
+    @Mock
+    private FileMetadataRepository fileUploadRepository;
 
     @TempDir
     Path tempDir;
