@@ -1,5 +1,5 @@
 package com.saasai.config;
-
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -20,6 +20,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 
+@ConditionalOnProperty(name = "app.redis.enabled", havingValue = "true", matchIfMissing = true)
 @Configuration
 public class RedisConfig {
 
