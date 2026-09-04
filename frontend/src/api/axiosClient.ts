@@ -13,6 +13,7 @@ ht.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    config.headers['ngrok-skip-browser-warning'] = 'true';
     return config;
   },
   (error) => Promise.reject(error)
@@ -21,13 +22,40 @@ ht.interceptors.request.use(
 ht.interceptors.response.use(
   (response) => (response && response.data ? response.data : response),
   (error) => {
+    try {
+      if (error.response) {
+        // Server responded
+        console.error('API response error:', {
+          status: error.response.status,
+          url: error.config?.url,
+          data: error.response.data,
+        });
+
+        if (error.response.status >= 500) {
+          // server-side failure
+          alert('Lỗi máy chủ (500). Vui lòng thử lại sau hoặc kiểm tra backend.');
+        }
+      } else if (error.request) {
+        // No response received
+        console.error('No response from server (network error):', {
+          url: error.config?.url,
+          message: error.message,
+        });
+        alert('Không kết nối được tới server. Kiểm tra backend hoặc mạng.');
+      } else {
+        console.error('Request setup error:', error.message);
+      }
+    } catch (logErr) {
+      console.error('Error while logging axios error', logErr);
+    }
+
+    // existing auth handling...
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
       localStorage.removeItem('access_token');
       window.dispatchEvent(new Event('auth-changed'));
-      if (window.location.pathname !== '/') {
-        window.location.href = '/';
-      }
+      if (window.location.pathname !== '/') window.location.href = '/';
     }
+
     return Promise.reject(error);
   }
 );

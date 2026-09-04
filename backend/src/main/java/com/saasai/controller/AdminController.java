@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.saasai.dto.AdminPackageUpdateDTO;
 import com.saasai.dto.AdminStatsResponseDTO;
-import com.saasai.dto.ApiResponseDTO;
+import com.saasai.feature.ai.ApiResponseDTO;
 import com.saasai.service.AdminService;
 
 @RestController

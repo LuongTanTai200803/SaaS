@@ -1,7 +1,8 @@
 package com.saasai.ratelimit;
 
+import com.saasai.config.RateLimitProperties;
 import com.saasai.exception.TooManyRequestsException;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -11,48 +12,37 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
+@RequiredArgsConstructor // 🎯 Bơm biến final tự động qua Constructor sạch sẽ
 public class RateLimitService {
 
-    @Value("${ratelimit.auth.login.limit:10}")
-    private int loginLimit;
-
-    @Value("${ratelimit.credits.estimate.limit:30}")
-    private int creditsEstimateLimit;
-
-    @Value("${ratelimit.files.upload.limit:10}")
-    private int filesUploadLimit;
-
-    @Value("${ratelimit.ai.completions.limit:20}")
-    private int aiCompletionsLimit;
-
-    @Value("${ratelimit.window.seconds:60}")
-    private int windowSeconds;
-
+    private final RateLimitProperties rateLimitProperties; // 🎯 Thay thế cho một mớ @Value cũ
     private final Map<String, RateBucket> buckets = new ConcurrentHashMap<>();
 
     public void validateLogin(String key) {
-        validate(key, loginLimit, "Too many login attempts");
+        validate(key, rateLimitProperties.getAuth().getLoginLimit(), "Too many login attempts");
     }
 
     public void validateCreditEstimate(String key) {
-        validate(key, creditsEstimateLimit, "Too many credit estimate requests");
+        validate(key, rateLimitProperties.getCredits().getEstimateLimit(), "Too many credit estimate requests");
     }
 
     public void validateFileUpload(String key) {
-        validate(key, filesUploadLimit, "Too many file upload requests");
+        validate(key, rateLimitProperties.getFiles().getUploadLimit(), "Too many file upload requests");
     }
 
     public void validateAiCompletion(String key) {
-        validate(key, aiCompletionsLimit, "Too many AI completion requests");
+        validate(key, rateLimitProperties.getAi().getCompletionsLimit(), "Too many AI completion requests");
     }
 
     private void validate(String key, int limit, String message) {
-        RateBucket bucket = buckets.computeIfAbsent(key, k -> new RateBucket(limit, windowSeconds));
+        // Đọc cửa sổ thời gian trực tiếp từ file cấu hình gác cổng
+        RateBucket bucket = buckets.computeIfAbsent(key, k -> new RateBucket(limit, rateLimitProperties.getWindowSeconds()));
         if (!bucket.tryConsume()) {
             throw new TooManyRequestsException(message + " - please try again later");
         }
     }
 
+    // Giữ nguyên logic xử lý luồng đồng bộ của RateBucket ở dưới...
     private static class RateBucket {
         private final int limit;
         private final int windowSeconds;
@@ -77,5 +67,10 @@ public class RateLimitService {
             }
             return true;
         }
+    }
+
+    public boolean tryConsume(String string, int i, int j) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'tryConsume'");
     }
 }

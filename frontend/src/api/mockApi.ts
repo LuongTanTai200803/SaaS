@@ -321,3 +321,105 @@ export const creditApi = {
     });
   },
 };
+
+// --- Mock Session API ---
+export const sessionApi = {
+  createSession: async (assistantId: string, sessionName: string) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const newSession: ChatSession = {
+        sessionId: Math.floor(Math.random() * 1000),
+        tagId: assistantId,
+        sessionName,
+        currentEditorContent: '',
+        createdAt: new Date().toISOString(),
+        status: 'DRAFT',
+      };
+        mockChatSessions.push(newSession);
+        resolve({ data: newSession });
+      }, MOCK_DELAY);
+    });
+  },
+  getSessions: async (assistantId: string) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const sessions = mockChatSessions.filter((session) => session.tagId === assistantId);
+        resolve({ data: sessions });
+      }, MOCK_DELAY);
+    });
+  },
+  getSession: async (sessionId: string) => {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const session = mockChatSessions.find((session) => session.sessionId === parseInt(sessionId));
+        if (session) {
+          resolve({ data: session });
+        } else {
+          reject(new Error('Session not found'));
+        }
+      }, MOCK_DELAY);
+    });
+  },
+  saveDraft: async (
+    sessionId: string,
+    data: {
+      formData: any;
+      editorText: string;
+    }
+  ) => {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const session = mockChatSessions.find(
+          s => s.sessionId === parseInt(sessionId)
+        );
+
+        if (!session) {
+          reject(new Error('Session not found'));
+          return;
+        }
+
+        session.formData = data.formData;
+        session.currentEditorContent = data.editorText;
+
+        resolve({ data: session });
+      }, MOCK_DELAY);
+    });
+  },
+
+  deleteSession: async (sessionId: string) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const index = mockChatSessions.findIndex((session) => session.sessionId === parseInt(sessionId));
+        if (index !== -1) {
+          mockChatSessions.splice(index, 1);
+          resolve({ success: true, message: `Session ${sessionId} deleted.` });
+        } else {
+          resolve({ success: false, message: `Session ${sessionId} not found.` });
+        }
+      }, MOCK_DELAY);
+    });
+  },
+  getSessionMessages: async (sessionId: string) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const messages = mockChatMessages.filter((msg) => msg.sessionId === parseInt(sessionId));
+        resolve(messages);
+      }, MOCK_DELAY);
+    });
+  },
+  createSessionMessages: async (sessionId: string, content: string) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const newMessage: ChatMessage = {
+          id: Date.now(),
+          sessionId: parseInt(sessionId),
+          content,
+          sender: 'user',
+          timestamp: new Date().toISOString(),
+        };
+        mockChatMessages.push(newMessage);
+        resolve(newMessage);
+      }, MOCK_DELAY);
+    });
+  },
+};  

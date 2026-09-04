@@ -9,9 +9,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class ChatSessionDTO {
-    private Long sessionId;
+    private String sessionUuid;
     private String tagId;
     private String sessionName;
     private String currentEditorContent;
     private LocalDateTime createdAt;
+    private String editorContent;
+
+    
 }

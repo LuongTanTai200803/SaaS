@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class DocumentDTO {
-    private Long sessionId;
+    private String sessionId;
     private String sessionName;
     private String tagId;
     private LocalDateTime updatedAt;

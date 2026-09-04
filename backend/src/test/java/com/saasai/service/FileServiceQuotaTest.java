@@ -1,9 +1,9 @@
 package com.saasai.service;
 
 import com.saasai.entity.AdminPackageConfig;
-import com.saasai.entity.FileUpload;
+import com.saasai.entity.FileMetadata; 
 import com.saasai.entity.User;
-import com.saasai.repository.FileUploadRepository;
+import com.saasai.repository.FileMetadataRepository;
 import com.saasai.repository.UserRepository;
 import com.saasai.storage.StorageService;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +27,7 @@ import static org.mockito.Mockito.doAnswer;
 
 class FileServiceQuotaTest {
     @Mock
-    private FileUploadRepository fileUploadRepository;
+    private FileMetadataRepository fileUploadRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -42,32 +42,37 @@ class FileServiceQuotaTest {
     private FileService fileService;
 
     private User user;
+    private final String testUserId = "user-uuid-1"; // 🎯 ĐÃ SỬA
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(1L, null);
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(testUserId, null);
         authentication.setDetails("test@example.com");
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        user = User.builder().id(1L).email("test@example.com").fullName("Test User").creditBalance(10.0).packageType(User.PackageType.FREE).build();
+
+        AdminPackageConfig freePackage = AdminPackageConfig.builder()
+                .packageType("FREE")
+                .price(0L)
+                .creditLimit(0.0)
+                .storageQuotaMb(1L)
+                .build();
+
+        user = User.builder()
+                .userId(testUserId) // 🎯 ĐÃ SỬA
+                .email("test@example.com")
+                .fullName("Test User")
+                .creditBalance(10.0)
+                .adminPackageConfig(freePackage) // 🎯 ĐÃ SỬA: Gán qua Object liên kết ngoại
+                .build();
+
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
-        when(adminService.getPackageConfig(AdminPackageConfig.PackageType.FREE))
-                .thenReturn(AdminPackageConfig.builder()
-                        .packageType(AdminPackageConfig.PackageType.FREE)
-                        .price(0L)
-                        .creditLimit(0.0)
-                        .storageQuotaMb(1L)
-                        .build());
-        when(fileUploadRepository.sumFileSizeByUserId(1L)).thenReturn(900L * 1024L);
+        when(adminService.getPackageConfig("FREE")).thenReturn(freePackage);
+        when(fileUploadRepository.sumFileSizeByUserId(testUserId)).thenReturn(900L * 1024L); // 🎯 ĐÃ SỬA
     }
 
     @Test
     void uploadFile_shouldRejectWhenStorageQuotaExceeded() throws IOException {
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
-        when(adminService.getPackageConfig(AdminPackageConfig.PackageType.FREE))
-                .thenReturn(AdminPackageConfig.builder().packageType(AdminPackageConfig.PackageType.FREE).storageQuotaMb(1L).price(0L).creditLimit(0.0).build());
-        when(fileUploadRepository.sumFileSizeByUserId(1L)).thenReturn(900L * 1024L);
-
         MockMultipartFile file = new MockMultipartFile("file", "document.pdf", "application/pdf", new byte[300 * 1024]);
 
         assertThatThrownBy(() -> fileService.uploadFile(file, "INPUT_DIRECTIVE"))
@@ -77,17 +82,18 @@ class FileServiceQuotaTest {
 
     @Test
     void uploadFile_shouldUseDefaultQuotaWhenConfigQuotaMissing() throws IOException {
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
-        when(adminService.getPackageConfig(AdminPackageConfig.PackageType.FREE))
-                .thenReturn(AdminPackageConfig.builder().packageType(AdminPackageConfig.PackageType.FREE).price(0L).creditLimit(0.0).storageQuotaMb(null).build());
-        when(fileUploadRepository.sumFileSizeByUserId(1L)).thenReturn(900L * 1024L);
+        AdminPackageConfig missingQuotaPackage = AdminPackageConfig.builder().packageType("FREE").price(0L).creditLimit(0.0).storageQuotaMb(null).build();
+        user.setAdminPackageConfig(missingQuotaPackage);
+        
+        when(adminService.getPackageConfig("FREE")).thenReturn(missingQuotaPackage);
         when(storageService.storeFile(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenReturn("/tmp/document.pdf");
+        
         doAnswer(invocation -> {
-            FileUpload upload = invocation.getArgument(0);
-            upload.setFileId(1L);
+            FileMetadata upload = invocation.getArgument(0);
+            upload.setFileId("file-uuid-generations"); // 🎯 ĐÃ SỬA: id dạng String
             upload.setUploadedAt(LocalDateTime.now());
             return upload;
-        }).when(fileUploadRepository).save(org.mockito.ArgumentMatchers.any(FileUpload.class));
+        }).when(fileUploadRepository).save(org.mockito.ArgumentMatchers.any(FileMetadata.class));
 
         MockMultipartFile file = new MockMultipartFile("file", "document.pdf", "application/pdf", new byte[300 * 1024]);
 

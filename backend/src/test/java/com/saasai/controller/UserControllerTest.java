@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class UserControllerTest {
 
-    private static final Long USER_ID = 10293L;
+    private static final String USER_ID = "10293";
 
     @Mock
     private UserService userService;
@@ -55,7 +55,7 @@ class UserControllerTest {
     @Test
     void getProfileShouldReturnUserProfile() throws Exception {
         UserProfileDTO profile = UserProfileDTO.builder()
-                .id(USER_ID)
+                .userId(USER_ID)
                 .email("test@example.com")
                 .fullName("Nguyễn Văn A")
                 .role("ROLE_USER")
@@ -67,7 +67,7 @@ class UserControllerTest {
 
         mockMvc.perform(get("/api/v1/users/profile"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(10293))
+                .andExpect(jsonPath("$.userId").value(USER_ID))
                 .andExpect(jsonPath("$.email").value("test@example.com"))
                 .andExpect(jsonPath("$.fullName").value("Nguyễn Văn A"));
     }
@@ -75,7 +75,7 @@ class UserControllerTest {
     @Test
     void getDocumentsShouldReturnPaginatedDocuments() throws Exception {
         DocumentDTO doc = DocumentDTO.builder()
-                .sessionId(501L)
+                .sessionId("501")
                 .sessionName("Báo cáo tổng kết")
                 .tagId("Văn kiện Đảng")
                 .updatedAt(LocalDateTime.now())
@@ -96,7 +96,7 @@ class UserControllerTest {
                 .param("page", "0")
                 .param("size", "10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].sessionId").value(501))
+                .andExpect(jsonPath("$.content[0].sessionId").value("501"))
                 .andExpect(jsonPath("$.content[0].status").value("Hoàn thành"))
                 .andExpect(jsonPath("$.totalPages").value(1))
                 .andExpect(jsonPath("$.totalElements").value(1));

@@ -1,12 +1,15 @@
 package com.saasai.service;
 
-import com.saasai.dto.FileUploadResponseDTO;
+import com.saasai.dto.FileMetadataResponseDTO;
 import com.saasai.entity.AdminPackageConfig;
-import com.saasai.entity.FileUpload;
+import com.saasai.entity.FileMetadata; // 🎯 ĐÃ SỬA
 import com.saasai.entity.User;
-import com.saasai.repository.FileUploadRepository;
+
+import com.saasai.repository.FileMetadataRepository;
 import com.saasai.repository.UserRepository;
 import com.saasai.storage.StorageService;
+import com.saasai.repository.redis.FileNormalizedTextRedisRepository;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,12 +19,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.saasai.repository.redis.FileNormalizedTextRedisRepository;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -39,7 +42,7 @@ import static org.mockito.Mockito.when;
 class FileServiceTest {
 
     @Mock
-    private FileUploadRepository fileUploadRepository;
+    private FileMetadataRepository fileMetadataRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -53,32 +56,42 @@ class FileServiceTest {
     @InjectMocks
     private FileService fileService;
 
+    @Mock
+    private FileNormalizedTextRedisRepository fileTextRedisRepository;
+
+    @Mock
+    private FileMetadataRepository fileUploadRepository;
+
     @TempDir
     Path tempDir;
 
     private User currentUser;
+    private final String testUserId = "user-uuid-10293"; // 🎯 ĐÃ SỬA
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(fileService, "storageBaseUrl", tempDir.toUri().toString());
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(10293L, null);
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(testUserId, null);
         authentication.setDetails("user@example.com");
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        AdminPackageConfig freePackage = AdminPackageConfig.builder()
+                .packageType("FREE")
+                .price(0L)
+                .creditLimit(0.0)
+                .storageQuotaMb(100L)
+                .build();
+
         currentUser = User.builder()
-                .id(10293L)
+                .userId(testUserId) // 🎯 ĐÃ SỬA
                 .email("user@example.com")
                 .fullName("Nguyễn Văn A")
-                .packageType(User.PackageType.FREE)
+                .adminPackageConfig(freePackage) // 🎯 ĐÃ SỬA
                 .build();
+
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(currentUser));
-        lenient().when(adminService.getPackageConfig(AdminPackageConfig.PackageType.FREE))
-                .thenReturn(AdminPackageConfig.builder()
-                        .packageType(AdminPackageConfig.PackageType.FREE)
-                        .price(0L)
-                        .creditLimit(0.0)
-                        .storageQuotaMb(100L)
-                        .build());
-        lenient().when(fileUploadRepository.sumFileSizeByUserId(currentUser.getId())).thenReturn(0L);
+        lenient().when(adminService.getPackageConfig("FREE")).thenReturn(freePackage);
+        lenient().when(fileMetadataRepository.sumFileSizeByUserId(testUserId)).thenReturn(0L); // 🎯 ĐÃ SỬA
     }
 
     @AfterEach
@@ -110,25 +123,32 @@ class FileServiceTest {
     void uploadFileShouldSaveMetadataAndReturnDto() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "test.pdf", "application/pdf", "mock-content".getBytes());
 
+        User mockUser = User.builder()
+            .userId(testUserId) // Hệ String UUID
+            .fullName("Nguyễn Văn A")
+            .build();
+
         when(storageService.storeFile(any(), anyString())).thenReturn(tempDir.resolve("test.pdf").toString());
-        when(fileUploadRepository.save(any(FileUpload.class))).thenAnswer(invocation -> {
-            FileUpload upload = invocation.getArgument(0);
-            upload.setFileId(15L);
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(mockUser));
+        when(fileMetadataRepository.save(any(FileMetadata.class))).thenAnswer(invocation -> {
+            FileMetadata upload = invocation.getArgument(0);
+            upload.setFileId("file-uuid-15"); 
             upload.setUploadedAt(LocalDateTime.now());
+
             return upload;
         });
 
-        FileUploadResponseDTO response = fileService.uploadFile(file, "LEGAL");
+        FileMetadataResponseDTO response = fileService.uploadFile(file, "LEGAL");
 
-        ArgumentCaptor<FileUpload> captor = ArgumentCaptor.forClass(FileUpload.class);
-        verify(fileUploadRepository).save(captor.capture());
-        FileUpload saved = captor.getValue();
+        ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
+        verify(fileMetadataRepository).save(captor.capture());
+        FileMetadata saved = captor.getValue();
 
-        assertEquals(10293L, saved.getUserId());
+        assertEquals(testUserId, saved.getUser() != null ? saved.getUser().getUserId() : null); 
         assertEquals("test.pdf", saved.getFileName());
-        assertEquals(FileUpload.FileCategory.LEGAL, saved.getCategory());
+        assertEquals(FileMetadata.FileCategory.LEGAL, saved.getCategory()); //
         verify(storageService).storeFile(any(), anyString());
-        assertEquals("file_15", response.getFileId());
+        assertEquals("file_file-uuid-15", response.getFileId()); //
         assertEquals("Nguyễn Văn A", response.getUploadedBy());
     }
 }

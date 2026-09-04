@@ -12,35 +12,51 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class SystemStats {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "total_revenue")
     private Long totalRevenue;
 
-    private Integer newUsersCount;
+    @Column(name = "new_users_count")
+    private Long newUsersCount;
 
-    private Integer activeAffiliates;
+    @Column(name = "active_affiliates")
+    private Long activeAffiliates;
 
+    @Column(name = "total_credit_consumed")
     private Double totalCreditConsumed;
 
-    private Integer activeSessionsCount;
+    @Column(name = "active_sessions_count")
+    private Long activeSessionsCount;
 
-    private Integer totalDocumentsGenerated;
+    @Column(name = "total_documents_generated")
+    private Long totalDocumentsGenerated;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.totalRevenue == null)
+            this.totalRevenue = 0L;
+        if (this.newUsersCount == null)
+            this.newUsersCount = 0L;
+        if (this.activeAffiliates == null)
+            this.activeAffiliates = 0L;
+        if (this.totalCreditConsumed == null)
+            this.totalCreditConsumed = 0.0;
+        if (this.activeSessionsCount == null)
+            this.activeSessionsCount = 0L;
+        if (this.totalDocumentsGenerated == null)
+            this.totalDocumentsGenerated = 0L;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
 }

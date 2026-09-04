@@ -1,0 +1,27 @@
+node_modules/
+.env/
+dist/
+build/
+coverage/
+*.log
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw? 
+*.tsbuildinfo
+*.cache
+*.eslintcache
+*.prettiercache
+*.zip
+*.tar.gz
+*.bak
+*.tmp
+*.pid
+
+# Ignore all files in the public directory except for index.html
+/public/*
+!/public/index.html

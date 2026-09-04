@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class ChatSessionControllerTest {
 
-    private static final Long USER_ID = 10293L;
+    private static final String USER_ID = "10293";
 
     @Mock
     private ChatSessionService chatSessionService;
@@ -58,7 +58,7 @@ class ChatSessionControllerTest {
     @Test
     void createSessionShouldReturnCreated() throws Exception {
         ChatSessionDTO session = ChatSessionDTO.builder()
-                .sessionId(502L)
+                .sessionUuid("502")
                 .tagId("dang_tinh_uy")
                 .sessionName("Khởi tạo văn bản mới")
                 .currentEditorContent("")
@@ -81,7 +81,7 @@ class ChatSessionControllerTest {
 
     @Test
     void updateEditorContentShouldReturnSuccess() throws Exception {
-        doNothing().when(chatSessionService).updateEditorContent(502L, "user@example.com", "<p>Nội dung</p>");
+        doNothing().when(chatSessionService).updateEditorContent("502", "user@example.com", "<p>Nội dung</p>");
 
         mockMvc.perform(put("/api/v1/chat-sessions/502/editor")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -90,6 +90,6 @@ class ChatSessionControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Đã lưu bản nháp văn bản thành công"));
 
-        verify(chatSessionService).updateEditorContent(502L, "user@example.com", "<p>Nội dung</p>");
+        verify(chatSessionService).updateEditorContent("502", "user@example.com", "<p>Nội dung</p>");
     }
 }

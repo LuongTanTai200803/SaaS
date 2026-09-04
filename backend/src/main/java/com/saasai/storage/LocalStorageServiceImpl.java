@@ -1,5 +1,8 @@
 package com.saasai.storage;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -8,10 +11,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+@Service
+@ConditionalOnProperty(name = "storage.type", havingValue = "local", matchIfMissing = true)
 public class LocalStorageServiceImpl implements StorageService {
     private final Path basePath;
 
-    public LocalStorageServiceImpl(String basePath) {
+    // 🎯 SỬA LẠI TẠI ĐÂY: Gài @Value để Spring bốc cấu hình chính chủ từ file .properties ra
+    public LocalStorageServiceImpl(@Value("${storage.local.base-path:uploads/}") String basePath) {
         this.basePath = Paths.get(StringUtils.hasText(basePath) ? basePath : "uploads/");
     }
 
@@ -33,5 +39,10 @@ public class LocalStorageServiceImpl implements StorageService {
     @Override
     public boolean exists(String fileName) throws IOException {
         return Files.exists(basePath.resolve(fileName));
+    }
+    
+    @Override
+    public Path getFilePath(String storedFileName) {
+        return basePath.resolve(storedFileName);
     }
 }

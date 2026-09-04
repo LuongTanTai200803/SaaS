@@ -1,8 +1,6 @@
 package com.saasai.exception;
 
-import com.saasai.dto.ApiResponseDTO;
-import com.saasai.exception.AuthException;
-import com.saasai.exception.TooManyRequestsException;
+import com.saasai.feature.ai.ApiResponseDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -10,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.NoSuchElementException;
 
@@ -73,6 +72,46 @@ public class GlobalExceptionHandler {
                         .success(false)
                         .message(ex.getMessage())
                         .statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                        .build());
+    }
+
+    // Quan trọng: map rõ lỗi OpenRouter thay vì rơi vào 500 generic
+    @ExceptionHandler(OpenRouterException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleOpenRouterException(OpenRouterException ex) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode());
+        if (status == null) {
+            status = HttpStatus.BAD_GATEWAY;
+        }
+
+        if (status.is4xxClientError()) {
+            logger.warn(
+                    "OpenRouter client error: statusCode={}, errorCode={}, fallbackAllowed={}, message={}",
+                    ex.getStatusCode(), ex.getErrorCode(), ex.isFallbackAllowed(), ex.getMessage()
+            );
+        } else {
+            logger.error(
+                    "OpenRouter upstream error: statusCode={}, errorCode={}, fallbackAllowed={}, message={}",
+                    ex.getStatusCode(), ex.getErrorCode(), ex.isFallbackAllowed(), ex.getMessage()
+            );
+        }
+
+        return ResponseEntity.status(status)
+                .body(ApiResponseDTO.builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .statusCode(status.value())
+                        .build());
+    }
+
+    // Optional nhưng hữu ích: URL sai trả rõ ràng 404
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleNoResourceFound(NoResourceFoundException ex) {
+        logger.warn("No resource found: {}", ex.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponseDTO.builder()
+                        .success(false)
+                        .message("Endpoint không tồn tại")
+                        .statusCode(HttpStatus.NOT_FOUND.value())
                         .build());
     }
 

@@ -26,16 +26,96 @@ const navItems: { key: NavItem; label: string }[] = [
 ];
 
 const assistants = [
-  { id: '1', icon: <Building2 size={22} />, title: 'Văn kiện Đảng', desc: 'Soạn nghị quyết, chỉ thị, kế hoạch Đảng chuẩn thể thức', color: 'bg-red-50 text-red-600 border-red-100' },
-  { id: '2', icon: <FileText size={22} />, title: 'Văn bản Nhà nước', desc: 'HĐND, UBND, MTTQ theo đúng quy chuẩn ban hành', color: 'bg-blue-50 text-blue-700 border-blue-100' },
-  { id: '3', icon: <GraduationCap size={22} />, title: 'Quản lý Giáo dục', desc: 'Công văn giáo dục, kế hoạch chuyên môn, báo cáo', color: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-  { id: '4', icon: <FileEdit size={22} />, title: 'Biên tập & Phát biểu', desc: 'Chuẩn hóa văn phong, soạn bài phát biểu chuyên nghiệp', color: 'bg-violet-50 text-violet-700 border-violet-100' },
-  { id: '5', icon: <Search size={22} />, title: 'Rút gọn & Kiểm tra', desc: 'Tóm tắt, rút gọn và kiểm tra lỗi chính tả tự động', color: 'bg-orange-50 text-orange-600 border-orange-100' },
-  { id: '6', icon: <BookOpen size={22} />, title: 'Soạn giáo án', desc: 'Giáo án điện tử chuẩn CTGDPT 2018 theo từng môn', color: 'bg-sky-50 text-sky-700 border-sky-100' },
-  { id: '7', icon: <BarChart2 size={22} />, title: 'Ma trận & Đề kiểm tra', desc: 'Tạo ma trận, câu hỏi và đề thi tự động theo chuẩn', color: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  { id: '8', icon: <Star size={22} />, title: 'Chấm & Đánh giá', desc: 'Hỗ trợ chấm điểm, nhận xét học sinh theo rubric', color: 'bg-pink-50 text-pink-600 border-pink-100' },
-  { id: '9', icon: <TrendingUp size={22} />, title: 'Viết Báo cáo thành tích', desc: 'Báo cáo thi đua, thành tích cá nhân và tập thể', color: 'bg-amber-50 text-amber-700 border-amber-100' },
-  { id: '10', icon: <Sparkles size={22} />, title: 'ChatPro Toàn năng', desc: 'Cửa sổ chat đa model AI (DeepSeek, GPT-4o, Claude)', color: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
+  { 
+    id: '1', 
+    icon: <Building2 size={30} />, 
+    title: 'Văn kiện Đảng', 
+    desc: 'Soạn nghị quyết, chỉ thị, kế hoạch Đảng chuẩn thể thức', 
+    color: 'text-red-700', 
+    bg: 'bg-red-100/50', // Màu nền cực kỳ nhẹ (giảm opacity hoặc dùng tone 50)
+    border: 'border-red-500' // Viền đậm rõ ràng
+  },
+  { 
+    id: '2', 
+    icon: <FileText size={30} />, 
+    title: 'Văn bản Nhà nước', 
+    desc: 'HĐND, UBND, MTTQ theo đúng quy chuẩn ban hành', 
+    color: 'text-blue-700', 
+    bg: 'bg-blue-100/50', 
+    border: 'border-blue-500' 
+  },
+  { 
+    id: '3', 
+    icon: <GraduationCap size={30} />, 
+    title: 'Quản lý Giáo dục', 
+    desc: 'Công văn giáo dục, kế hoạch chuyên môn, báo cáo', 
+    color: 'text-emerald-700', 
+    bg: 'bg-emerald-100/50', 
+    border: 'border-emerald-500' 
+  },
+  { 
+    id: '4', 
+    icon: <FileEdit size={30} />, 
+    title: 'Biên tập & Phát biểu', 
+    desc: 'Chuẩn hóa văn phong, soạn bài phát biểu chuyên nghiệp', 
+    color: 'text-violet-700', 
+    bg: 'bg-violet-100/50', 
+    border: 'border-violet-500' 
+  },
+  { 
+    id: '5', 
+    icon: <Search size={30} />, 
+    title: 'Rút gọn & Kiểm tra', 
+    desc: 'Tóm tắt, rút gọn và kiểm tra lỗi chính tả tự động', 
+    color: 'text-orange-700', 
+    bg: 'bg-orange-100/50', 
+    border: 'border-orange-500' 
+  },
+  { 
+    id: '6', 
+    icon: <BookOpen size={30} />, 
+    title: 'Soạn giáo án', 
+    desc: 'Giáo án điện tử chuẩn CTGDPT 2018 theo từng môn', 
+    color: 'text-sky-700', 
+    bg: 'bg-sky-100/50', 
+    border: 'border-sky-500' 
+  },
+  { 
+    id: '7', 
+    icon: <BarChart2 size={30} />, 
+    title: 'Ma trận & Đề kiểm tra', 
+    desc: 'Tạo ma trận, câu hỏi và đề thi tự động theo chuẩn', 
+    color: 'text-indigo-700', 
+    bg: 'bg-indigo-100/50', 
+    border: 'border-indigo-500' 
+  },
+  { 
+    id: '8', 
+    icon: <Star size={30} />, 
+    title: 'Chấm & Đánh giá', 
+    desc: 'Hỗ trợ chấm điểm, nhận xét học sinh theo rubric', 
+    color: 'text-pink-700', 
+    bg: 'bg-pink-100/50', 
+    border: 'border-pink-500' 
+  },
+  { 
+    id: '9', 
+    icon: <TrendingUp size={30} />, 
+    title: 'Viết Báo cáo thành tích', 
+    desc: 'Báo cáo thi đua, thành tích cá nhân và tập thể', 
+    color: 'text-amber-700', 
+    bg: 'bg-amber-100/50', 
+    border: 'border-amber-500' 
+  },
+  { 
+    id: '10', 
+    icon: <Sparkles size={30} />, 
+    title: 'ChatPro Toàn năng', 
+    desc: 'Cửa sổ chat đa model AI (DeepSeek, GPT-4o, Claude)', 
+    color: 'text-cyan-700', 
+    bg: 'bg-cyan-100/50', 
+    border: 'border-cyan-500' 
+  },
 ];
 
 const stats = [
@@ -115,7 +195,67 @@ export function HomePage({ onNavigate, initialShowDashboard = false }: HomePageP
               
             </section>
           )}
+          {/* ── ASSISTANTS ── */}
+          
+          <section className="py-20 bg-gray-50">
+            <div className="max-w-[1280px] mx-auto px-8">
+              <div className="text-center mb-12">
+                <span className="text-xs font-semibold text-[#1E3A8A] uppercase tracking-widest">Kho Trợ lý</span>
+                <h2 className="text-3xl font-bold text-[#1F2937] mt-2 mb-3">10 Trợ lý AI chuyên biệt</h2>
+                <p className="text-gray-500 max-w-xl mx-auto">
+                  Mỗi trợ lý được huấn luyện chuyên sâu cho từng nghiệp vụ hành chính và giáo dục cụ thể
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {assistants.map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() => handleProtectedNavigate('wizard', a.id)}
+                    /* 🎨 ĐÃ CẬP NHẬT: Loại bỏ bg-white cứng, thay bằng border-2 ăn theo ${a.border} và nền nhạt ${a.bg} */
+                    className={`group p-5 ${a.bg} rounded-xl border-2 ${a.border} hover:bg-white hover:shadow-xl hover:border-current transition-all duration-200 text-left`}
+                    style={{ '--current-color': a.color } as React.CSSProperties} // Mẹo giữ màu mượt mà khi hover
+                  >
+                    {/* Box chứa Icon: Đồng bộ màu sắc */}
+                    <div className={`inline-flex items-center justify-center w-11 h-11 rounded-lg border-2 ${a.bg} ${a.border} ${a.color} mb-4 group-hover:scale-110 transition-transform shadow-sm`}>
+                      {a.icon}
+                    </div>
+                    
+                    <h3 className="font-bold text-[#1F2937] text-base mb-1.5 group-hover:text-[#1E3A8A] transition-colors">
+                      {a.title}
+                    </h3>
+                    
+                    <p className="text-sm text-gray-500 leading-relaxed min-h-[40px]">
+                      {a.desc}
+                    </p>
+                    
+                    <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#1E3A8A] opacity-0 group-hover:opacity-100 transform translate-x-[-4px] group-hover:translate-x-0 transition-all duration-200">
+                      Dùng thử ngay <ArrowRight size={12} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
 
+          {/* ── STATS ── */}
+          
+          <section className="bg-[#1E3A8A] py-12">
+            <div className="max-w-[1280px] mx-auto px-8">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                {stats.map((stat, i) => (
+                  <div key={i} className="text-center">
+                    <div className="inline-flex items-center justify-center w-10 h-10 bg-white/10 rounded-lg mb-3 text-white">
+                      {stat.icon}
+                    </div>
+                    <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
+                    <div className="text-blue-200 text-sm">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+          
           {/* ── HERO ── */}
           <section className="max-w-[1280px] mx-auto px-8 py-20">
             <div className="grid grid-cols-12 gap-8 items-center">
@@ -209,52 +349,6 @@ export function HomePage({ onNavigate, initialShowDashboard = false }: HomePageP
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ── STATS ── */}
-          <section className="bg-[#1E3A8A] py-12">
-            <div className="max-w-[1280px] mx-auto px-8">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-                {stats.map((stat, i) => (
-                  <div key={i} className="text-center">
-                    <div className="inline-flex items-center justify-center w-10 h-10 bg-white/10 rounded-lg mb-3 text-white">
-                      {stat.icon}
-                    </div>
-                    <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
-                    <div className="text-blue-200 text-sm">{stat.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* ── ASSISTANTS ── */}
-          <section className="py-20 bg-gray-50">
-            <div className="max-w-[1280px] mx-auto px-8">
-              <div className="text-center mb-12">
-                <span className="text-xs font-semibold text-[#1E3A8A] uppercase tracking-widest">Kho Trợ lý</span>
-                <h2 className="text-3xl font-bold text-[#1F2937] mt-2 mb-3">10 Trợ lý AI chuyên biệt</h2>
-                <p className="text-gray-500 max-w-xl mx-auto">Mỗi trợ lý được huấn luyện chuyên sâu cho từng nghiệp vụ hành chính và giáo dục cụ thể</p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {assistants.map((a) => (
-                  <button
-                    key={a.id}
-                    onClick={() => handleProtectedNavigate('wizard', a.id)}
-                    className={`group p-5 bg-white rounded-xl border-2 ${a.color} hover:shadow-lg transition-all text-left`}
-                  >
-                    <div className={`inline-flex items-center justify-center w-11 h-11 rounded-lg border ${a.color} mb-4 group-hover:scale-110 transition-transform`}>
-                      {a.icon}
-                    </div>
-                    <h3 className="font-semibold text-[#1F2937] mb-1.5">{a.title}</h3>
-                    <p className="text-sm text-gray-500 leading-relaxed">{a.desc}</p>
-                    <div className="mt-3 flex items-center gap-1 text-xs font-medium text-[#1E3A8A] opacity-0 group-hover:opacity-100 transition-opacity">
-                      Dùng thử ngay <ArrowRight size={12} />
-                    </div>
-                  </button>
-                ))}
               </div>
             </div>
           </section>

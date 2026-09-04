@@ -9,5 +9,7 @@ import java.util.Optional;
 
 @Repository
 public interface AdminPackageConfigRepository extends JpaRepository<AdminPackageConfig, Long> {
-    Optional<AdminPackageConfig> findByPackageType(AdminPackageConfig.PackageType packageType);
+
+
+    Optional<AdminPackageConfig> findByPackageType(String packageType);
 }

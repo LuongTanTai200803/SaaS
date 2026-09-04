@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
+import com.saasai.entity.BillingInvoice.InvoiceStatus;
+
 @Entity
 @Table(name = "admin_packages")
 @Getter
@@ -16,9 +18,8 @@ public class AdminPackageConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(unique = true, nullable = false)
-    private PackageType packageType;
+    @Column(name = "package_type", unique = true, nullable = false)
+    private String packageType;
 
     @Column(nullable = false)
     private Long price;
@@ -55,16 +56,16 @@ public class AdminPackageConfig {
         }
     }
 
-    public enum PackageType {
-        FREE, BASIC, PROFESSIONAL, ENTERPRISE
-    }
-
     private Long defaultStorageQuotaMb() {
-        return switch (packageType) {
-            case FREE -> 100L;
-            case BASIC -> 100L;
-            case PROFESSIONAL -> 1024L;
-            case ENTERPRISE -> 5120L;
+        if (packageType == null)
+            return 100L;
+        return switch (packageType.toUpperCase()) {
+            case "FREE", "BASIC" -> 100L;
+            case "PROFESSIONAL" -> 1024L;
+            case "ENTERPRISE" -> 5120L;
+            default -> 100L;
         };
     }
+
+
 }

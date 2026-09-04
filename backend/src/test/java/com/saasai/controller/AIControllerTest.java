@@ -1,8 +1,9 @@
 package com.saasai.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saasai.dto.AIStreamResponseDTO;
-import com.saasai.service.AIService;
+import com.saasai.feature.ai.AiStreamResponseDTO;
+import com.saasai.feature.ai.AiController;
+import com.saasai.feature.ai.AiService;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,13 +38,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class AIControllerTest {
 
-    private static final Long USER_ID = 10293L;
+    private static final String USER_ID = "user-uuid-10293";
 
     @Mock
-    private AIService aiService;
+    private AiService aiService;
 
     @InjectMocks
-    private AIController aiController;
+    private AiController aiController;
 
     private MockMvc mockMvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -63,8 +64,8 @@ class AIControllerTest {
     void completionsShouldStreamSseEvents() throws Exception {
         doAnswer(invocation -> {
                     SseEmitter emitter = invocation.getArgument(6);
-                    emitter.send(AIStreamResponseDTO.builder().type("content").text("chunk-1").build());
-                    emitter.send(AIStreamResponseDTO.builder()
+                    emitter.send(AiStreamResponseDTO.builder().type("content").text("chunk-1").build());
+                    emitter.send(AiStreamResponseDTO.builder()
                             .type("verify_done")
                             .actualCreditDeducted(4.1)
                             .refundedCredit(0.4)
@@ -73,12 +74,12 @@ class AIControllerTest {
                     emitter.complete();
                     return null;
                 }).when(aiService)
-                .processCompletion(eq(502L), eq(USER_ID), eq("{}"), eq("Rewrite"), eq(true), eq("claude-sonnet-4.6"), any());
+                .processCompletion(eq(502), eq(USER_ID), eq("{}"), eq("Rewrite"), eq(true), eq("claude-sonnet-4.6"), any());
 
         MvcResult mvcResult = mockMvc.perform(post("/api/v1/ai/completions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "sessionId", 502,
+                                "sessionId", "502",
                                 "wizardStateJson", "{}",
                                 "promptCommand", "Rewrite",
                                 "pinEditorContext", true,
@@ -99,12 +100,12 @@ class AIControllerTest {
     void exportShouldReturnBinaryFile() throws Exception {
         byte[] fileContent = "mock-file-content".getBytes(StandardCharsets.UTF_8);
 
-        when(aiService.exportDocument(eq(502L), eq(USER_ID), eq("DOCX"))).thenReturn(fileContent);
+        when(aiService.exportDocument(eq("502"), eq(USER_ID), eq("DOCX"))).thenReturn(fileContent);
 
         mockMvc.perform(post("/api/v1/ai/exporter/export")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "sessionId", 502,
+                                "sessionId", "502",
                                 "exportFormat", "DOCX",
                                 "htmlContent", "<h1>Document</h1>"
                         ))))
