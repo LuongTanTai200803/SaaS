@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 //     INDEX idx_chat_sessions_user_id (user_id)
 // );
 
-import org.springframework.web.bind.support.SessionStatus;
+import com.saasai.entity.ChatSession.SessionStatus;
 
 @Entity
 @Table(name = "chat_sessions")
@@ -97,7 +97,17 @@ public class ChatSession {
     }
 
     public enum SessionStatus {
-        DRAFT, ACTIVE, COMPLETED, ARCHIVED
+        DRAFT, EDITING, COMPLETED, ARCHIVED, CLOSED, ACTIVE
     }
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+        name = "assistant_id",
+        nullable = false,
+        foreignKey = @ForeignKey(name = "fk_chat_sessions_assistant")
+    )
+    private Assistant assistant;
+
+
+    
 }

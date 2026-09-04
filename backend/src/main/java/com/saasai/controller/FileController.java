@@ -26,11 +26,14 @@ public class FileController {
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<FileMetadataResponseDTO> uploadFile(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "category", required = false) String category
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "sessionUuid", required = false) String sessionUuid,
+            @RequestParam(value = "fieldCode", required = false) String fieldCode
     ) throws IOException {
         
         // Gọi thẳng Service xử lý lưu cục bộ và lưu DB mà ông đã viết
-        FileMetadataResponseDTO response = fileService.uploadFile(file, category);
+        FileMetadataResponseDTO response =
+            fileService.uploadFile(file, category, sessionUuid, fieldCode);
         
         return ResponseEntity.ok(response);
     }

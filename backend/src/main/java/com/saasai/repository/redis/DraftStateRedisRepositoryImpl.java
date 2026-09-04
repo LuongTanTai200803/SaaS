@@ -31,12 +31,12 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
 
     @Override
     public void save(DraftStateDTO draftState) {
-        validate(draftState.getDraftId(), draftState.getUserId());
+        validate(draftState.getSessionUuid(), draftState.getUserId());
 
         try {
             String json = objectMapper.writeValueAsString(draftState);
             redisTemplate.opsForValue().set(
-                    buildKey(draftState.getDraftId(), draftState.getUserId()),
+                    buildKey(draftState.getSessionUuid(), draftState.getUserId()),
                     json,
                     ttl
             );
@@ -46,10 +46,10 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
     }
 
     @Override
-    public Optional<DraftStateDTO> find(String draftId, String userId) {
-        validate(draftId, userId);
+    public Optional<DraftStateDTO> find(String sesisonUuid, String userId) {
+        validate(sesisonUuid, userId);
 
-        String json = redisTemplate.opsForValue().get(buildKey(draftId, userId));
+        String json = redisTemplate.opsForValue().get(buildKey(sesisonUuid, userId));
         if (json == null || json.isBlank()) {
             return Optional.empty();
         }
@@ -61,19 +61,39 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
         }
     }
 
+    // @Override
+    // public Optional<DraftStateDTO> find(Integer sesisonId, String userId) {
+    //     validate(sesisonUuid, userId);
+
+    //     String json = redisTemplate.opsForValue().get(buildKey(sesisonUuid, userId));
+    //     if (json == null || json.isBlank()) {
+    //         return Optional.empty();
+    //     }
+
+    //     try {
+    //         return Optional.of(objectMapper.readValue(json, DraftStateDTO.class));
+    //     } catch (JsonProcessingException exception) {
+    //         throw new IllegalStateException("Không thể deserialize draft state", exception);
+    //     }
+    // }
+
+
     @Override
-    public void delete(String draftId, String userId) {
-        validate(draftId, userId);
-        redisTemplate.delete(buildKey(draftId, userId));
+    public void delete(String sessionUuid, String userId) {
+        validate(sessionUuid, userId);
+        redisTemplate.delete(buildKey(sessionUuid, userId));
     }
 
-    private String buildKey(String draftId, String userId) {
-        return String.format(KEY_PATTERN, userId.trim(), draftId.trim());
+    private String buildKey(String sessionUuid, String userId) {
+        return String.format(KEY_PATTERN, userId.trim(), sessionUuid.toString());
     }
 
-    private void validate(String draftId, String userId) {
-        if (draftId == null || draftId.isBlank()) {
-            throw new IllegalArgumentException("draftId không được để trống");
+    private void validate(String sessionUuid, String userId) {
+        if (sessionUuid == null) {
+            throw new IllegalArgumentException("sessionId không được để trống");
+        }
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId không được để trống");
         }
         if (userId == null || userId.isBlank()) {
             throw new IllegalArgumentException("userId không được để trống");

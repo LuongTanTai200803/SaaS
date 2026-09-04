@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saasai.dto.BillingInvoiceDTO;
 import com.saasai.entity.BillingInvoice;
 import com.saasai.entity.BillingInvoice.InvoiceStatus;
+import com.saasai.entity.User;
 import com.saasai.service.BillingService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class BillingControllerTest {
 
     private static final String USER_ID = "user-uuid-10293";
+
+    private static final User USER = User.builder()
+            .userId(USER_ID)
+            .email("test@example.com")
+            .build();
 
     @Mock
     private BillingService billingService;
@@ -62,7 +68,7 @@ class BillingControllerTest {
                 .status(InvoiceStatus.PENDING)
                 .build();
 
-        when(billingService.createInvoice(USER_ID, "PROFESSIONAL", 12)).thenReturn(invoice);
+        when(billingService.createInvoice(USER, "PROFESSIONAL", 12)).thenReturn(invoice);
 
         mockMvc.perform(post("/api/v1/billing/invoice")
                         .contentType(MediaType.APPLICATION_JSON)

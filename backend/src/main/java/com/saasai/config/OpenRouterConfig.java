@@ -1,99 +1,95 @@
 package com.saasai.config;
 
-import io.netty.channel.ChannelOption;
-import io.netty.handler.timeout.ReadTimeoutHandler;
-import io.netty.handler.timeout.WriteTimeoutHandler;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 
-import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.List;
+import reactor.core.publisher.Mono;
 
 @Configuration
 @EnableConfigurationProperties(OpenRouterProperties.class)
 public class OpenRouterConfig {
 
-    @Bean
-    public WebClient openRouterWebClient(OpenRouterProperties properties) {
-        validate(properties);
+private static final Logger log =
+        LoggerFactory.getLogger(OpenRouterConfig.class);
 
-        long timeoutMillis = properties.getTimeoutSeconds() * 1000;
+    @Bean
+    public WebClient openRouterWebClient(
+            WebClient.Builder builder,
+            OpenRouterProperties properties
+    ) {
+        validate(properties);
+        
+        log.warn("===== OPENROUTER WEBCLIENT BEAN IS BEING CREATED =====");
+
+        String apiKey = properties.apiKey();
+
+        // log.warn(
+        //     "OpenRouter key diagnostics: present={}, length={}, startsWithSkOr={}",
+        //     StringUtils.hasText(properties.apiKey()),
+        //     properties.apiKey() == null ? 0 : properties.apiKey().length(),
+        //     properties.apiKey() != null && properties.apiKey().startsWith("sk-or-")
+        // );
+
+        log.warn(
+                "OpenRouter timeout: {} ms, duration={}",
+                properties.timeout().toMillis(),
+                properties.timeout()
+        );
 
         HttpClient httpClient = HttpClient.create()
-                .option(
-                        ChannelOption.CONNECT_TIMEOUT_MILLIS,
-                        Math.toIntExact(timeoutMillis)
-                )
-                .responseTimeout(java.time.Duration.ofMillis(timeoutMillis))
-                .doOnConnected(connection -> connection
-                        .addHandlerLast(
-                                new ReadTimeoutHandler(
-                                        timeoutMillis,
-                                        TimeUnit.MILLISECONDS
-                                )
-                        )
-                        .addHandlerLast(
-                                new WriteTimeoutHandler(
-                                        timeoutMillis,
-                                        TimeUnit.MILLISECONDS
-                                )
-                        )
-                );
+                .responseTimeout(properties.timeout());
 
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(properties.getBaseUrl())
-                .clientConnector(new ReactorClientHttpConnector(httpClient))
+        return builder
+                .baseUrl(properties.baseUrl())
                 .defaultHeader(
                         HttpHeaders.AUTHORIZATION,
-                        "Bearer " + properties.getApiKey()
+                        "Bearer " + properties.apiKey()
                 )
                 .defaultHeader(
                         HttpHeaders.CONTENT_TYPE,
                         MediaType.APPLICATION_JSON_VALUE
-                );
-
-        if (hasText(properties.getSiteUrl())) {
-            builder.defaultHeader("HTTP-Referer", properties.getSiteUrl());
-        }
-
-        if (hasText(properties.getAppName())) {
-            builder.defaultHeader(
-                    "X-OpenRouter-Title",
-                    properties.getAppName()
-            );
-        }
-
-        return builder.build();
+                )
+                .defaultHeader(
+                        HttpHeaders.ACCEPT,
+                        MediaType.APPLICATION_JSON_VALUE
+                )
+                .defaultHeader(
+                        "HTTP-Referer",
+                        properties.siteUrl()
+                )
+                .defaultHeader(
+                        "X-OpenRouter-Title",
+                        properties.appName()
+                )
+                .clientConnector(
+                        new ReactorClientHttpConnector(httpClient)
+                )
+                .build();
     }
 
     private void validate(OpenRouterProperties properties) {
-        if (!hasText(properties.getApiKey())) {
+        if (!StringUtils.hasText(properties.apiKey())) {
             throw new IllegalStateException(
                     "OPENROUTER_API_KEY chưa được cấu hình"
             );
         }
 
-        if (!hasText(properties.getBaseUrl())) {
-            throw new IllegalStateException(
-                    "OPENROUTER_BASE_URL chưa được cấu hình"
-            );
-        }
-
         if (properties.timeout() == null
-                || properties.timeout().isNegative()
-                || properties.timeout().isZero()) {
+                || properties.timeout().isZero()
+                || properties.timeout().isNegative()) {
             throw new IllegalStateException(
                     "OPENROUTER_TIMEOUT phải lớn hơn 0"
             );
         }
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
     }
 }

@@ -1,5 +1,7 @@
 // src/api/fileApi.ts
 import ht from './axiosClient';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
 export type FileCategory = 'INPUT_DIRECTIVE' | 'EVIDENCE' | 'CONTENT' | 'TEMPLATE' | 'RELATED' | 'LEGAL';
 
@@ -27,7 +29,12 @@ export const fileApi = {
   getFiles: (params?: any) => {
     return ht.get('/files', { params });
   },
-  exportWordDraft: (payload: any) => {
-    return ht.post('/ai/exporter/export', payload, { responseType: 'blob' });
-  },
+  exportWordDraft: (payload: { sessionUuid: string; exportFormat: string }) =>
+    axios.post(`${API_BASE_URL}/export/download`, payload,  {
+      responseType: 'blob',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+        'ngrok-skip-browser-warning': 'true'
+      }
+    }),
 };

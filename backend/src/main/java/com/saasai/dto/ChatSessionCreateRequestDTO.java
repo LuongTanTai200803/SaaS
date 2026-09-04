@@ -8,6 +8,8 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ChatSessionCreateRequestDTO {
-    private String tagId;
+    
+    private Integer assistantId;
     private String sessionName;
+    
 }

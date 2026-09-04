@@ -1,11 +1,14 @@
 package com.saasai.controller;
 
-import com.saasai.dto.ApiResponseDTO;
+import com.saasai.feature.ai.ApiResponseDTO;
 import com.saasai.dto.BillingInvoiceDTO;
 import com.saasai.dto.BillingInvoiceRequestDTO;
 import com.saasai.dto.BillingWebhookRequestDTO;
 import com.saasai.entity.BillingInvoice;
+import com.saasai.entity.User;
 import com.saasai.service.BillingService;
+import com.saasai.service.UserService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,19 +20,36 @@ import org.springframework.web.bind.annotation.*;
 public class BillingController {
     @Autowired
     private BillingService billingService;
+    
+    @Autowired
+    private UserService userService;
 
     @PostMapping("/invoice")
-    public ResponseEntity<ApiResponseDTO<BillingInvoiceDTO>> createInvoice(@RequestBody BillingInvoiceRequestDTO request) {
-        String userId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    public ResponseEntity<ApiResponseDTO<BillingInvoiceDTO>> createInvoice(
+            @RequestBody BillingInvoiceRequestDTO request
+    ) {
+
+        String userId = (String) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
+
+        User user = userService.getUserById(userId);
 
         BillingInvoice invoice = billingService.createInvoice(
-                userId,
+                user,
                 request.getPackageType(),
-                request.getDurationMonths());
+                request.getDurationMonths()
+        );
 
         BillingInvoiceDTO responseData = convertToDTO(invoice);
 
-        return ResponseEntity.ok(ApiResponseDTO.success("Tạo hoá đơn thành công",responseData));
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Tạo hoá đơn thành công",
+                        responseData
+                )
+        );
     }
 
     @PostMapping("/webhook")

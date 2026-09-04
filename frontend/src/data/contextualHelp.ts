@@ -83,7 +83,7 @@ export const contextualHelpData: Record<string, FieldHelp> = {
   },
   '13': {
     id: '13',
-    title: 'Mẫu văn bản áp dụng làm chuẩn',
+    title: 'Mẫu dàn ý, đề cương khung nội dung văn bản',
     description: 'Tải văn bản thực tế chuẩn bạn đã dùng trước đó để sử dụng làm mẫu. AI sẽ dùng mẫu đó làm chuẩn về bố cục, dàn ý, thể thức, phong cách trình bày và văn phong.',
   },
   '14': {

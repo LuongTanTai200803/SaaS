@@ -8,6 +8,7 @@ import * as realChatApi from './chatApi';
 import * as realAiApi from './aiApi';
 import * as realAdminApi from './adminApi';
 import * as realCreditApi from './creditApi';
+import * as realSessionApi from './sessionAPi';
 
 import * as mockApis from './mockApi'; // Đảm bảo mockApis vẫn được import
 
@@ -18,6 +19,7 @@ export const chatApi = USE_MOCK_API ? mockApis.chatApi : realChatApi.chatApi;
 export const aiApi = USE_MOCK_API ? mockApis.aiApi : realAiApi.aiApi;
 export const adminApi = USE_MOCK_API ? mockApis.adminApi : realAdminApi.adminApi;
 export const creditApi = USE_MOCK_API ? mockApis.creditApi : realCreditApi.creditApi;
+export const sessionApi = USE_MOCK_API ? mockApis.sessionApi : realSessionApi.sessionApi;
 
 const api = {
   authApi,
@@ -27,6 +29,7 @@ const api = {
   aiApi,
   adminApi,
   creditApi,
+  sessionApi
 };
 
 export default api;

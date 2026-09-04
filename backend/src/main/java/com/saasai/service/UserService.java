@@ -147,10 +147,12 @@ public class UserService {
                 }
 
                 return switch (status) {
+                        case EDITING -> "Đang soạn thảo";
                         case DRAFT -> "Bản nháp";
                         case ACTIVE -> "Đang xử lý";
                         case COMPLETED -> "Hoàn thành";
                         case ARCHIVED -> "Đã lưu trữ";
+                        default -> throw new IllegalArgumentException("Unexpected value: " + status);
                 };
         }
 }

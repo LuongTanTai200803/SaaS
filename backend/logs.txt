@@ -77,3 +77,7 @@ Bổ sung test integration cho security + ownership ở AI/Billing.
 
 20/6/2026
 Session validation failed: request reached /api/v1/ai/completions but sessionId does not belong to authenticated userId (or session does not exist), causing NoSuchElementException: Session not found in AI completion flow.
+
+9/8/2026
+email: admin.tai@coquan.gov.vn
+mk: MatKhauManh123@

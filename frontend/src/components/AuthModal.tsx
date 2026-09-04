@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Sparkles, Mail, Lock, User, Phone, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, Eye, EyeOff, Sparkles, Mail, Lock, User, Phone, AlertCircle, CheckCircle2, Building } from 'lucide-react';
 import api from '../api'; // Import đối tượng 'api' tổng hợp
 
 interface AuthModalProps {
@@ -23,7 +23,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialTab = 'login' }: 
   const [registerForm, setRegisterForm] = useState({
     fullName: '',
     email: '',
-    phone: '',
+    agency: '',
     password: '',
     confirmPassword: '',
     agreeTerms: false,
@@ -79,33 +79,64 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialTab = 'login' }: 
     }
   };
 
+  // Hàm kiểm tra định dạng email hợp lệ
+  const isEmailValid = (email: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+
+  // Xử lý submit form đăng ký
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!registerForm.fullName || !registerForm.email || !registerForm.password || !registerForm.confirmPassword) {
-      setError('Vui lòng nhập đầy đủ thông tin bắt buộc.');
+
+    const requiredFields = [
+      { label: 'Họ và tên', value: registerForm.fullName },
+      { label: 'Email', value: registerForm.email },
+      // { label: 'Cơ quan / Đơn vị', value: registerForm.agency },
+      { label: 'Mật khẩu', value: registerForm.password },
+      { label: 'Xác nhận mật khẩu', value: registerForm.confirmPassword },
+    ];
+
+    const missing = requiredFields
+      .filter(f => !String(f.value ?? '').trim())
+      .map(f => f.label);
+
+    if (missing.length > 0) {
+      setError(`Vui lòng điền đầy đủ các trường: ${missing.join(', ')}`);
       return;
     }
+
+    if (!registerForm.fullName || !String(registerForm.fullName).trim()) {
+      setError('Họ và tên không được để trống.');
+      return;
+    }
+
+    if (!isEmailValid(registerForm.email)) {
+      setError('Địa chỉ email không hợp lệ.');
+      return;
+    }
+
     if (registerForm.password !== registerForm.confirmPassword) {
       setError('Mật khẩu xác nhận không khớp.');
       return;
     }
+
     if (registerForm.password.length < 8) {
       setError('Mật khẩu phải có ít nhất 8 ký tự.');
       return;
     }
+
     if (!registerForm.agreeTerms) {
       setError('Vui lòng đồng ý với điều khoản sử dụng.');
       return;
     }
+
     setIsLoading(true);
-    
+
     try {
-      // Gọi API đăng ký
-      await api.authApi.register({ // Sử dụng api.authApi
+      await api.authApi.register({
         fullName: registerForm.fullName,
         email: registerForm.email,
-        phone: registerForm.phone,
+        agency: registerForm.agency,
         password: registerForm.password
       });
 
@@ -116,7 +147,6 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialTab = 'login' }: 
         setSuccess('');
       }, 1400);
     } catch (err: any) {
-      // Bắt lỗi từ server trả về (ví dụ: email đã tồn tại)
       const errorMessage = err.response?.data?.message || err.message || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.';
       setError(errorMessage);
     } finally {
@@ -299,14 +329,14 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialTab = 'login' }: 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Số điện thoại</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Cơ quan / Đơn vị</label>
                 <div className="relative">
-                  <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Building size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
-                    type="tel"
-                    placeholder="0901 234 567"
-                    value={registerForm.phone}
-                    onChange={e => setRegisterForm({ ...registerForm, phone: e.target.value })}
+                    type="text"
+                    placeholder="Ví dụ: Sở Giáo dục và Đào tạo"
+                    value={registerForm.agency}
+                    onChange={e => setRegisterForm({ ...registerForm, agency: e.target.value })}
                     className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>

@@ -26,13 +26,11 @@ public class DraftController {
             @RequestBody DraftSaveRequestDTO request
     ) {
         DraftStateDTO state = draftFileService.saveDraftState(
-                request.getDraftId(),
+                request.getSessionUuid(),
                 currentUserId(),
-                request.getSessionId(),
                 request.getEditorText(),
-                request.getFileIds(),
-                request.getStatus(),
-                request.getWizardStateJson()
+                request.getFormData(),
+                request.getFieldCode()
         );
 
         return ResponseEntity.ok(state);

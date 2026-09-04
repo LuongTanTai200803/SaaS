@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { HomePage } from './components/HomePage';
 import { AIWorkspace } from './components/AIWorkspace';
 import { DocumentWorkspace } from './components/DocumentWorkspace';
@@ -31,49 +31,85 @@ function AppRoutes() {
       <Route path="/" element={<HomePage onNavigate={handleNavigate} />} />
       <Route path="/dashboard" element={<HomePage onNavigate={handleNavigate} initialShowDashboard={true} />} />
       <Route path="/admin" element={<AdminDashboard />} />
-      <Route 
-        path="/wizard" 
-        element={<AIWorkspace onBack={() => navigate('/')} onGenerated={handleNavigateToWorkspace} />} 
+
+      <Route
+        path="/wizard"
+        element={
+          <AIWorkspace
+            onBack={() => navigate('/')}
+            onGenerated={(content, title, assistantId) =>
+              navigate('/workspace', { state: { content, title, assistantId } })
+            }
+          />
+        }
       />
-      <Route 
-        path="/wizard/:assistantId" 
-        element={<AIWorkspaceWrapper onBack={() => navigate('/')} onGenerated={handleNavigateToWorkspace} />} 
+
+      <Route
+        path="/wizard/:assistantId/:sessionUuid?"
+        element={
+          <AIWorkspaceWrapper
+            onBack={() => navigate('/')}
+            onGenerated={(content, title, assistantId) =>
+              navigate('/workspace', { state: { content, title, assistantId } })
+            }
+          />
+        }
       />
-      <Route 
-        path="/workspace" 
-        element={<DocumentWorkspaceWrapper onBack={() => navigate('/wizard')} />} 
+
+      <Route
+        path="/workspace"
+        element={<DocumentWorkspaceWrapper onBack={() => navigate('/wizard')} />}
+      />
+      <Route
+        path="/workspace/:sessionUuid"
+        element={<DocumentWorkspaceWrapper onBack={() => navigate('/wizard')} />}
       />
     </Routes>
   );
 }
 
-function AIWorkspaceWrapper({ onBack, onGenerated }: { onBack: () => void, onGenerated: (content: string | Record<string, any>, title: string, assistantId?: string) => void }) {
-  const { pathname } = useLocation();
-  const assistantId = pathname.split('/').pop();
-  return <AIWorkspace key={assistantId} onBack={onBack} initialAssistantId={assistantId} onGenerated={onGenerated} />;
-}
 
-function DocumentWorkspaceWrapper({ onBack }: { onBack: () => void }) {
-  const location = useLocation();
-  const state = location.state as { content?: string | Record<string, any>; title?: string; assistantId?: string } | null;
+function AIWorkspaceWrapper({
+  onBack,
+  onGenerated,
+}: {
+  onBack: () => void,
+  onGenerated: (content: string | Record<string, any>, title: string, assistantId?: string) => void
+}) {
+  const { assistantId, sessionUuid } = useParams();
   return (
-    <DocumentWorkspace 
-      initialContent={state?.content || ''}
-      documentTitle={state?.title || ''}
-      assistantId={state?.assistantId}
+    <AIWorkspace
+      key={`${assistantId ?? 'none'}-${sessionUuid ?? 'none'}`}
       onBack={onBack}
+      initialAssistantId={assistantId}
+      initialSessionUuid={sessionUuid}
+      onGenerated={onGenerated}
     />
   );
 }
+function DocumentWorkspaceWrapper({ onBack }: { onBack: () => void }) {
+  const location = useLocation();
+  const params = useParams<{ sessionUuid?: string }>();
+  const state = location.state as { content?: string | Record<string, any>; title?: string; assistantId?: string; formData?: any } | null;
+
+  return (
+  <DocumentWorkspace
+  sessionUuid={params?.sessionUuid ?? undefined}
+  initialContent={state?.content || ''}
+  documentTitle={state?.title || ''}
+  formData={state?.formData}
+  assistantId={state?.assistantId}
+  onBack={onBack}
+  />
+  );
+  }
 
 export default function App() {
   return (
-    
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }

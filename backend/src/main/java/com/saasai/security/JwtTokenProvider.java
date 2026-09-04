@@ -23,7 +23,7 @@ public class JwtTokenProvider {
     @Value("${jwt.expiration}")
     private long jwtExpirationMs;
 
-    @Value("${jwt.access-expiration:900000}")
+    @Value("${jwt.access-expiration:90000000}") // Default to 25 hours if not set
     private long jwtAccessExpirationMs;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id}")

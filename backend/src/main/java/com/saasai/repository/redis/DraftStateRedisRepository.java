@@ -6,6 +6,8 @@ import java.util.Optional;
 
 public interface DraftStateRedisRepository {
     void save(DraftStateDTO draftState);
-    Optional<DraftStateDTO> find(String draftId, String userId);
-    void delete(String draftId, String userId);
+    //Optional<DraftStateDTO> find(Integer sessionId, String userId);
+    Optional<DraftStateDTO> find(String sessionUuid, String userId);
+    void delete(String sessionUuid, String userId);
+
 }

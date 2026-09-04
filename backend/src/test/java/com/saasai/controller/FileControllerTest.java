@@ -1,6 +1,6 @@
 package com.saasai.controller;
 
-import com.saasai.dto.ApiResponseDTO;
+import com.saasai.feature.ai.ApiResponseDTO;
 import com.saasai.dto.FileMetadataResponseDTO;
 import com.saasai.service.FileService;
 import org.junit.jupiter.api.AfterEach;

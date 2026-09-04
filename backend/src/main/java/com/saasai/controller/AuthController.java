@@ -1,6 +1,6 @@
 package com.saasai.controller;
 
-import com.saasai.dto.ApiResponseDTO;
+import com.saasai.feature.ai.ApiResponseDTO;
 import com.saasai.dto.AuthResponseDTO;
 import com.saasai.dto.LoginRequestDTO;
 import com.saasai.dto.RefreshTokenRequestDTO;
@@ -44,6 +44,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponseDTO<AuthResponseDTO>> login(@Valid @RequestBody LoginRequestDTO request) {
+        logger.info("LOGIN REQUEST email={}", request.getEmail());
         AuthResponseDTO loginResponse = authService.loginUser(request);
         logger.info("User logged in successfully: {}", request.getEmail());
         return ResponseEntity.ok(ApiResponseDTO.<AuthResponseDTO>builder()

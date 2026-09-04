@@ -8,14 +8,13 @@ export const aiApi = {
   },
 
   // Lấy lịch sử phiên chat chi tiết để hiển thị trong ChatPro hoặc Panel chỉnh sửa
-  getChatHistory(sessionId: string) {
-    const url = `/ai/chat-history/${sessionId}`;
-    return axiosClient.get(url);
+  getWorkspace(sessionUuid: string) {
+    return axiosClient.get(`/chat-sessions/${sessionUuid}/workspace`);
   },
 
   // Ghim ngữ cảnh (context) từ văn bản hiện tại vào phiên chat cho AI tham chiếu
-  pinContext(sessionId: string, data: { documentId: string, content: string }) {
-    const url = `/ai/chat-history/${sessionId}/pin`;
+  pinContext(sessionUuid: string, data: { documentId: string, content: string }) {
+    const url = `/ai/chat-history/${sessionUuid}/pin`;
     return axiosClient.post(url, data);
   }
 };

@@ -36,46 +36,68 @@ public class BillingService {
     @Autowired
     private AdminPackageConfigRepository adminPackageConfigRepository; // Đã thêm để truy vấn gói động
 
-    public BillingInvoice createInvoice(String userId, String rawPackageType, Integer months) {
-        // 1. Chuẩn hóa chuỗi (ví dụ: "basic" hoặc "Basic" -> "BASIC")
-        String normalizedType = normalizePackageType(rawPackageType);
+    @Transactional
+    public BillingInvoice createInvoice(
+            User user,
+            String rawPackageType,
+            Integer months
+    ) {
 
-        // 2. Gọi DB để lấy cấu hình gói tương ứng (Đã có sẵn giá tiền động bên trong)
-        AdminPackageConfig packageConfig = adminPackageConfigRepository.findByPackageType(normalizedType)
-                .orElseThrow(() -> new RuntimeException("Gói dịch vụ không tồn tại: " + normalizedType));
+        String normalizedType =
+                normalizePackageType(rawPackageType);
 
-        // 3. Tạo memoId ngẫu nhiên không trùng lặp cho giao dịch
-        String memoId = "SAASAI" + System.currentTimeMillis() + ThreadLocalRandom.current().nextInt(1000, 9999);
+        AdminPackageConfig packageConfig =
+                adminPackageConfigRepository
+                        .findByPackageType(normalizedType)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Gói dịch vụ không tồn tại: "
+                                                + normalizedType
+                                )
+                        );
 
-        // 4. Tính toán số tiền dựa trên giá cấu hình động và thời gian đăng ký
-        Long originalAmount = calculateOriginalAmount(packageConfig, months);
-        Long discountAmount = calculateDiscount(originalAmount, months);
-        Long finalAmount = originalAmount - discountAmount;
+        String memoId =
+                "SAASAI"
+                        + System.currentTimeMillis()
+                        + ThreadLocalRandom.current()
+                        .nextInt(1000, 9999);
 
-        // 5. Sinh Link mã QR thanh toán theo chuẩn VietQR
-        String qrCodeUrl = generateVietQRUrl(finalAmount, memoId);
+        Long originalAmount =
+                calculateOriginalAmount(
+                        packageConfig,
+                        months
+                );
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
-        AdminPackageConfig targetPackage = adminPackageConfigRepository.findByPackageType(normalizedType)
-                .orElseThrow(() -> new RuntimeException("Gói dịch vụ không tồn tại: " + normalizedType));
+        Long discountAmount =
+                calculateDiscount(
+                        originalAmount,
+                        months
+                );
 
-        // 6. Xây dựng đối tượng hóa đơn lưu xuống database
-        BillingInvoice invoice = BillingInvoice.builder()
-                .user(user) // Lấy userId từ thực thể User
+        Long finalAmount =
+                originalAmount - discountAmount;
 
-                .adminPackageConfig(targetPackage) // Liên kết trực tiếp qua thực thể (khóa ngoại package_id)
-                .durationMonths(months)
-                .originalAmount(originalAmount)
-                .discountAmount(discountAmount)
-                .finalAmount(finalAmount)
-                .memoId(memoId)
-                .qrCodeUrl(qrCodeUrl)
-                .build();
+        String qrCodeUrl =
+                generateVietQRUrl(
+                        finalAmount,
+                        memoId
+                );
+
+        BillingInvoice invoice =
+                BillingInvoice.builder()
+                        .user(user)
+                        .adminPackageConfig(packageConfig)
+                        .durationMonths(months)
+                        .originalAmount(originalAmount)
+                        .discountAmount(discountAmount)
+                        .finalAmount(finalAmount)
+                        .memoId(memoId)
+                        .qrCodeUrl(qrCodeUrl)
+                        .build();
 
         return billingInvoiceRepository.save(invoice);
     }
-
+    
     @Transactional
     public void processPaymentWebhook(BillingWebhookRequestDTO webhookData) {
         if (webhookData == null || webhookData.getContent() == null) {

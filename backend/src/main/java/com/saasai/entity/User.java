@@ -40,6 +40,9 @@ public class User {
     @JoinColumn(name = "package_id")
     private AdminPackageConfig adminPackageConfig;
 
+    // public AdminPackageConfig getAdminPackageConfig() {
+    //     return adminPackageConfig;
+    // }
     private LocalDateTime expireDate;
 
     private String affiliateCode;

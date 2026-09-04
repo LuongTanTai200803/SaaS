@@ -1,0 +1,153 @@
+[1] Tên văn bản muốn ban hành:
+VD: Báo cáo sơ kết 1 năm thực hiện Nghị quyết số 5-NQ/TU,....
+[2] Tổ chức Đảng quản lý cấp trên trực tiếp của tổ chức Đảng mình.
+VD: Tỉnh uỷ; Đảng uỷ...
+[3] Tổ chức Đảng ban hành văn bản:
+VD: Tỉnh uỷ; Ban Thường vụ Tỉnh uỷ; Ban Chấp hành Đảng bộ tỉnh; Đảng uỷ; Ban Thường vụ Đảng uỷ; Ban Chấp hành Đảng uỷ; Chi bộ; Ban Tuyên giáo
+và Dân vận; Uỷ ban Kiểm tra,....
+[4] Địa danh nơi ban hành văn bản.
+VD: TP Hà Nội,...
+[5] VD: 15-CV/TU; 30-KL/ĐU,...
+[6] Liệt kê Cơ quan, đơn vị, cá nhân nhận văn bản.
+VD: Đồng chí ......
+Các Đảng uỷ, Chi bộ,....
+[7] Gồm: Cấp trên, đơn vị phối hợp; Đơn vị chịu trách nhiệm triển khai, thực hiện
+VD: Ban Thường vụ Tỉnh uỷ/Đảng uỷ,...
+[8] Sử dụng văn bản này để: Bám sát / tổng hợp / tham khảo / Trích yếu văn bản làm căn cứ / đối chiếu / trích ý / theo yêu cầu chỉ đạo
+[9] Sử dụng văn bản này để: Bám sát / tổng hợp / tham khảo / Trích yếu văn bản làm căn cứ / đối chiếu / trích ý / nghiên cứu để lồng ghép / Trích dẫn trực
+tiếp, tham khảo nội dung, tổng hợp ý chính
+[10] Nội dung chính; Đặc điểm tình hình chung; công tác lãnh đạo, chỉ đạo; Kết quả thực hiện; hạn chế, khó khăn; Nguyên nhân Chủ quan, khách quan;
+nhiệm vụ trọng tâm; Đề xuất, kiến nghị,...
+[11] Nội dung hoặc File phụ lục, bảng biểu, ảnh, biên bản, báo cáo con
+[12] Tải văn bản thực tế chuẩn bạn đã dùng trước đó để sử dụng làm mẫu. Yêu cầu: Sử dụng mẫu đó làm chuẩn về bố cục, dàn ý, thể thức, phong cách
+trình bày, văn phong.
+[13] Sử dụng đề cương đó làm khung nội dung chính.
+[14] Yêu cầu theo từng văn bản:
+- ưu tiên Văn bản nào ?
+- Dùng để: Tổng hợp, đối chiếu, trích ý, làm phụ lục, Trích dẫn trực tiếp, tham khảo nội dung, tổng hợp ý chính,...
+
+[15] Văn phong Chính luận, phải trang trọng, chính xác, mạch lạc, chuẩn văn phong công tác Đảng.
+[16] Trình bày: Ngắn gọn, trung bình, đầy đủ, chi tiết; khoảng ....... từ (560 từ - 580 từ = 1 trang A4)
+[17] Tạo Bản nháp, bản rút gọn, bản hoàn chỉnh, bản trình ký
+[18] Tên văn bản muốn ban hành:
+VD: Báo cáo kết quả thực hiện phát triển kinh tế - xã hội,... 6 tháng đầu năm,....
+[19] Cơ quan quản lý NN cấp trên trực tiếp của cơ quan mình.
+VD: Hội đồng Nhân dân, Uỷ ban nhân dân tỉnh, Uỷ ban nhân dân xã, sở ngành...
+[20] Cơ quan NN ban hành văn bản:
+VD: UBND tỉnh; UBND xã; sở; phòng; đơn vị sự nghiệp,....
+[21] Địa danh nơi ban hành văn bản.
+VD: TP Hà Nội,...
+[22] VD: 15-CV/UBND; 30-KL/HĐND,...
+[23] Liệt kê Cơ quan, đơn vị, cá nhân nhận văn bản.
+VD: Đồng chí ......
+UBND các xã,....
+[24] Gồm: Cấp trên, đơn vị phối hợp; Đơn vị chịu trách nhiệm triển khai, thực hiện
+VD: Ban Thường vụ Tỉnh uỷ/Đảng uỷ,...
+[25] Sử dụng văn bản này để: Bám sát / tổng hợp / tham khảo / Trích yếu văn bản làm căn cứ / đối chiếu / trích ý / theo yêu cầu chỉ đạo
+[26] Sử dụng văn bản này để: Bám sát / tổng hợp / tham khảo / Trích yếu văn bản làm căn cứ / đối chiếu / trích ý / nghiên cứu để lồng ghép / Trích dẫn trực
+tiếp, tham khảo nội dung, tổng hợp ý chính
+[27] Nội dung chính; Đặc điểm tình hình chung; công tác lãnh đạo, chỉ đạo; Kết quả thực hiện; hạn chế, khó khăn; Nguyên nhân Chủ quan, khách quan;
+nhiệm vụ trọng tâm; Đề xuất, kiến nghị,...
+[28] Nội dung hoặc File phụ lục, bảng biểu, ảnh, biên bản, báo cáo con
+
+[29] Tải văn bản thực tế chuẩn bạn đã dùng trước đó để sử dụng làm mẫu. Yêu cầu: Sử dụng mẫu đó làm chuẩn về bố cục, dàn ý, thể thức, phong cách
+trình bày, văn phong.
+[30] Sử dụng đề cương đó làm khung nội dung chính.
+[31] Yêu cầu theo từng văn bản dùng để làm gì:
+- ưu tiên Văn bản nào ?
+- Dùng để: Tổng hợp, đối chiếu, trích ý, làm phụ lục, Trích dẫn trực tiếp, tham khảo nội dung, tổng hợp ý chính,...
+[32] Văn phong Chính luận, phải trang trọng, chính xác, mạch lạc, chuẩn văn phong công tác Đảng.
+[33] Trình bày: Ngắn gọn, trung bình, đầy đủ, chi tiết; khoảng ....... từ (560 từ - 580 từ = 1 trang A4)
+[34] Tạo Bản nháp, bản rút gọn, bản hoàn chỉnh, bản trình ký
+[35] Tên văn bản muốn ban hành:
+VD: Báo cáo kết quả thực hiện năm học 2027 - 2028,....
+[36] Cơ quan quản lý NN cấp trên trực tiếp của cơ quan mình.
+VD: Uỷ ban nhân dân tỉnh, Uỷ ban nhân dân xã...
+[37] Cơ quan NN ban hành văn bản:
+VD: Sở GD&ĐT; Trường Tiểu học....
+[38] Địa danh nơi ban hành văn bản.
+VD: TP Hà Nội,...
+[39] VD: 15-CV/SGD; 30-KH/TH,...
+[40] Liệt kê Cơ quan, đơn vị, cá nhân nhận văn bản.
+VD: Đồng chí ......
+UBND các xã,....
+[41] Gồm: Cấp trên, đơn vị phối hợp; Đơn vị chịu trách nhiệm triển khai, thực hiện
+VD: - Chi bộ trường,...
+- Tổ chuyên môn....
+[42] Sử dụng văn bản này để: Bám sát / tổng hợp / tham khảo / Trích yếu văn bản làm căn cứ / đối chiếu / trích ý / theo yêu cầu chỉ đạo
+[43] Sử dụng văn bản này để: Bám sát / tổng hợp / tham khảo / Trích yếu văn bản làm căn cứ / đối chiếu / trích ý / nghiên cứu để lồng ghép / Trích dẫn trực
+tiếp, tham khảo nội dung, tổng hợp ý chính
+
+[43] Sử dụng văn bản này để: Bám sát / tổng hợp / tham khảo / Trích yếu văn bản làm căn cứ / đối chiếu / trích ý / nghiên cứu để lồng ghép / Trích dẫn trực
+tiếp, tham khảo nội dung, tổng hợp ý chính
+[44] Mầm non, Tiểu học, THCS, THPT, GDTX
+[45] Nội dung chính; Tình hình nhà trường, số liệu lớp, học sinh, giáo viên, kết quả giáo dục, thi đua; hạn chế, khó khăn; Nguyên nhân Chủ quan, khách
+quan; nhiệm vụ, giải pháp; đề xuất, kiến nghị,...
+[46] Nội dung hoặc File phụ lục, bảng biểu, ảnh, biên bản, báo cáo con
+[47] Tải văn bản thực tế chuẩn bạn đã dùng trước đó để sử dụng làm mẫu. Yêu cầu: Sử dụng mẫu đó làm chuẩn về bố cục, dàn ý, thể thức, phong cách
+trình bày, văn phong.
+[48] Sử dụng đề cương đó làm khung nội dung chính.
+[49] Yêu cầu theo từng văn bản:
+- ưu tiên Văn bản nào ?
+- Dùng để: Tổng hợp, đối chiếu, trích ý, làm phụ lục, Trích dẫn trực tiếp, tham khảo nội dung, tổng hợp ý chính,...
+[50] Văn phong phải chuẩn hành chính, trang trọng, chính xác, mạch lạc, phù hợp với ngành giáo dục và nhà trường.
+[51] Trình bày: Ngắn gọn, trung bình, đầy đủ, chi tiết; khoảng ....... từ (560 từ - 580 từ = 1 trang A4)
+[52] Tạo Bản nháp, bản rút gọn, bản hoàn chỉnh, bản trình ký
+[53] Lãnh đạo: Đảng / Nhà nước / Giáo dục / Nhà trường
+[54] Phát biểu: Khai mạc / Chỉ đạo / Kết luận / Bế mạc / Chào mừng / Tổng kết
+[55] Trình bày theo phong cách: Trang trọng / Chính luận / Hành chính / Sư phạm / Truyền cảm hứng
+[56] Người nghe gồm: Đại biểu, cán bộ, giáo viên, học sinh, phụ huynh, nhân dân,...
+[57] Mục đích bài phát biểu để? Bối cảnh/tình hình thông tin chung? Kết quả nổi bật (Thành tích, kết quả, điểm nhấn)? Hạn chế/khó khăn? Nhiệm vụ trọng
+tâm? Thông điệp chính (tinh thần, định hướng chỉ đạo)? Lời cảm ơn/chúc mừng?
+[58] Trình bày thành: Đoạn văn / Gạch đầu dòng / Bảng lỗi / Bản chỉnh sửa hoàn chỉnh
+[59] Trình bày: Ngắn gọn, trung bình, đầy đủ, chi tiết
+
+[60] Cấp học: Mầm non; Tiểu học; THCS; THPT; GDTX
+[61] Môn: Toán; Ngữ văn; Tiếng Anh; KHTN (vật lý, hoá học, sinh học); Lịch sử & Địa lí; Tin học; Công nghệ; GDCD; Âm nhạc; Mỹ thuật; GDTC
+[62] Bài 7 - Sự tuần hoàn của nước ...
+[63] Yêu cầu: Kiến thức, năng lực, phẩm chất
+[64] Áp dụng đối với: Đối tượng học sinh: Trung bình; khá; giỏi
+[65] Tạo ra kèm giáo án: Phiếu học tập, bài tập, câu hỏi, rubric, trò chơi, slide,...
+[66] Phong cách dạy hoc: Phát triển năng lực, lấy học sinh làm trung tâm, hoạt động nhóm, STEM
+[67] Bộ sách học: Sách kết nối tri thức với cuộc sống
+[68] Tích hợp: giáo dục kỹ năng sống, lịch sử địa phương, ứng dụng AI,...
+[69] Nhập nội dung hoặc tải file bài học
+[70] Mẫu của Bộ, Sở, nhà trường hoặc mẫu cá nhân đang thực hiện (nếu có)
+[71] Phong cách trình bày: Hành chính – sư phạm, Trung tính.
+Mô tả hoạt động, không biểu cảm,
+Không dùng “tôi / chúng ta”,
+Không dùng cảm thán
+[72] Trình bày giáo án: Ngắn gọn, trung bình, đầy đủ, chi tiết; đầy đủ, hoàn chỉnh
+[73] Môn học: Toán; Ngữ văn; Tiếng Anh; KHTN; Lịch sử & Địa lí; Tin học; Công nghệ; GDCD
+[74] Thời gian: 45 phút, 60 phút, 90 phút, 120 phút,...
+[75] Hình thức: Trắc nghiệm; tự luận; kết hợp
+[76] Mục tiêu để: Kiểm tra thường xuyên, giữa kỳ, cuối kỳ, luyện thi
+[77] Kiến thức gồm: Tên bài, Tên chương, phạm vị kiến thức
+[78] Upload File mẫu chuẩn: Đề của sở GD, của trường, đề năm học cũ của mình, đề thi thật
+
+[79] Cho học sinh: Trung bình; khá; giỏi; phân hóa; luyện thi thật
+[80] Tỷ lệ %: Trắc nghiệm / Tự luận / Kết hợp
+VD:
+Tỷ lệ: 40/40/20
+[81] Tỷ lệ %: Nhận biết / Thông hiểu / Vận dụng / Vận dụng cao
+VD:
+Tỷ lệ: 20/30/40/10
+[82] Môn: Toán; Ngữ văn; Tiếng Anh; KHTN; Lịch sử & Địa lí; Tin học; Công nghệ; GDCD
+[83] Tải File bài làm của HS
+[84] Tải Đáp án & Hướng dẫn chấm hay bảng điểm hoặc kết quả học tập của học sinh
+[85] Tải Danh sách Học sinh của Lớp học
+[86] Yêu cầu đánh giá học sinh: Đầy đủ / ngắn gọn / rõ ràng / mạch lạt
+[87] Đánh giá công chức, viên chức; Đánh giá đảng viên; Báo cáo thành tích; Sáng kiến kinh nghiệm
+[88] Tiêu đề: Phiếu đánh giá, xếp loại chất lượng cán bộ; Phiếu đánh giá, xếp loại chất lượng công chức; Phiếu đánh giá, xếp loại chất lượng viên chức;
+Báo cáo thành tích; Sáng kiến kinh nghiệm
+[89] Văn bản của: Tập thể / Cá nhân / Đảng viên / Cán bộ / Công chức / Viên chức
+[90] Trình bày: Kết quả thực hiện; Thành tích đạt được; Danh hiệu thi đua, hình thức khen thường đã nhận; hạn chế, khó khăn; Nguyên nhân Chủ quan,
+khách quan; Đề xuất, kiến nghị,...
+[91] Tự nhận: Hoàn thành xuất sắc nhiệm vụ / Hoàn thành tốt nhiệm vụ / Hoàn thành nhiệm vụ / Không hoàn thành nhiệm vụ
+[92] Tải văn bản thực tế chuẩn bạn đã dùng trước đó để sử dụng làm mẫu. Yêu cầu: Sử dụng mẫu đó làm chuẩn về bố cục, dàn ý, thể thức, phong cách
+trình bày, văn phong.
+[93] Sử dụng đề cương đó làm khung nội dung chính.
+[94] Văn phong phải chuẩn hành chính, trang trọng, chính xác, mạch lạc, phù hợp với ngành giáo dục và nhà trường.
+
+[95] Trình bày: Ngắn gọn, trung bình, đầy đủ, chi tiết; khoảng ....... từ (560 từ - 580 từ = 1 trang A4)
+[96] Tạo Bản nháp, bản rút gọn, bản hoàn chỉnh, bản trình ký

@@ -1,7 +1,8 @@
 package com.saasai.service;
 
 import com.saasai.ai.AiProvider;
-import com.saasai.dto.AIStreamResponseDTO;
+import com.saasai.feature.ai.AiService;
+import com.saasai.feature.ai.AiStreamResponseDTO;
 import com.saasai.entity.ChatSession;
 import com.saasai.entity.CreditTransaction;
 import com.saasai.entity.User;
@@ -39,7 +40,7 @@ class AIServiceTest {
     private CreditService creditService;
 
     @InjectMocks
-    private AIService aiService;
+    private AiService aiService;
 
     private ChatSession session;
     private User user;

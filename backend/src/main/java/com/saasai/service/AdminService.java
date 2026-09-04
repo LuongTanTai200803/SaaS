@@ -71,7 +71,7 @@ public class AdminService {
     public AdminPackageConfig getPackageConfig(String packageType) {
         String normalizedType = normalizePackageType(packageType);
 
-        log.warn("CACHE MISS - Load AdminPackageConfig từ DB cho gói: {}", normalizedType);
+        // log.warn("CACHE MISS - Load AdminPackageConfig từ DB cho gói: {}", normalizedType);
         
         AdminPackageConfig config = adminPackageConfigRepository.findByPackageType(normalizedType)
                 .orElseThrow(() -> {

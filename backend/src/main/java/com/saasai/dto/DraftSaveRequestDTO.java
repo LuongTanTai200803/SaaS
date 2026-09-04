@@ -1,33 +1,83 @@
 package com.saasai.dto;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class DraftSaveRequestDTO {
-    private String draftId;
+
+    private String sessionUuid;
     private Integer sessionId;
+
+    /**
+     * Nội dung draft.
+     *
+     * Backend sẽ lưu FormData JSON vào editorText.
+     */
     private String editorText;
-    private List<String> fileIds = new ArrayList<>();
+
+    /**
+     * FormData từ frontend.
+     * Backend serialize thành JSON và lưu vào editorText.
+     */
+    private DocumentFormDTO formData;
+
     private String status;
     private String wizardStateJson;
+    private String fieldCode;
 
     public DraftSaveRequestDTO() {}
 
-    public String getDraftId() { return draftId; }
-    public void setDraftId(String draftId) { this.draftId = draftId; }
-    public Integer getSessionId() { return sessionId; }
-    public void setSessionId(Integer sessionId) { this.sessionId = sessionId; }
-    public String getEditorText() { return editorText; }
-    public void setEditorText(String editorText) { this.editorText = editorText; }
-    public List<String> getFileIds() {
-        if (fileIds == null) fileIds = new ArrayList<>();
-        return fileIds;
+    public String getSessionUuid() {
+        return sessionUuid;
     }
-    public void setFileIds(List<String> fileIds) {
-        this.fileIds = fileIds != null ? new ArrayList<>(fileIds) : new ArrayList<>();
+
+    public void setSessionUuid(String sessionUuid) {
+        this.sessionUuid = sessionUuid;
     }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public String getWizardStateJson() { return wizardStateJson; }
-    public void setWizardStateJson(String wizardStateJson) { this.wizardStateJson = wizardStateJson; }
+
+    public Integer getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(Integer sessionId) {
+        this.sessionId = sessionId;
+    }
+
+    public String getEditorText() {
+        return editorText;
+    }
+
+    public void setEditorText(String editorText) {
+        this.editorText = editorText;
+    }
+
+    public DocumentFormDTO getFormData() {
+        return formData;
+    }
+
+    public void setFormData(DocumentFormDTO formData) {
+        this.formData = formData;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getWizardStateJson() {
+        return wizardStateJson;
+    }
+
+    public void setWizardStateJson(String wizardStateJson) {
+        this.wizardStateJson = wizardStateJson;
+    }
+
+    public String getFieldCode() {
+        return fieldCode;
+    }
+
+    public void setFieldCode(String fieldCode) {
+        this.fieldCode = fieldCode;
+    }
+
 }

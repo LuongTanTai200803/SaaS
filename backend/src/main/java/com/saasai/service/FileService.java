@@ -2,11 +2,14 @@ package com.saasai.service;
 
 import com.saasai.dto.FileMetadataResponseDTO;
 import com.saasai.entity.AdminPackageConfig;
+import com.saasai.entity.ChatSession;
+import com.saasai.entity.ChatSessionFile;
 import com.saasai.entity.FileMetadata;
 import com.saasai.entity.FileMetadata.ExtractionStatus;
 import com.saasai.entity.User;
 import com.saasai.extractor.ExtractResult;
 import com.saasai.normalizer.TextNormalizer;
+import com.saasai.repository.ChatSessionRepository;
 import com.saasai.repository.FileMetadataRepository;
 import com.saasai.repository.UserRepository;
 import com.saasai.repository.redis.FileNormalizedTextRedisRepository;
@@ -22,6 +25,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 
@@ -39,6 +44,8 @@ public class FileService {
     private final FileExtractionService fileExtractionService;
     private final TextNormalizer textNormalizer;
     private final FileNormalizedTextRedisRepository fileTextRedisRepository;
+    private final ChatSessionFileService chatSessionFileService;
+    private final ChatSessionRepository chatSessionRepository;
 
     @Value("${storage.base-url:http://localhost:8080/uploads/}")
     private String storageBaseUrl;
@@ -50,7 +57,9 @@ public class FileService {
             StorageService storageService,
             FileExtractionService fileExtractionService,
             TextNormalizer textNormalizer,
-            FileNormalizedTextRedisRepository fileTextRedisRepository
+            FileNormalizedTextRedisRepository fileTextRedisRepository,
+            ChatSessionFileService chatSessionFileService,
+            ChatSessionRepository chatSessionRepository
     ) {
         this.fileUploadRepository = fileUploadRepository;
         this.userRepository = userRepository;
@@ -59,15 +68,40 @@ public class FileService {
         this.fileExtractionService = fileExtractionService;
         this.textNormalizer = textNormalizer;
         this.fileTextRedisRepository = fileTextRedisRepository;
+        this.chatSessionFileService = chatSessionFileService;
+        this.chatSessionRepository = chatSessionRepository;
+    }
+    
+    // Uploads a file and associates it with the current user. 
+    // Optionally, it can also attach the file to a chat session if sessionId is provided.
+    public FileMetadataResponseDTO uploadFile(
+        MultipartFile file,
+        String category
+    ) throws IOException {
+        return uploadFile(file, category, null, null);
     }
 
+    // Overloaded method to upload a file with sessionId but without fieldCode.
     public FileMetadataResponseDTO uploadFile(
-            MultipartFile file,
-            String category
+        MultipartFile file,
+        String category,
+        String sessionUuid,
+        String fieldCode
     ) throws IOException {
+        
         User currentUser = userRepository.findByEmail(resolveCurrentEmail())
                 .orElseThrow(() ->
                         new RuntimeException("Tài khoản không tồn tại!"));
+
+        ChatSession session = chatSessionRepository
+                .findBySessionUuidAndUser_UserId(sessionUuid, currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NoSuchElementException(
+                                "Session không tồn tại hoặc không thuộc user"
+                        )
+                );
+
+        Integer sessionId = session.getSessionId();
 
         validateFile(file);
         enforceStorageQuota(currentUser, file.getSize());
@@ -101,7 +135,7 @@ public class FileService {
                 .build();
 
         FileMetadata saved = fileUploadRepository.save(fileUpload);
-
+        
         try {
             fileTextRedisRepository.save(
                     saved.getFileId(),
@@ -113,6 +147,16 @@ public class FileService {
                     + "Dữ liệu vẫn đã được lưu trong DB.",
                     saved.getFileId(),
                     exception
+            );
+        }
+
+
+        if (sessionId != null) {
+            chatSessionFileService.attachFileToSession(
+                    sessionId,
+                    currentUser.getUserId(),
+                    saved.getFileId(),
+                    fieldCode
             );
         }
         
@@ -261,5 +305,23 @@ public class FileService {
                 filePath,
                 originalFileName
         );
+    }
+
+    // Resolves the PromptFieldCode enum from a string. Defaults to REFERENCE if the input is null, blank, or unrecognized.
+    private ChatSessionFile.PromptFieldCode resolveFieldCode(String fieldCode) {
+        if (fieldCode == null || fieldCode.isBlank()) {
+            return ChatSessionFile.PromptFieldCode.REFERENCE;
+        }
+
+        return switch (fieldCode.trim().toUpperCase()) {
+            case "MAIN_CONTENT" -> ChatSessionFile.PromptFieldCode.MAIN_CONTENT;
+            case "LEGAL_BASIS" -> ChatSessionFile.PromptFieldCode.LEGAL_BASIS;
+            case "DIRECTIVE" -> ChatSessionFile.PromptFieldCode.DIRECTIVE;
+            case "STATISTICS" -> ChatSessionFile.PromptFieldCode.STATISTICS;
+            case "REFERENCE" -> ChatSessionFile.PromptFieldCode.REFERENCE;
+            case "OUTLINE" -> ChatSessionFile.PromptFieldCode.OUTLINE;
+            case "TEMPLATE" -> ChatSessionFile.PromptFieldCode.TEMPLATE;
+            default -> ChatSessionFile.PromptFieldCode.REFERENCE;
+        };
     }
 }

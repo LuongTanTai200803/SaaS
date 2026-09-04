@@ -1,126 +1,216 @@
 package com.saasai.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saasai.dto.DocumentFormDTO;
 import com.saasai.dto.DraftStateDTO;
+import com.saasai.entity.ChatSession;
+import com.saasai.entity.ChatSession.SessionStatus;
+import com.saasai.entity.ChatSessionFile;
 import com.saasai.repository.ChatSessionRepository;
 import com.saasai.repository.redis.DraftStateRedisRepository;
 import org.springframework.stereotype.Service;
+
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 @Service
 public class DraftFileService {
 
     private final DraftStateRedisRepository draftRepository;
-    private final FileTextService fileTextService;
     private final ChatSessionRepository chatSessionRepository;
+    private final ObjectMapper objectMapper;
+  
 
     public DraftFileService(
             DraftStateRedisRepository draftRepository,
-            FileTextService fileTextService,
-            ChatSessionRepository chatSessionRepository
+            ChatSessionRepository chatSessionRepository,
+            ObjectMapper objectMapper
+            
     ) {
         this.draftRepository = draftRepository;
-        this.fileTextService = fileTextService;
         this.chatSessionRepository = chatSessionRepository;
+        this.objectMapper = new ObjectMapper();
     }
 
     public DraftStateDTO saveDraftState(
-            String draftId,
-            String userId,
-            Integer sessionId,
-            String editorText,
-            List<String> fileIds,
-            String status,
-            String wizardStateJson
+        String draftId,
+        String userId,
+        String editorText,
+        DocumentFormDTO formData,
+        String fieldCode
     ) {
         String normalizedDraftId = requireText(draftId, "draftId");
         String normalizedUserId = requireText(userId, "userId");
 
-        validateSessionOwnership(sessionId, normalizedUserId);
+        ChatSession session =
+                chatSessionRepository
+                        .findBySessionUuidAndUser_UserId(
+                                draftId,
+                                normalizedUserId
+                        )
+                        .orElseThrow(() ->
+                                new NoSuchElementException(
+                                        "Session không tồn tại hoặc không thuộc user"
+                                )
+                        );
 
         DraftStateDTO state = new DraftStateDTO();
-        state.setDraftId(normalizedDraftId);
-        state.setUserId(normalizedUserId);
-        state.setSessionId(sessionId);
-        state.setEditorText(editorText == null ? "" : editorText);
-        state.setFileIds(normalizeFileIds(fileIds));
-        state.setStatus(status == null || status.isBlank() ? "EDITING" : status.trim().toUpperCase());
-        state.setWizardStateJson(wizardStateJson);
-        state.setUpdatedAt(LocalDateTime.now());
 
+        state.setSessionUuid(normalizedDraftId);
+        state.setUserId(normalizedUserId);
+
+        /*
+        * Ưu tiên FormData.
+        *
+        * FormData chính là nguồn dữ liệu mà AI sẽ dùng.
+        */
+        if (formData != null) {
+            try {
+                state.setWizardStateJson(
+                        objectMapper.writeValueAsString(formData)
+                );
+            } catch (JsonProcessingException e) {
+                throw new IllegalStateException(
+                        "Không thể serialize formData thành JSON",
+                        e
+                );
+            }
+        } else {
+            state.setWizardStateJson(
+                    editorText == null ? "" : editorText
+            );
+        }
+        state.setEditorText(editorText);
+        state.setFieldCode(fieldCode);
+        state.setUpdatedAt(LocalDateTime.now());
+        state.setStatus(
+        session.getStatus() != null
+                ? session.getStatus().name()
+                : "DRAFT"
+        );
+
+        // Redis
         draftRepository.save(state);
+
+        // DB mirror
+        session.setWizardStateJson(state.getWizardStateJson());
+        session.setStatus(
+                mapDraftStatusToSessionStatus(state.getStatus())
+        );
+        
+        chatSessionRepository.save(session);
+
         return state;
     }
 
-    public DraftStateDTO loadDraftState(String draftId, String userId) {
+    // Load the draft state from Redis. If not found, load from database.
+    public DraftStateDTO loadDraftState(
+        String sessionUuid,
+        String userId
+    ) {
+        
+        ChatSession session = chatSessionRepository
+                .findBySessionUuidAndUser_UserId(sessionUuid, userId)
+                .orElseThrow(() ->
+                        new NoSuchElementException(
+                                "Session không tồn tại hoặc không thuộc user"
+                        )
+                );
+
+        Integer sessionId = session.getSessionId();
+
+        if (sessionId == null) {
+            throw new IllegalArgumentException(
+                    "sessionId không được để trống"
+            );
+        }
+
+        String normalizedUserId =
+                requireText(userId, "userId");
+
+        
         return draftRepository.find(
-                        requireText(draftId, "draftId"),
-                        requireText(userId, "userId")
+                    sessionUuid,
+                    normalizedUserId
+            )
+            .or(() ->
+                loadDraftStateFromDatabase(
+                    sessionUuid,
+                    normalizedUserId
                 )
-                .orElseThrow(() -> new NoSuchElementException(
-                        "Draft không tồn tại hoặc đã hết hạn"
-                ));
+            )
+            .orElseThrow(() ->
+                new NoSuchElementException(
+                    "Draft không tồn tại hoặc đã hết hạn"
+                )
+            );
     }
 
-    public String finalizeDraftAndBuildPrompt(String draftId, String userId) {
-        DraftStateDTO draft = loadDraftState(draftId, userId);
+    
+    public String finalizeDraftAndBuildPrompt(
+            String sessionUuid,
+            String userId
+    ) {
+        DraftStateDTO draft =
+                loadDraftState(sessionUuid, userId);
 
-        validateSessionOwnership(draft.getSessionId(), userId);
-
-        String mergedPrompt = mergeEditorAndFiles(
-                draft.getEditorText(),
-                draft.getFileIds(),
+        validateSessionOwnership(
+                draft.getSessionUuid(),
                 userId
         );
 
-        if (mergedPrompt.isBlank()) {
-            throw new IllegalArgumentException("Draft không có nội dung để hoàn tất");
+        String wizardText = draft.getWizardStateJson();
+
+        if (wizardText == null || wizardText.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Draft không có nội dung để hoàn tất"
+            );
         }
 
         draft.setStatus("FINALIZED");
         draft.setUpdatedAt(LocalDateTime.now());
+
         draftRepository.save(draft);
 
-        return mergedPrompt;
+        return wizardText;
     }
 
-    public String mergeEditorAndFiles(
-            String editorText,
-            List<String> fileIds,
+    private Optional<DraftStateDTO> loadDraftStateFromDatabase(
+            String sessionUuid,
             String userId
     ) {
-        String normalizedUserId = requireText(userId, "userId");
-        StringBuilder prompt = new StringBuilder();
 
-        if (editorText != null && !editorText.isBlank()) {
-            prompt.append("[EDITOR_CONTENT]\n")
-                    .append(editorText.trim())
-                    .append("\n\n");
-        }
-
-        List<String> normalizedIds = normalizeFileIds(fileIds);
-
-        for (int index = 0; index < normalizedIds.size(); index++) {
-            String fileId = normalizedIds.get(index);
-            String text = fileTextService.getNormalizedText(fileId, normalizedUserId);
-
-            prompt.append("[UPLOADED_FILE_")
-                    .append(index + 1)
-                    .append("]\n")
-                    .append("fileId: ")
-                    .append(fileId)
-                    .append("\n")
-                    .append(text == null ? "" : text.trim())
-                    .append("\n\n");
-        }
-
-        return prompt.toString().trim();
+        // Load from database
+        return chatSessionRepository
+                .findBySessionUuid(sessionUuid)
+                .map(session -> {
+                    DraftStateDTO state = new DraftStateDTO();
+                    state.setSessionUuid(sessionUuid); // Assuming draftId is the same as sessionId for this example
+                    state.setUserId(userId);
+    
+                    state.setEditorText(
+                            session.getEditorContent() == null
+                                    ? ""
+                                    : session.getEditorContent()
+                    );
+                    state.setStatus(
+                            session.getStatus() == null
+                                    ? "DRAFT"
+                                    : session.getStatus().name()
+                    );
+                    state.setWizardStateJson(session.getWizardStateJson());
+                    state.setUpdatedAt(LocalDateTime.now());
+                    return state;
+                });
     }
 
+    // Xoá bản ghi 
     public void deleteDraft(String draftId, String userId) {
         draftRepository.delete(
                 requireText(draftId, "draftId"),
@@ -128,12 +218,12 @@ public class DraftFileService {
         );
     }
 
-    private void validateSessionOwnership(Integer sessionId, String userId) {
-        if (sessionId == null) {
+    private void validateSessionOwnership(String sessionUuid, String userId) {
+        if (sessionUuid == null) {
             throw new IllegalArgumentException("sessionId không được null");
         }
 
-        chatSessionRepository.findBySessionIdAndUser_UserId(sessionId, userId)
+        chatSessionRepository.findBySessionUuidAndUser_UserId(sessionUuid, userId)
                 .orElseThrow(() -> new NoSuchElementException(
                         "Session không tồn tại hoặc không thuộc user"
                 ));
@@ -163,11 +253,123 @@ public class DraftFileService {
         return new ArrayList<>(uniqueIds);
     }
 
+    private SessionStatus mapDraftStatusToSessionStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return SessionStatus.DRAFT;
+        }
+
+        return switch (status.trim().toUpperCase()) {
+            case "EDITING" -> SessionStatus.EDITING;
+            case "FINALIZED" -> SessionStatus.COMPLETED;
+            case "ARCHIVED" -> SessionStatus.ARCHIVED;
+            case "DRAFT" -> SessionStatus.DRAFT;
+            default -> SessionStatus.DRAFT;
+        };
+    }
+    
+    // 
     private String requireText(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " không được để trống");
         }
 
         return value.trim();
+    }
+
+    // Lấy nội dung editorText của draft dựa trên sessionUuid và userId. Nếu không tìm thấy trong Redis, sẽ fallback sang DB.
+    public String getFormDataBySession(
+        String sessionUuid,
+        String userId
+    ) {
+        String normalizedUserId = requireText(userId, "userId");
+
+        // Redis
+        Optional<DraftStateDTO> cached =
+                draftRepository.find(sessionUuid, normalizedUserId);
+
+                
+        if (cached.isPresent()) {
+        String wizardStateJson = cached.get().getWizardStateJson();
+
+        if (wizardStateJson != null && !wizardStateJson.isBlank()) {
+            return wizardStateJson;
+        }
+    }
+
+        
+        // DB fallback
+        ChatSession session = chatSessionRepository
+                .findBySessionUuidAndUser_UserId(sessionUuid, normalizedUserId)
+                .orElseThrow(() -> new NoSuchElementException(
+                        "Session không tồn tại"
+                ));
+
+        String wizardText = session.getWizardStateJson();
+
+        // Có thể re-cache Redis
+        DraftStateDTO state = new DraftStateDTO();
+        state.setSessionUuid(sessionUuid);
+        state.setUserId(normalizedUserId);
+        state.setWizardStateJson(
+                wizardText == null ? "" : wizardText
+        );
+
+        state.setStatus("EDITING");
+        state.setUpdatedAt(LocalDateTime.now());
+
+        draftRepository.save(state);
+
+        return wizardText == null ? "" : wizardText;
+    }
+
+    public String getEditorTextBySession(
+        String sessionUuid,
+        String userId
+    ) {
+        String normalizedUserId = requireText(userId, "userId");
+
+        // Redis
+        Optional<DraftStateDTO> cached =
+                draftRepository.find(sessionUuid, normalizedUserId);
+
+        if (cached.isPresent()) {
+
+            String editorText = cached.get().getEditorText();
+
+            // Redis có record nhưng editorText null/rỗng
+            // → phải tiếp tục kiểm tra DB
+            if (editorText != null && !editorText.isBlank()) {
+                return editorText;
+            }
+        }
+
+        
+        // DB fallback
+        ChatSession session = chatSessionRepository
+                .findBySessionUuidAndUser_UserId(sessionUuid, normalizedUserId)
+                .orElseThrow(() -> new NoSuchElementException(
+                        "Session không tồn tại"
+                ));
+
+        String editorText = session.getEditorContent();
+
+        if (editorText == null || editorText.isBlank()) {
+            return "";
+        }
+
+        // Có thể re-cache Redis
+        DraftStateDTO state = new DraftStateDTO();
+        state.setSessionUuid(sessionUuid);
+        state.setUserId(normalizedUserId);
+        state.setEditorText(
+                editorText == null ? "" : editorText
+        );
+
+        state.setStatus("EDITING");
+        state.setUpdatedAt(LocalDateTime.now());
+
+        draftRepository.save(state);
+
+        return editorText == null ? "" : editorText;
     }
 }

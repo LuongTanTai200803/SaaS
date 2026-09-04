@@ -1,8 +1,0 @@
-Đây là văn bản có dấu.
-
-Xin  chào.
-
-Học lập trình.
-
-Khoảng trắng Unicode.
-20/7

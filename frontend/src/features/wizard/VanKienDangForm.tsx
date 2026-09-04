@@ -1,21 +1,56 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   FileText, Upload, Calendar, ChevronDown, Info,
   CheckCircle2, ArrowRight, ArrowLeft, Sparkles, X, File, Eye
 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+
 import { ContextualHelpPanel } from '../../components/ContextualHelpPanel';
 import { fileApi } from '../../api/fileApi';
 import { CreditEstimator } from '../../components/CreditEstimator';
 import { UploadingFile, uploadFileToServer, deleteFileFromServer } from '../../services/fileUpload';
 import { DocumentWorkspace } from '../../components/DocumentWorkspace';
+import { sessionApi } from '../../api/sessionAPi';
 
 interface VanKienDangFormProps {
   onGenerate?: (data: any) => void;
-  initialSessionData?: { formData: FormData; filesMap: Record<string, UploadingFile[]> }; // Nhận dữ liệu khôi phục từ file cha nếu có
+  initialSessionData?: { formData: FormData; filesMap: Record<string, UploadingFile[]> };
+  activeSessionUuid?: string | null;
+  sessionStatus?: string;
+  onSessionStatusChange?: (status: string) => void;
+  onClose?: () => void;
 }
 
 type MenuSection = 1 | 2 | 3 | 4 | 5 | 6;
 export type FileCategory = 'DIRECTIVE' | 'LEGAL' | 'CONTENT' | 'TEMPLATE' | 'RELATED' | 'EVIDENCE';
+
+export const FIELD_CODE_BY_CATEGORY = {
+  DIRECTIVE: "DIRECTIVE",
+  LEGAL: "LEGAL_BASIS",
+  CONTENT: "MAIN_CONTENT",
+  TEMPLATE: "TEMPLATE",
+  RELATED: "REFERENCE",
+  EVIDENCE: "STATISTICS",
+  } as const satisfies Record<FileCategory, string>;
+
+export const CATEGORY_BY_FIELD_CODE = Object.fromEntries(
+  Object.entries(FIELD_CODE_BY_CATEGORY).map(([category, fieldCode]) => [
+  fieldCode,
+  category,
+  ]),
+  ) as Record<string, FileCategory>;
+
+export function getFieldCodeByCategory(category: FileCategory): string {
+  return FIELD_CODE_BY_CATEGORY[category];
+  }
+
+export function getCategoryByFieldCode(fieldCode: string): FileCategory | undefined {
+  return CATEGORY_BY_FIELD_CODE[fieldCode];
+  }
+
+export function getTemplateFieldCode(variant: "main" | "outline" = "main"): string {
+  return variant === "outline" ? "OUTLINE" : "TEMPLATE";
+  }
 
 interface FormData {
   // Menu 1
@@ -37,7 +72,7 @@ interface FormData {
   // Menu 3
   noiDungChinh: string;
   bangBieuSoLieu: string;
-  taiLieuMinhChung: File[];
+  taiLieuMinhChungFileIds: string[];
 
   // Menu 4
   mauVanBan: string;
@@ -45,10 +80,10 @@ interface FormData {
 
   // Menu 5
   vanBanLienQuan: string;
-  taophuluc: boolean;
+  taoPhuLuc: boolean;
   doiChieu: boolean;
   bamCanCu: boolean;
-  theThucc: boolean;
+  theThuc: boolean;
 
   // Menu 6
   phongCach: string;
@@ -58,10 +93,61 @@ interface FormData {
   outputSize: string;
 }
 
-export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangFormProps) {
-  const [currentMenu, setCurrentMenu] = useState<MenuSection>(1);
+export function VanKienDangForm({
+    onGenerate,
+    initialSessionData,
+    activeSessionUuid,
+    sessionStatus,
+    onSessionStatusChange,
+    onClose
+  }: VanKienDangFormProps) {
+
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    const getStepFromUrl = (): MenuSection => {
+      const stepFromUrl = Number(new URLSearchParams(location.search).get('step') ?? '1');
+      return Number.isInteger(stepFromUrl) && stepFromUrl >= 1 && stepFromUrl <= 6
+        ? (stepFromUrl as MenuSection)
+        : 1;
+    };
+
+    const [currentMenu, setCurrentMenu] = useState<MenuSection>(getStepFromUrl());
+
+    const syncStepInUrl = (step: MenuSection) => {
+      const params = new URLSearchParams(location.search);
+      params.set('step', String(step));
+
+      navigate(
+        {
+          pathname: location.pathname,
+          search: `?${params.toString()}`,
+        },
+        { replace: true }
+      );
+    };
+
+    useEffect(() => {
+      const urlStep = getStepFromUrl();
+      if (urlStep !== currentMenu) {
+        setCurrentMenu(urlStep);
+      }
+    }, [location.search]);
+
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [showWorkspace, setShowWorkspace] = useState(false);
+  const [draftMeta, setDraftMeta] = useState<{
+    status?: string;
+    updatedAt?: string;
+    fieldCode?: string;
+    editorText?: string | null;
+  } | null>(null);
+
+  const effectiveStatusRaw = sessionStatus ?? draftMeta?.status ?? 'DRAFT';
+  const normalizedStatus = String(effectiveStatusRaw || '').toUpperCase();
+  const isDraft = normalizedStatus === 'DRAFT';
+  const isEditing = normalizedStatus === 'EDITING';
+
+  const [generatedDocument, setGeneratedDocument] = useState<string | Record<string, any>>('');
 
   // 🎯 QUY HOẠCH TẬP TRUNG: Gom 6 mảng file upload rời rạc thành 1 State Map duy nhất
   const [filesMap, setFilesMap] = useState<Record<FileCategory, UploadingFile[]>>({
@@ -72,7 +158,6 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
     RELATED: [],
     EVIDENCE: [],
   });
-
   const [formData, setFormData] = useState<FormData>({
     loaiVanBan: '',
     tenVanBan: '',
@@ -88,20 +173,180 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
     vanBanPhapLy: '',
     noiDungChinh: '',
     bangBieuSoLieu: '',
-    taiLieuMinhChung: [],
+    taiLieuMinhChungFileIds: [],
     mauVanBan: '',
     deCuongDanY: '',
     vanBanLienQuan: '',
-    taophuluc: false,
+    taoPhuLuc: false,
     doiChieu: false,
     bamCanCu: false,
-    theThucc: false,
+    theThuc: false,
     phongCach: '',
     doDai: '',
     mucDoHoanChinh: '',
     selectedModel: 'claude-sonnet-4.6',
     outputSize: '',
   });
+
+  const DEFAULT_FORM: FormData = {
+    loaiVanBan: '',
+    tenVanBan: '',
+    coQuanChuQuan: '',
+    coQuanBanHanh: '',
+    diaDanh: '',
+    nguoiKy: '',
+    soKyHieu: '',
+    kinhGui: '',
+    noiNhanBaoCao: '',
+    ngayBanHanh: new Date().toISOString().split('T')[0],
+    vanBanChiDao: '',
+    vanBanPhapLy: '',
+    noiDungChinh: '',
+    bangBieuSoLieu: '',
+    taiLieuMinhChungFileIds: [],
+    mauVanBan: '',
+    deCuongDanY: '',
+    vanBanLienQuan: '',
+    taoPhuLuc: false,
+    doiChieu: false,
+    bamCanCu: false,
+    theThuc: false,
+    phongCach: '',
+    doDai: '',
+    mucDoHoanChinh: '',
+    selectedModel: 'claude-sonnet-4.6',
+    outputSize: '',
+  };
+
+  // const validateField = (field: keyof FormData, value: any) => {
+  //   let error = '';
+
+  //   if (['loaiVanBan', 'tenVanBan', 'noiDungChinh'].includes(field)) {
+  //     if (!String(value ?? '').trim()) {
+  //       error = 'Trường này không được để trống';
+  //     }
+  //   }
+
+  //   setFieldErrors(prev => ({ ...prev, [field]: error }));
+  //   return error === '';
+  // };
+
+  // 📝 LOAD DRAFT: Khi activeSessionUuid thay đổi, tải dữ liệu nháp từ Backend và đổ vào formData
+  useEffect(() => {
+  if (!activeSessionUuid) return;
+
+  const loadDraft = async () => {
+    try {
+      const data = await sessionApi.getDraft(activeSessionUuid);
+      const parsedFormData =
+        data?.formData ??
+        (data?.wizardStateJson
+          ? JSON.parse(data.wizardStateJson)
+          : null);
+
+      if (parsedFormData) {
+        const normalized = { ...DEFAULT_FORM, ...parsedFormData };
+        setFormData(prev => ({
+          ...prev,
+          ...normalized
+        }));
+        setGeneratedDocument(parsedFormData);
+
+      }
+
+      setDraftMeta({
+        status: data?.status,
+        updatedAt: data?.updatedAt,
+        fieldCode: data?.fieldCode,
+        editorText: data?.editorText ?? null,
+      });
+
+      if (data?.sessionName) {
+        setSessionName(data.sessionName);
+      }
+
+      console.log('Load draft/session thành công:', data);
+
+    } catch (e) {
+      console.error('Load draft/session failed:', e);
+    }
+  };
+
+  loadDraft();
+}, [activeSessionUuid]);
+
+  // 📝 AUTO SAVE DRAFT: Tự động lưu nháp mỗi 30 giây nếu đang ở trạng thái DRAFT
+  const latestFormRef = useRef(formData);
+  useEffect(() => {
+    latestFormRef.current = formData;
+  }, [formData]);
+
+  useEffect(() => {
+    if (!activeSessionUuid) return;
+    if (normalizedStatus !== 'DRAFT') return;
+
+    const timer = setInterval(async () => {
+      try {
+
+        // autosave draft
+        const payload = {
+          sessionUuid: activeSessionUuid,
+          editorText: draftMeta?.editorText ?? null,
+          formData: latestFormRef.current,
+          fieldCode: draftMeta?.fieldCode || 'MAIN_CONTENT',
+        };
+        const saved = await sessionApi.saveDraft(payload);
+
+        console.log('Auto save draft thành công:', saved);
+        setDraftMeta({
+          status: saved?.status,
+          updatedAt: saved?.updatedAt,
+          fieldCode: saved?.fieldCode,
+          editorText: saved?.editorText ?? null
+        });
+
+        onSessionStatusChange?.(String(saved?.status || '').toUpperCase());
+        console.log('Auto save draft status:', saved?.status);
+        if (String(saved?.status || '').toUpperCase() === 'EDITING') {
+          clearInterval(timer);
+        }
+      } catch (e) {
+        console.error('Auto save draft lỗi:', e);
+      }
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, [activeSessionUuid, normalizedStatus, onSessionStatusChange]);
+
+  // Đổi tên session
+  const [sessionName, setSessionName] = useState<string>('');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingName, setEditingName] = useState<string>(formData.tenVanBan || '');
+
+  useEffect(() => {
+      setEditingName(sessionName || formData.tenVanBan || '');
+  }, [sessionName, formData.tenVanBan]);
+
+  const handleSaveSessionName = async () => {
+    if (!activeSessionUuid) {
+      alert('Không tìm thấy session');
+      return;
+    }
+    try {
+      const resp = await sessionApi.updateSessionName(activeSessionUuid, editingName);
+      const updated = resp?.data ?? resp;
+      // backend trả { sessionName: '...' }
+      const returnedName = updated?.sessionName ?? editingName;
+      setSessionName(returnedName);
+      // tùy chọn: giữ title document (tenVanBan) hoặc đồng bộ với sessionName nếu bạn muốn
+      setFormData(prev => ({ ...prev, tenVanBan: prev.tenVanBan || returnedName }));
+      setIsEditingName(false);
+      alert('Đã đổi tên phiên thành công');
+    } catch (err) {
+      console.error('Update session name failed', err);
+      alert('Lỗi khi đổi tên phiên');
+    }
+  }; // end of handleSaveSessionName
 
   // 🔄 HYDRATION FLOW: Tự động đổ ngược dữ liệu từ Backend vào các Field khi component nhận dữ liệu cũ
   useEffect(() => {
@@ -115,7 +360,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
     }
   }, [initialSessionData]);
 
-  // Tính toán tổng text input từ TẤT CẢ các field text[cite: 2]
+  
   const combinedInputText = useMemo(() => {
     return [
       formData.tenVanBan,
@@ -179,69 +424,160 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
   ];
 
   const loaiVanBanOptions = [
-    'Nghị quyết',
-    'Quyết định',
-    'Chỉ thị',
-    'Kế hoạch',
-    'Báo cáo',
-    'Tờ trình',
-    'Công văn',
-    'Thông báo',
+    {
+      value: 'NGHI_QUYET',
+      label: 'Nghị quyết'
+    },
+    {
+      value: 'QUYET_DINH',
+      label: 'Quyết định'
+    },
+    {
+      value: 'CHI_THI',
+      label: 'Chỉ thị'
+    }
   ];
 
   const updateField = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Xử lý chuyển bước tiếp theo trong wizard
   const handleNext = () => {
     if (currentMenu < 6) {
-      setCurrentMenu((currentMenu + 1) as MenuSection);
+      const nextStep = (currentMenu + 1) as MenuSection;
+      setCurrentMenu(nextStep);
+      syncStepInUrl(nextStep);
     }
   };
 
   const handleBack = () => {
     if (currentMenu > 1) {
-      setCurrentMenu((currentMenu - 1) as MenuSection);
+      const prevStep = (currentMenu - 1) as MenuSection;
+      setCurrentMenu(prevStep);
+      syncStepInUrl(prevStep);
     }
   };
 
-  const handleComplete = () => {
-    // 📦 ĐÓNG GÓI PAYLOAD GỬI BACKEND: Gom gọn gàng ID thành công theo từng key sạch sẽ
-    const uploadedFileIds = {
-      directive: (filesMap.DIRECTIVE || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-      legal: (filesMap.LEGAL || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-      content: (filesMap.CONTENT || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-      template: (filesMap.TEMPLATE || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-      related: (filesMap.RELATED || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-      evidence: (filesMap.EVIDENCE || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-    };
+  const [promptCommand, setPromptCommand] = useState('Viết tóm tắt 3 đoạn cho nội dung trong draft.');
+  const handleComplete = async () => {
+    if (!activeSessionUuid) return;
 
-    const wordCount = combinedInputText.trim().split(/\s+/).filter(Boolean).length;
-    const fileCount = allUploadedFiles.length;
+    const requiredFields = [
+      { key: 'loaiVanBan', label: 'Loại văn bản', value: formData.loaiVanBan },
+      { key: 'tenVanBan', label: 'Tên văn bản', value: formData.tenVanBan },
+      { key: 'noiDungChinh', label: 'Nội dung chính', value: formData.noiDungChinh },
+    ];
 
-    if (onGenerate) {
-      onGenerate({
-        ...formData,
-        uploadedFileIds,
-        wordCount,
-        fileCount
-      });
-    }
-
-    setShowWorkspace(true);
-  };
-
-  // Nếu đã complete, hiển thị DocumentWorkspace[cite: 2]
-  if (showWorkspace) {
-    const initialContent = generateDocumentContent(formData);
-    return (
-      <DocumentWorkspace
-        documentTitle={formData.tenVanBan || 'Văn bản mới'}
-        initialContent={initialContent}
-        onBack={() => setShowWorkspace(false)}
-      />
+    const missing = requiredFields.filter(
+      field => !String(field.value ?? '').trim()
     );
-  }
+
+    if (missing.length > 0) {
+      const missingNames = missing.map(field => field.label).join(', ');
+      alert(`Thiếu thông tin: ${missingNames}`);
+      return;
+    }
+
+    try {
+      const savePayload = {
+        sessionUuid: activeSessionUuid,
+        editorText: draftMeta?.editorText ?? null,
+        formData,
+        fieldCode: draftMeta?.fieldCode || 'MAIN_CONTENT',
+      };
+
+      const savedDraft = await sessionApi.saveDraft(savePayload);
+      console.log('[Draft] saved:', savedDraft);
+
+      const completeResult = await sessionApi.completeSession({
+        sessionUuid: activeSessionUuid,
+        promptCommand: promptCommand,
+        model: 'claude-sonnet-4.6',
+      });
+
+      console.log('[Complete] response:', completeResult);
+
+      const wrapper = completeResult?.data ? completeResult.data : completeResult;
+      const rawContent = wrapper?.content ?? wrapper?.data?.content;
+
+      const parsedContent =
+        typeof rawContent === 'string' && rawContent.trim().startsWith('{')
+          ? JSON.parse(rawContent)
+          : rawContent;
+
+      setGeneratedDocument(parsedContent ?? '');
+
+      navigate(`/workspace/${activeSessionUuid}`, {
+        state: {
+          content: parsedContent ?? '',
+          title: sessionName ||formData.tenVanBan,
+          formData
+        }
+      });
+    } catch (error) {
+      console.error('[Complete] failed:', error);
+    }
+  };
+
+
+  // ========================
+  // Lưu draft trước khi mở Workspace để tránh mất dữ liệu[cite: 2]
+  const handleOpenWorkspace = async () => {
+    if (!activeSessionUuid) {
+      alert('Không tìm thấy session');
+      return;
+    }
+
+    try {
+      const payload = {
+        sessionUuid: activeSessionUuid,
+        editorText: draftMeta?.editorText ?? null,
+        formData,
+        fieldCode: draftMeta?.fieldCode || 'MAIN_CONTENT',
+      };
+
+      const savedDraft = await sessionApi.saveDraft(payload);
+      console.log('[Draft] saved before workspace:', savedDraft);
+
+      setDraftMeta(prev => ({
+        ...prev,
+        status: savedDraft?.status,
+        updatedAt: savedDraft?.updatedAt,
+        fieldCode: savedDraft?.fieldCode,
+        editorText: savedDraft?.editorText ?? prev?.editorText ?? null,
+      }));
+
+      // Lấy editorText từ savedDraft (hậu tố mock/real API khác nhau)
+      const wrapper = savedDraft?.data ? savedDraft.data : savedDraft;
+      const rawContent =
+      wrapper?.editorText ?? wrapper?.content ?? generatedDocument ?? '';
+
+      let parsedContentForNav: string | Record<string, any> = rawContent;
+      if (typeof rawContent === 'string') {
+      const t = rawContent.trim();
+      if (t.startsWith('{') || t.startsWith('[')) {
+      try {
+      parsedContentForNav = JSON.parse(t);
+      } catch (err) {
+      parsedContentForNav = rawContent; // fallback: dùng raw string
+      }
+      }
+      }
+
+      navigate(`/workspace/${activeSessionUuid}`, {
+      state: {
+      content: parsedContentForNav ?? '',
+      title: sessionName || formData.tenVanBan,
+      formData
+      }
+      });
+    } catch (error) {
+      console.error('[Draft] save before workspace failed:', error);
+      alert('Lưu nháp trước khi mở Workspace không thành công.');
+    }
+  };
+
 
   const handleExampleClick = (value: string) => {
     if (!focusedField) return;
@@ -259,6 +595,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
       '10': 'noiDungChinh',
       '11': 'bangBieuSoLieu',
       '12': 'mauVanBan',
+      '13': 'deCuongDanY',
       '14': 'vanBanLienQuan',
       '15': 'phongCach',
       '16': 'outputSize',
@@ -276,11 +613,37 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
       {/* Left Preview Panel */}
       <div className="flex-[5.5] min-w-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Eye size={16} className="text-gray-600" />
-            <h3 className="font-semibold text-gray-900 text-sm">Xem trước văn bản</h3>
-          </div>
-          <button className="px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700">
+              <div className="flex items-center gap-2">
+                  <Eye size={16} className="text-gray-600" />
+                  <div className="flex items-center gap-3">
+                    {!isEditingName ? (
+                      <>
+                        <h3 className="font-semibold text-gray-900 text-sm">{sessionName || formData.tenVanBan || 'Xem trước văn bản'}</h3>
+                        {activeSessionUuid && (
+                          <button
+                            onClick={() => setIsEditingName(true)}
+                            className="text-xs text-gray-500 hover:underline"
+                          >
+                            Sửa tên
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={editingName}
+                          onChange={e => setEditingName(e.target.value)}
+                          className="px-2 py-1 border rounded text-sm"
+                        />
+                        <button onClick={handleSaveSessionName} className="px-2 py-1 bg-blue-600 text-white rounded text-xs">Lưu</button>
+                        <button onClick={() => { setIsEditingName(false); setEditingName(formData.tenVanBan || ''); }} className="px-2 py-1 text-xs text-gray-600">Hủy</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+          <button 
+          onClick={() => onClose?.()}
+          className="px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700">
             Đóng
           </button>
         </div>
@@ -307,16 +670,22 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     Loại văn bản <span className="text-red-500">*</span>
                     <TooltipIcon text="Chọn loại văn bản: Nghị quyết, Quyết định, Chỉ thị, Kế hoạch, Báo cáo, Tờ trình, Công văn, Thông báo, v.v..." />
                   </label>
-                  <select
-                    value={formData.loaiVanBan}
-                    onChange={e => updateField('loaiVanBan', e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 bg-white"
-                  >
-                    <option value="">-- Chọn loại văn bản --</option>
-                    {loaiVanBanOptions.map(option => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
+                 <select
+                  value={formData.loaiVanBan}
+                  onChange={e => updateField('loaiVanBan', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg ..."
+                >
+                  <option value="">-- Chọn loại văn bản --</option>
+
+                  {loaiVanBanOptions.map(option => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 </div>
 
                 <div>
@@ -460,7 +829,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
             {currentMenu === 2 && (
               <div className="space-y-6">
                 <div className="border-b border-red-200 pb-3">
-                  <h2 className="text-lg font-bold text-red-600">2. Văn bản chỉ đạo</h2>
+                  <h2 className="text-lg font-bold text-gray-700">Menu 2: Văn bản chỉ đạo</h2>
                 </div>
 
                 <div>
@@ -469,16 +838,19 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     <TooltipIcon text="Upload tối đa 5 file văn bản chỉ đạo hoặc nhập nội dung" />
                   </label>
                   <FileUploadZone
-                    maxFiles={5}
-                    category="DIRECTIVE"
-                    files={filesMap.DIRECTIVE}
-                    onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) => 
-                      setFilesMap(prev => ({ 
-                        ...prev, 
-                        DIRECTIVE: typeof newFiles === 'function' ? newFiles(prev.DIRECTIVE) : newFiles 
-                      }))
-                    }
-                  />
+  maxFiles={5}
+  category="DIRECTIVE"
+  sessionUuid={activeSessionUuid}
+  fieldCode="DIRECTIVE"
+  files={filesMap.DIRECTIVE}
+  onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) =>
+    setFilesMap(prev => ({
+      ...prev,
+      DIRECTIVE: typeof newFiles === 'function' ? newFiles(prev.DIRECTIVE) : newFiles
+    }))
+  }
+/>
+
                   <textarea
                     value={formData.vanBanChiDao}
                     onChange={e => updateField('vanBanChiDao', e.target.value)}
@@ -496,16 +868,18 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                   </label>
                   {/* Văn bản pháp lý */}
                     <FileUploadZone
-                      maxFiles={5}
-                      category="LEGAL"
-                      files={filesMap.LEGAL}
-                      onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) => 
-                        setFilesMap(prev => ({ 
-                          ...prev, 
-                          LEGAL: typeof newFiles === 'function' ? newFiles(prev.LEGAL) : newFiles 
-                        }))
-                      }
-                    />
+  maxFiles={5}
+  category="LEGAL"
+  sessionUuid={activeSessionUuid}
+  fieldCode="LEGAL_BASIS"
+  files={filesMap.LEGAL}
+  onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) =>
+    setFilesMap(prev => ({
+      ...prev,
+      LEGAL: typeof newFiles === 'function' ? newFiles(prev.LEGAL) : newFiles
+    }))
+  }
+/>
                   <textarea
                     value={formData.vanBanPhapLy}
                     onChange={e => updateField('vanBanPhapLy', e.target.value)}
@@ -530,18 +904,19 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     Nội dung chính [10] <span className="text-red-500">*</span>
                     <TooltipIcon text="Nhập nội dung chính của văn bản hoặc upload file" />
                   </label>
-                  <FileUploadZone
-                    acceptedTypes=".doc,.docx,.pdf"
-                    category="CONTENT"
-                    files={filesMap.CONTENT}
-                    onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) => 
-                      setFilesMap(prev => ({ 
-                        ...prev, 
-                        CONTENT: typeof newFiles === 'function' ? newFiles(prev.CONTENT) : newFiles 
-                      }))
-                    }
-                    multiple
-                  />
+ <FileUploadZone
+  category="CONTENT"
+  sessionUuid={activeSessionUuid}
+  fieldCode={getFieldCodeByCategory("CONTENT")}
+  files={filesMap.CONTENT}
+  onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) =>
+    setFilesMap(prev => ({
+      ...prev,
+      CONTENT: typeof newFiles === 'function' ? newFiles(prev.CONTENT) : newFiles
+    }))
+  }
+  multiple
+/>
                   <textarea
                     value={formData.noiDungChinh}
                     onChange={e => updateField('noiDungChinh', e.target.value)}
@@ -557,17 +932,19 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     <TooltipIcon text="Tài liệu minh chứng cho nội dung (phụ lục, bảng biểu, ảnh...)" />
                   </label>
                   <FileUploadZone
-                    acceptedTypes=".doc,.docx,.pdf,.xls,.xlsx,.png,.jpg,.jpeg"
-                    category="EVIDENCE"
-                    files={filesMap.EVIDENCE}
-                    onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) => 
-                      setFilesMap(prev => ({ 
-                        ...prev, 
-                        EVIDENCE: typeof newFiles === 'function' ? newFiles(prev.EVIDENCE) : newFiles 
-                      }))
-                    }
-                    multiple
-                  />
+  acceptedTypes=".doc,.docx,.pdf,.xls,.xlsx,.png,.jpg,.jpeg"
+  category="EVIDENCE"
+  sessionUuid={activeSessionUuid}
+  fieldCode={getFieldCodeByCategory("EVIDENCE")}
+  files={filesMap.EVIDENCE}
+  onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) =>
+    setFilesMap(prev => ({
+      ...prev,
+      EVIDENCE: typeof newFiles === 'function' ? newFiles(prev.EVIDENCE) : newFiles
+    }))
+  }
+  multiple
+/>
                   <textarea
                     value={formData.bangBieuSoLieu}
                     onChange={e => updateField('bangBieuSoLieu', e.target.value)}
@@ -593,7 +970,37 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     <TooltipIcon text="Upload file mẫu hoặc nhập nội dung mẫu tham khảo" />
                   </label>
                   <FileUploadZone
+  category="TEMPLATE"
+  sessionUuid={activeSessionUuid}
+  fieldCode={getFieldCodeByCategory("TEMPLATE")}
+  files={filesMap.TEMPLATE}
+  onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) =>
+    setFilesMap(prev => ({
+      ...prev,
+      TEMPLATE: typeof newFiles === 'function' ? newFiles(prev.TEMPLATE) : newFiles
+    }))
+  }
+  multiple
+/>
+                  <textarea
+                    value={formData.mauVanBan}
+                    onChange={e => updateField('mauVanBan', e.target.value)}
+                    onFocus={() => setFocusedField('12')}
+                    placeholder="Yêu cầu: sử dụng nội dung nào làm mẫu?"
+                    rows={8}
+                    className="w-full mt-3 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white resize-none"
+                  />
+                </div>
+                
+              <div>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                    Chọn Đề cương; Dàn ý văn bản [13]
+                    <TooltipIcon text="Upload file mẫu hoặc nhập nội dung mẫu tham khảo" />
+                  </label>
+                  <FileUploadZone
                       category="TEMPLATE"
+                      sessionUuid={activeSessionUuid}
+                      fieldCode={getFieldCodeByCategory("TEMPLATE")}
                       files={filesMap.TEMPLATE}
                       onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) => 
                         setFilesMap(prev => ({ 
@@ -604,14 +1011,16 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                       multiple
                     />
                   <textarea
-                    value={formData.mauVanBan}
-                    onChange={e => updateField('mauVanBan', e.target.value)}
-                    onFocus={() => setFocusedField('12')}
+                    value={formData.deCuongDanY}
+                    onChange={e => updateField('deCuongDanY', e.target.value)}
+                    onFocus={() => setFocusedField('13')}
                     placeholder="Yêu cầu: sử dụng nội dung nào làm mẫu?"
                     rows={8}
                     className="w-full mt-3 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white resize-none"
                   />
                 </div>
+
+
               </div>
             )}
 
@@ -628,17 +1037,19 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     <TooltipIcon text="Yêu cầu theo từng văn bản dùng để làm gì?" />
                   </label>
                   <FileUploadZone
-                      multiple
-                      maxFiles={150}
-                      category="RELATED"
-                      files={filesMap.RELATED}
-                      onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) => 
-                        setFilesMap(prev => ({ 
-                          ...prev, 
-                          RELATED: typeof newFiles === 'function' ? newFiles(prev.RELATED) : newFiles 
-                        }))
-                      }
-                    />
+  multiple
+  maxFiles={150}
+  category="RELATED"
+  sessionUuid={activeSessionUuid}
+  fieldCode="REFERENCE"
+  files={filesMap.RELATED}
+  onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) =>
+    setFilesMap(prev => ({
+      ...prev,
+      RELATED: typeof newFiles === 'function' ? newFiles(prev.RELATED) : newFiles
+    }))
+  }
+/>
                     <textarea
                     value={formData.vanBanLienQuan}
                     onChange={e => updateField('vanBanLienQuan', e.target.value)}
@@ -708,21 +1119,32 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
             {currentMenu === 6 && (
               <div className="space-y-6">
                 <div className="border-b border-red-200 pb-3">
-                  <h2 className="text-lg font-bold text-gray-900 mb-2">Menu 6 - Tạo và xuất bản</h2>
+                  <h2 className="text-lg font-bold text-gray-900 mb-2">
+                    Menu 6 - Tạo và xuất bản
+                  </h2>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Mô hình AI
                   </label>
+
                   <select
                     value={formData.selectedModel}
                     onChange={e => updateField('selectedModel', e.target.value)}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white"
                   >
-                    <option value="claude-sonnet-4.6">Claude Sonnet 4.6 (Khuyến nghị)</option>
-                    <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
-                    <option value="deepseek-v4-flash">DeepSeek V4 Flash</option>
+                    <option value="claude-sonnet-4.6">
+                      Claude Sonnet 4.6 (Khuyến nghị)
+                    </option>
+
+                    <option value="gpt-5.4-mini">
+                      GPT-5.4 Mini
+                    </option>
+
+                    <option value="deepseek-v4-flash">
+                      DeepSeek V4 Flash
+                    </option>
                   </select>
                 </div>
 
@@ -731,6 +1153,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     Phong cách trình bày [15]
                     <TooltipIcon text="Sử dụng văn phong chính luận - hành chính Đảng" />
                   </label>
+
                   <input
                     type="text"
                     value={formData.phongCach}
@@ -746,6 +1169,7 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     Độ dài văn bản đầu ra [16]
                     <TooltipIcon text="Chỉ định độ dài văn bản mong muốn" />
                   </label>
+
                   <input
                     type="text"
                     value={formData.outputSize}
@@ -761,36 +1185,56 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                     Mức độ hoàn chỉnh [17]
                     <TooltipIcon text="Trạng thái văn bản đầu ra" />
                   </label>
+
                   <select
                     value={formData.mucDoHoanChinh}
                     onChange={e => updateField('mucDoHoanChinh', e.target.value)}
                     onFocus={() => setFocusedField('17')}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm text-gray-900 bg-white"
                   >
-                    <option value="">-- Chọn mức độ --</option>
-                    <option value="ban-thao">Bản thảo sơ bộ</option>
-                    <option value="hoan-chinh">Hoàn chỉnh</option>
+                    <option value="">
+                      -- Chọn mức độ --
+                    </option>
+
+                    <option value="ban-thao">
+                      Bản thảo sơ bộ
+                    </option>
+
+                    <option value="hoan-chinh">
+                      Hoàn chỉnh
+                    </option>
                   </select>
                 </div>
 
                 {fileStats.total > 0 && (
                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                    <div className="text-xs font-semibold text-slate-700 mb-2">Trạng thái tải file</div>
+                    <div className="text-xs font-semibold text-slate-700 mb-2">
+                      Trạng thái tải file
+                    </div>
+
                     <div className="flex items-center gap-4 text-xs">
                       <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                        <span className="text-slate-600">Thành công: {fileStats.success}</span>
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                        <span className="text-slate-600">
+                          Thành công: {fileStats.success}
+                        </span>
                       </div>
+
                       {fileStats.uploading > 0 && (
                         <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-                          <span className="text-slate-600">Đang tải: {fileStats.uploading}</span>
+                          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                          <span className="text-slate-600">
+                            Đang tải: {fileStats.uploading}
+                          </span>
                         </div>
                       )}
+
                       {fileStats.failed > 0 && (
                         <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                          <span className="text-slate-600">Thất bại: {fileStats.failed}</span>
+                          <div className="w-2 h-2 rounded-full bg-red-500" />
+                          <span className="text-slate-600">
+                            Thất bại: {fileStats.failed}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -806,11 +1250,22 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
                   <div className="flex items-start gap-3">
-                    <Sparkles size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                    <Sparkles
+                      size={20}
+                      className="text-blue-600 flex-shrink-0 mt-0.5"
+                    />
+
                     <div>
-                      <h4 className="font-semibold text-blue-900 text-sm mb-2">Sẵn sàng tạo văn bản</h4>
+                      <h4 className="font-semibold text-blue-900 text-sm mb-2">
+                        {isDraft
+                          ? 'Sẵn sàng tạo văn bản'
+                          : 'Văn bản đã được tạo'}
+                      </h4>
+
                       <p className="text-xs text-blue-700 leading-relaxed">
-                        AI sẽ phân tích thông tin và tạo văn bản hoàn chỉnh theo quy chuẩn Đảng.
+                        {isDraft
+                          ? 'AI sẽ phân tích thông tin và tạo văn bản hoàn chỉnh theo quy chuẩn Đảng.'
+                          : 'Nội dung AI đã được tạo. Bạn có thể mở Workspace để tiếp tục chỉnh sửa hoặc xuất file Word.'}
                       </p>
                     </div>
                   </div>
@@ -846,64 +1301,66 @@ export function VanKienDangForm({ onGenerate, initialSessionData }: VanKienDangF
                 {/* 📥 NÚT MỚI THÊM: Xuất file Word dang dở gửi về Backend */}
                 <button
                   onClick={async () => {
-                    // 📦 Đóng gói payload sạch sẽ tương tự cấu trúc lưu nháp đám mây
-                    const uploadedFileIds = {
-                      directive: (filesMap.DIRECTIVE || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-                      legal: (filesMap.LEGAL || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-                      content: (filesMap.CONTENT || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-                      template: (filesMap.TEMPLATE || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-                      related: (filesMap.RELATED || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-                      evidence: (filesMap.EVIDENCE || []).filter(f => f.status === 'SUCCESS' && f.backendFileId).map(f => f.backendFileId!),
-                    };
-
-                    const wordCount = combinedInputText.trim().split(/\s+/).filter(Boolean).length;
-                    const fileCount = allUploadedFiles.length;
-
-                    const payload = {
-                      formData,
-                      uploadedFileIds,
-                      status: "DRAFT",
-                      wordCount,
-                      fileCount
-                    };
+                    if (!activeSessionUuid) {
+                      alert('Không tìm thấy session');
+                      return;
+                    }
 
                     try {
-                      // 🚀 BẮN API NGẦM VỀ BACKEND SPRING BOOT
-                      const response = await fileApi.exportWordDraft(payload);
-                      
-                      // 💾 XỬ LÝ TỰ ĐỘNG TẢI FILE (.docx) VỀ MÁY CÁN BỘ (Nếu backend trả về file)
-                      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-                      const downloadUrl = window.URL.createObjectURL(blob);
-                      const link = document.createElement('a');
-                      link.href = downloadUrl;
-                      link.download = `${formData.tenVanBan || 'Van_Ban_Dang_Do'}.docx`;
-                      document.body.appendChild(link);
-                      link.click();
-                      link.remove();
-                      window.URL.revokeObjectURL(downloadUrl);
+                    const response = await fileApi.exportWordDraft({
+                      sessionUuid: activeSessionUuid,
+                      exportFormat: 'WORD',
+                    });
 
-                      alert("Đã xuất file Word và lưu bản nháp thành công!");
-                    } catch (error) {
-                      console.error("Lỗi khi gọi API xuất file Word:", error);
-                      alert("Có lỗi xảy ra khi kết nối với hệ thống!");
-                    }
+                    const blob = response.data;
+                    const disposition = response.headers['content-disposition'] || '';
+                    const fileNameMatch = disposition.match(/filename="(.+?)"/);
+                    const fileName = fileNameMatch?.[1] ?? `${formData.tenVanBan || 'Van_Ban_Dang_Do'}.docx`;
+
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    window.URL.revokeObjectURL(downloadUrl);
+
+                    alert('Đã xuất file Word thành công!');
+                  } catch (error) {
+                    console.error('Lỗi khi gọi API xuất file Word:', error);
+                    alert('Có lỗi xảy ra khi xuất file Word!');
+                  }
                   }}
-                  className="flex items-center gap-2 px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
+                  className="flex items-center gap-2 px-5 py-2.5 text-gray-700 bg-green-300 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
                 >
-                  <Upload size={16} className="rotate-180 text-gray-500" /> {/* Dùng icon Upload xoay ngược làm biểu tượng Download */}
+                  <Upload
+                    size={16}
+                    className="rotate-180 text-gray-500"
+                  />
                   Xuất file Word
                 </button>
 
                 {/* Nút Hoàn tất cũ của bạn */}
-                <button
-                  onClick={handleComplete}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 transition-colors shadow-md"
-                >
-                  <Sparkles size={16} />
-                  Hoàn tất / Tạo nội dung
-                </button>
-              </>
-            ) : (
+                {isDraft ? (
+                    <button
+                      onClick={handleComplete}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 transition-colors shadow-md"
+                    >
+                      <Sparkles size={16} />
+                      Hoàn tất / Tạo nội dung
+                    </button>
+                  ) : isEditing ? (
+                    <button
+                      onClick={handleOpenWorkspace}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 transition-colors shadow-md"
+                    >
+                      <Sparkles size={16} />
+                      Chuyển tới Workspace
+                    </button>
+                  ) : null}
+                </>
+              ) : (
               /* Nút Tiếp tục tại các bước 1-5 */
               <button
                 onClick={handleNext}
@@ -1003,12 +1460,17 @@ function generateDocumentContent(formData: FormData): string {
 
 function DocumentPreview({ formData }: { formData: any }) {
   // Hàm format ngày tháng năm an toàn để tránh crash nếu formData.ngayBanHanh chưa được nạp
-  const formatNgayBanHanh = () => {
-    if (!formData.ngayBanHanh) return '[Địa danh], ngày ... tháng ... năm ...';
-    const date = new Date(formData.ngayBanHanh);
-    if (isNaN(date.getTime())) return '[Địa danh], ngày ... tháng ... năm ...';
-    return `${formData.diaDanh || '[Địa danh]'}, ngày ${date.getDate()} tháng ${date.getMonth() + 1} năm ${date.getFullYear()}`;
-  };
+  function formatNgayBanHanh(rawDate: string, diaDanh?: string) {
+    if (!rawDate) return '[Địa danh], ngày ... tháng ... năm ...';
+
+    const match = rawDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) {
+      return rawDate;
+    }
+
+    const [, dd, mm, yyyy] = match;
+    return `${diaDanh || '[Địa danh]'}, ngày ${parseInt(dd, 10)} tháng ${mm} năm ${yyyy}`;
+  }
 
   return (
     <div className="max-w-3xl mx-auto py-12 px-12 bg-white min-h-full border border-gray-200/50 shadow-sm" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -1041,7 +1503,7 @@ function DocumentPreview({ formData }: { formData: any }) {
           
           {/* Định danh vị trí nằm ngay bên dưới tiêu ngữ Đảng */}
           <div className="text-xs text-gray-500 italic">
-            {formatNgayBanHanh()}
+            {formatNgayBanHanh(formData.ngayBanHanh, formData.diaDanh)}
           </div>
         </div>
       </div>
@@ -1137,12 +1599,16 @@ function FileUploadZone({
   acceptedTypes = '.doc,.docx,.pdf,.xls,.xlsx',
   category,
   files = [],
+  sessionUuid,
+  fieldCode,
   onFilesChange
 }: {
   multiple?: boolean;
   maxFiles?: number;
   acceptedTypes?: string;
   category: FileCategory;
+  sessionUuid?: string | null;
+  fieldCode?: string;
   files: UploadingFile[];
   onFilesChange: React.Dispatch<React.SetStateAction<UploadingFile[]>> | ((files: UploadingFile[]) => void);
 }) {
@@ -1210,31 +1676,31 @@ function FileUploadZone({
       }
     }
 
-      newUploadingFiles.forEach((fileItem) => {
-    uploadFileToServer(
-      fileItem,
-      category,
-      // 1. Tiến trình upload thay đổi (Progress Callback)
-      (fileId, progress) => {
-        if (typeof onFilesChange === 'function') {
-          // Sử dụng một hàm trợ giúp thông minh để bẫy cả Setter lẫn Callback thông thường
-          safelyUpdateFiles(onFilesChange, (prev) =>
-            prev.map((f) => (f.id === fileId ? { ...f, progress } : f))
-          );
+    // Upload each new file to the server and update its status accordingly.
+    newUploadingFiles.forEach((fileItem) => {
+      uploadFileToServer(
+        fileItem,
+        category,
+        sessionUuid,
+        fieldCode,
+        (fileId, progress) => {
+          if (typeof onFilesChange === 'function') {
+            safelyUpdateFiles(onFilesChange, (prev) =>
+              prev.map((f) => (f.id === fileId ? { ...f, progress } : f))
+            );
+          }
+        },
+        (fileId, status, backendFileId, error) => {
+          if (typeof onFilesChange === 'function') {
+            safelyUpdateFiles(onFilesChange, (prev) =>
+              prev.map((f) =>
+                f.id === fileId ? { ...f, status, backendFileId, error } : f
+              )
+            );
+          }
         }
-      },
-      // 2. Trạng thái hoàn tất/thất bại thay đổi (Status Callback)
-      (fileId, status, backendFileId, error) => {
-        if (typeof onFilesChange === 'function') {
-          safelyUpdateFiles(onFilesChange, (prev) =>
-            prev.map((f) =>
-              f.id === fileId ? { ...f, status, backendFileId, error } : f
-            )
-          );
-        }
-      }
-    );
-  });
+      );
+    });
 
   e.target.value = '';
   }
