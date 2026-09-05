@@ -1,5 +1,7 @@
 package com.saasai.config;
 
+import org.springframework.beans.factory.annotation.Value;
+
 import com.saasai.security.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +24,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
@@ -47,32 +50,30 @@ public class SecurityConfig {
 
     // 🎯 BỔ SUNG: Cấu hình CORS chi tiết cho môi trường Production (Vercel) và Local
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${FRONTEND_ALLOWED_ORIGINS:http://localhost:5173}") String frontendAllowedOrigins) {
+
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // Cấp quyền cho Local và chính xác Domain Vercel của bạn thông quan
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:5173", 
-                "https://saa-s-zeta-six.vercel.app"
-        ));
-        
-        // Hỗ trợ đầy đủ các phương thức, đặc biệt phải có OPTIONS
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        
-        // Cho phép các Headers cần thiết, bao gồm Authorization và ngrok-skip-browser-warning để né bẫy ngrok
-        configuration.setAllowedHeaders(Arrays.asList(
-                "Authorization", 
-                "Content-Type", 
-                "Accept", 
-                "X-Requested-With", 
-                "ngrok-skip-browser-warning"
-        ));
-        
+
+        // 1. Tách chuỗi theo dấu phẩy và xóa sạch khoảng trắng thừa
+        List<String> origins = Arrays.stream(frontendAllowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList();
+
+        // 2. Dùng setAllowedOriginPatterns để tránh xung đột với allowCredentials
+        configuration.setAllowedOriginPatterns(origins);
+
+        // 3. Các method cho phép (bắt buộc phải có OPTIONS cho preflight)
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+        // 4. Cho phép mọi header và cookie/auth
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L); // Trình duyệt cache cấu hình CORS trong 1 tiếng
+        configuration.setMaxAge(3600L); // Cache preflight 1 tiếng để giảm số lần gọi OPTIONS
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration); // Áp dụng cho toàn bộ API
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
