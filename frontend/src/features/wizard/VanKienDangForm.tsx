@@ -932,7 +932,7 @@ export function VanKienDangForm({
                     <TooltipIcon text="Tài liệu minh chứng cho nội dung (phụ lục, bảng biểu, ảnh...)" />
                   </label>
                   <FileUploadZone
-  acceptedTypes=".doc,.docx,.pdf,.xls,.xlsx,.png,.jpg,.jpeg"
+  acceptedTypes=".txt,.doc,.docx,.pdf,.xls"
   category="EVIDENCE"
   sessionUuid={activeSessionUuid}
   fieldCode={getFieldCodeByCategory("EVIDENCE")}
@@ -1596,7 +1596,7 @@ function TooltipIcon({ text }: { text: string }) {
 function FileUploadZone({
   multiple = false,
   maxFiles = 5,
-  acceptedTypes = '.doc,.docx,.pdf,.xls,.xlsx',
+  acceptedTypes = '.txt,.doc,.docx,.pdf,.xls,.xlsx',
   category,
   files = [],
   sessionUuid,
