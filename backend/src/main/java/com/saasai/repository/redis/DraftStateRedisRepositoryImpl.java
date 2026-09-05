@@ -1,5 +1,8 @@
 package com.saasai.repository.redis;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saasai.dto.DraftStateDTO;
@@ -19,6 +22,8 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
 
     private final ObjectProvider<StringRedisTemplate> redisTemplateProvider;
     private final ObjectMapper objectMapper;
+    private static final Logger logger = LoggerFactory.getLogger(DraftStateRedisRepositoryImpl.class);
+
     private final Duration ttl;
 
     public DraftStateRedisRepositoryImpl(
@@ -37,17 +42,22 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
 
         StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
         if (redis == null) {
-            // Redis disabled/unavailable: do nothing (or persist to DB if you prefer)
             return;
         }
 
         try {
             String json = objectMapper.writeValueAsString(draftState);
-            redis.opsForValue().set(
-                    buildKey(draftState.getSessionUuid(), draftState.getUserId()),
-                    json,
-                    ttl
-            );
+            try {
+                redis.opsForValue().set(
+                        buildKey(draftState.getSessionUuid(), draftState.getUserId()),
+                        json,
+                        ttl
+                );
+            } catch (Exception redisEx) {
+                logger.warn("Redis error while saving draft (fallback no-op) for session={}, user={}",
+                        draftState.getSessionUuid(), draftState.getUserId(), redisEx);
+                // fallback: no-op (DB is already the source of truth elsewhere)
+            }
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Không thể serialize draft state", exception);
         }
@@ -62,15 +72,19 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
             return Optional.empty();
         }
 
-        String json = redis.opsForValue().get(buildKey(sesisonUuid, userId));
-        if (json == null || json.isBlank()) {
-            return Optional.empty();
-        }
-
         try {
-            return Optional.of(objectMapper.readValue(json, DraftStateDTO.class));
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Không thể deserialize draft state", exception);
+            String json = redis.opsForValue().get(buildKey(sesisonUuid, userId));
+            if (json == null || json.isBlank()) {
+                return Optional.empty();
+            }
+            try {
+                return Optional.of(objectMapper.readValue(json, DraftStateDTO.class));
+            } catch (JsonProcessingException exception) {
+                throw new IllegalStateException("Không thể deserialize draft state", exception);
+            }
+        } catch (Exception e) {
+            logger.warn("Redis error while reading draft for session={}, user={} — falling back", sesisonUuid, userId, e);
+            return Optional.empty();
         }
     }
 
@@ -80,7 +94,11 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
 
         StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
         if (redis == null) return;
-        redis.delete(buildKey(sessionUuid, userId));
+        try {
+            redis.delete(buildKey(sessionUuid, userId));
+        } catch (Exception e) {
+            logger.warn("Redis error while deleting draft for session={}, user={}", sessionUuid, userId, e);
+        }
     }
 
     private String buildKey(String sessionUuid, String userId) {
