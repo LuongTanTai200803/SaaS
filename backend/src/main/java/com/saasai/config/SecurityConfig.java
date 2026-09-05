@@ -55,16 +55,22 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        var origins = Arrays.stream(frontendAllowedOrigins.split(","))
+        // 1. Tách chuỗi theo dấu phẩy và xóa sạch khoảng trắng thừa
+        List<String> origins = Arrays.stream(frontendAllowedOrigins.split(","))
                 .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toList());
+                .filter(origin -> !origin.isEmpty())
+                .toList();
 
-        configuration.setAllowedOriginPatterns(origins); // linh hoạt cho wildcard và subdomains
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // 2. Dùng setAllowedOriginPatterns để tránh xung đột với allowCredentials
+        configuration.setAllowedOriginPatterns(origins);
+
+        // 3. Các method cho phép (bắt buộc phải có OPTIONS cho preflight)
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+        // 4. Cho phép mọi header và cookie/auth
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
+        configuration.setMaxAge(3600L); // Cache preflight 1 tiếng để giảm số lần gọi OPTIONS
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
