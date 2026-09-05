@@ -1,5 +1,8 @@
 package com.saasai.repository.redis;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
@@ -15,6 +18,7 @@ public class FileNormalizedTextRedisRepositoryImpl implements FileNormalizedText
 
     private static final String KEY_PREFIX = "file:normalized-text:";
     private static final Duration DEFAULT_TTL = Duration.ofHours(1);
+    private static final Logger logger = LoggerFactory.getLogger(FileNormalizedTextRedisRepositoryImpl.class);
 
     private final ObjectProvider<StringRedisTemplate> redisTemplateProvider;
     private final ObjectMapper objectMapper;
@@ -39,11 +43,15 @@ public class FileNormalizedTextRedisRepositoryImpl implements FileNormalizedText
         if (redis == null) {
             return;
         }
-        redis.opsForValue().set(
-                buildKey(fileId),
-                normalizedText,
-                DEFAULT_TTL
-        );
+        try {
+            redis.opsForValue().set(
+                    buildKey(fileId),
+                    normalizedText,
+                    DEFAULT_TTL
+            );
+        } catch (Exception e) {
+            logger.warn("Redis error while saving normalized text for fileId={}", fileId, e);
+        }
     }
 
     @Override
@@ -59,6 +67,7 @@ public class FileNormalizedTextRedisRepositoryImpl implements FileNormalizedText
             return Optional.ofNullable(redis.opsForValue().get(buildKey(fileId)
             ));
         } catch (Exception e) {
+            logger.warn("Redis error while finding normalized text for fileId={}", fileId, e);
             return Optional.empty();
         }
     }
@@ -69,9 +78,13 @@ public class FileNormalizedTextRedisRepositoryImpl implements FileNormalizedText
 
         StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
         if (redis == null) return;
-        redis.delete(
-                buildKey(fileId)
-        );
+        try {
+            redis.delete(
+                    buildKey(fileId)
+            );
+        } catch (Exception e) {
+            logger.warn("Redis error while deleting normalized text for fileId={}", fileId, e);
+        }
     }
 
     private String buildKey(String fileId) {
