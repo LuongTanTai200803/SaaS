@@ -49,9 +49,11 @@ public class SecurityConfig {
     }
 
     // 🎯 BỔ SUNG: Cấu hình CORS chi tiết cho môi trường Production (Vercel) và Local
+    @Value("${FRONTEND_ALLOWED_ORIGINS:http://localhost:5173}")
+    private String frontendAllowedOrigins;
+
     @Bean
-    public CorsConfigurationSource corsConfigurationSource(
-            @Value("${FRONTEND_ALLOWED_ORIGINS:http://localhost:5173}") String frontendAllowedOrigins) {
+    public CorsConfigurationSource corsConfigurationSource() {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
@@ -81,8 +83,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                // 🎯 ĐÃ CẬP NHẬT: Trỏ cấu hình CORS về corsConfigurationSource() vừa viết ở trên
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(org.springframework.security.config.Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
