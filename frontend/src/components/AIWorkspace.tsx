@@ -229,7 +229,7 @@ export function AIWorkspace({
   const { profile, showDashboard, setShowDashboard } = useAuth();
   const activeAssistant = ASSISTANTS.find(a => a.id === selectedAssistantId) ?? null;
 
-  const [sessionStatus, setSessionStatus] = useState<string>('EDITING');
+  const [sessionStatus, setSessionStatus] = useState<string | null>(null);
 
   const selectAssistant = async (assistantId: string) => {
     setSelectedAssistantId(assistantId);
@@ -245,6 +245,9 @@ export function AIWorkspace({
     }
   };
 
+  const [isSessionHistoryLoaded, setIsSessionHistoryLoaded] =
+  useState(false);
+  
   const loadSessionHistory = async (assistantId: string) => {
     try {
       const sessions = await api.sessionApi.getSessions(assistantId);
@@ -252,13 +255,25 @@ export function AIWorkspace({
     } catch (error) {
       console.error('Không tải được lịch sử phiên:', error);
       setSessionHistory([]);
+      throw error;
     }
   };
 
   useEffect(() => {
-    if (selectedAssistantId) {
-      loadSessionHistory(selectedAssistantId);
-    }
+    if (!selectedAssistantId) return;
+
+    setIsSessionHistoryLoaded(false);
+
+    const load = async () => {
+      try {
+        await loadSessionHistory(selectedAssistantId);
+        setIsSessionHistoryLoaded(true);
+      } catch (error) {
+        // API lỗi thì không validate session
+      }
+    };
+
+    load();
   }, [selectedAssistantId]);
 
   const getSessionUuid = (session?: Partial<ChatSession> | null) =>
@@ -313,13 +328,57 @@ export function AIWorkspace({
     }
   };
 
+  // If the initialSessionUuid is not in the sessionHistory, navigate back to the assistant selection page
+  useEffect(() => {
+    if (
+      !initialSessionUuid ||
+      !selectedAssistantId ||
+      !isSessionHistoryLoaded
+    ) {
+      return;
+    }
+
+    const exists = sessionHistory.some(
+      (s) =>
+        String(getSessionUuid(s)) ===
+        String(initialSessionUuid)
+    );
+
+    if (exists) {
+      setActiveSessionUuid(initialSessionUuid);
+      return;
+    }
+
+    // Session không còn tồn tại
+    setActiveSessionUuid(null);
+    setSessionStatus(null);
+
+    navigate(`/wizard/${selectedAssistantId}`, {
+      replace: true,
+    });
+  }, [
+    initialSessionUuid, selectedAssistantId, sessionHistory, isSessionHistoryLoaded, navigate,
+  ]);
+
   // Sync active session UUID with initial session UUID when it changes
   useEffect(() => {
-    if (initialSessionUuid) {
-      setActiveSessionUuid(initialSessionUuid);
+    if (!initialSessionUuid) {
+      setActiveSessionUuid(null);
+      return;
     }
-  }, [initialSessionUuid]);
 
+    const valid = sessionHistory.some(
+      (s) => String(getSessionUuid(s)) === String(initialSessionUuid)
+    );
+
+    if (valid) {
+      setActiveSessionUuid(initialSessionUuid);
+    } else {
+      setActiveSessionUuid(null);
+    }
+  }, [initialSessionUuid, sessionHistory]);
+
+  // Handle deleting a session
   const handleDeleteSession = async (sessionUuid: string) => {
     if (!sessionUuid) return;
 
@@ -334,6 +393,7 @@ export function AIWorkspace({
         setActiveSessionUuid(null);
         setMessages([]);
         setDocContent('');
+        navigate(`/wizard/${selectedAssistantId}`, { replace: true });
       }
     } catch (error) {
       console.error('Không xóa được session:', error);

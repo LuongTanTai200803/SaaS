@@ -238,11 +238,14 @@ export function VanKienDangForm({
   const loadDraft = async () => {
     try {
       const data = await sessionApi.getDraft(activeSessionUuid);
+
       const parsedFormData =
         data?.formData ??
         (data?.wizardStateJson
           ? JSON.parse(data.wizardStateJson)
           : null);
+
+
 
       if (parsedFormData) {
         const normalized = { ...DEFAULT_FORM, ...parsedFormData };
@@ -460,6 +463,24 @@ export function VanKienDangForm({
   };
 
   const [promptCommand, setPromptCommand] = useState('Viết tóm tắt 3 đoạn cho nội dung trong draft.');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiElapsedSeconds, setAiElapsedSeconds] = useState(0);
+
+  // Đếm thời gian AI đang tạo nội dung để hiển thị cho người dùng
+  useEffect(() => {
+    if (!isAiGenerating) {
+      setAiElapsedSeconds(0);
+      return;
+    }
+
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      setAiElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isAiGenerating]);
+
   const handleComplete = async () => {
     if (!activeSessionUuid) return;
 
@@ -479,6 +500,8 @@ export function VanKienDangForm({
       return;
     }
 
+    setIsAiGenerating(true);
+    setAiElapsedSeconds(0);
     try {
       const savePayload = {
         sessionUuid: activeSessionUuid,
@@ -517,6 +540,8 @@ export function VanKienDangForm({
       });
     } catch (error) {
       console.error('[Complete] failed:', error);
+    } finally {
+      setIsAiGenerating(false);
     }
   };
 
@@ -609,6 +634,17 @@ export function VanKienDangForm({
   };
 
   return (
+    <>
+      {isAiGenerating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-slate-950/80 px-8 py-7 shadow-2xl">
+            <div className="h-14 w-14 animate-spin rounded-full border-4 border-slate-600 border-t-blue-400" />
+            <div className="mt-4 text-lg font-semibold text-white">Đang gọi AI...</div>
+            <div className="mt-1 text-sm text-slate-200">Thời gian xử lý: {aiElapsedSeconds}s</div>
+            <div className="mt-1 text-xs text-slate-400">Vui lòng đợi hệ thống hoàn tất phản hồi.</div>
+          </div>
+        </div>
+      )}
     <div className="flex h-full w-full bg-gray-50">
       {/* Left Preview Panel */}
       <div className="flex-[5.5] min-w-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
@@ -1380,6 +1416,7 @@ export function VanKienDangForm({
         onExampleClick={handleExampleClick}
       />
     </div>
+    </>
   );
 }
 
