@@ -2,6 +2,7 @@ package com.saasai.repository.redis;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -23,6 +24,9 @@ public class FileNormalizedTextRedisRepositoryImpl implements FileNormalizedText
     private final ObjectProvider<StringRedisTemplate> redisTemplateProvider;
     private final ObjectMapper objectMapper;
 
+    @Value("${app.redis.enabled:false}")
+    private boolean redisEnabled;
+
     public FileNormalizedTextRedisRepositoryImpl(
             ObjectProvider<StringRedisTemplate> redisTemplateProvider,
             ObjectMapper objectMapper
@@ -40,7 +44,7 @@ public class FileNormalizedTextRedisRepositoryImpl implements FileNormalizedText
         }
 
         StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
-        if (redis == null) {
+        if (redis == null || !redisEnabled) {
             return;
         }
         try {
@@ -60,7 +64,7 @@ public class FileNormalizedTextRedisRepositoryImpl implements FileNormalizedText
 
         // Retrieve the normalized text from Redis
         StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
-        if (redis == null) {
+        if (redis == null || !redisEnabled) {
             return Optional.empty();
         }
         try {
@@ -77,7 +81,7 @@ public class FileNormalizedTextRedisRepositoryImpl implements FileNormalizedText
         validateFileId(fileId);
 
         StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
-        if (redis == null) return;
+        if (redis == null || !redisEnabled) return;
         try {
             redis.delete(
                     buildKey(fileId)

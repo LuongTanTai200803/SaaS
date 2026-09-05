@@ -130,10 +130,18 @@ QUY TẮC JSON:
   "tieuDeMuc"
   "noiDungChiTiet"
 - "tieuDeMuc" phải giữ nguyên 100% theo TEMPLATE.
-- "noiDungChiTiet" sử dụng \n để xuống dòng.
+- Mọi giá trị chuỗi phải tuân thủ JSON string hợp lệ.
+- Không được chứa ký tự xuống dòng thật bên trong chuỗi JSON.
+- Khi cần xuống dòng trong "doanCanCu" hoặc "noiDungChiTiet",
+  phải sử dụng escape sequence \n.
+- Các dấu ngoặc kép bên trong chuỗi phải được escape.
+- Không được chứa ký tự control trực tiếp trong chuỗi.
+
 - Giữ đúng số lượng và thứ tự mục của TEMPLATE.
 - Không thêm mục.
 - Không bỏ mục.
 - Không tạo field ngoài schema.
 
 Chỉ trả về JSON.
+Trước khi trả kết quả, phải đảm bảo toàn bộ output là một JSON
+object hợp lệ và có thể được parse bằng JSON parser.

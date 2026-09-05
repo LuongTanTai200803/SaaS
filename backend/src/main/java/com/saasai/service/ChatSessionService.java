@@ -2,6 +2,8 @@ package com.saasai.service;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.beans.factory.annotation.Value;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -52,8 +54,13 @@ public class ChatSessionService {
 
     // helper: get redis if available
     private StringRedisTemplate getRedis() {
+        if (!redisEnabled) return null;
         return redisTemplateProvider.getIfAvailable();
     }
+
+    @Value("${app.redis.enabled:false}")
+    private boolean redisEnabled;
+
 
     private void safeSet(String key, String value, Runnable dbFallback) {
         StringRedisTemplate redis = getRedis();

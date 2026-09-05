@@ -3,6 +3,7 @@ package com.saasai.repository.redis;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saasai.dto.DraftStateDTO;
@@ -26,6 +27,9 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
 
     private final Duration ttl;
 
+    @Value("${app.redis.enabled:false}")
+    private boolean redisEnabled;
+
     public DraftStateRedisRepositoryImpl(
             ObjectProvider<StringRedisTemplate> redisTemplateProvider,
             ObjectMapper objectMapper,
@@ -39,6 +43,10 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
     @Override
     public void save(DraftStateDTO draftState) {
         validate(draftState.getSessionUuid(), draftState.getUserId());
+
+        if (!redisEnabled) {
+            return;
+        }
 
         StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
         if (redis == null) {
@@ -67,6 +75,10 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
     public Optional<DraftStateDTO> find(String sesisonUuid, String userId) {
         validate(sesisonUuid, userId);
 
+        if (!redisEnabled) {
+            return Optional.empty();
+        }
+
         StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
         if (redis == null) {
             return Optional.empty();
@@ -93,7 +105,7 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
         validate(sessionUuid, userId);
 
         StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
-        if (redis == null) return;
+        if (redis == null || !redisEnabled) return;
         try {
             redis.delete(buildKey(sessionUuid, userId));
         } catch (Exception e) {
@@ -108,9 +120,6 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
     private void validate(String sessionUuid, String userId) {
         if (sessionUuid == null) {
             throw new IllegalArgumentException("sessionId không được để trống");
-        }
-        if (userId == null || userId.isBlank()) {
-            throw new IllegalArgumentException("userId không được để trống");
         }
         if (userId == null || userId.isBlank()) {
             throw new IllegalArgumentException("userId không được để trống");

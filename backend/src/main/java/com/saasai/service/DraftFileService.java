@@ -35,7 +35,7 @@ public class DraftFileService {
     ) {
         this.draftRepository = draftRepository;
         this.chatSessionRepository = chatSessionRepository;
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = objectMapper;
     }
 
     public DraftStateDTO saveDraftState(
