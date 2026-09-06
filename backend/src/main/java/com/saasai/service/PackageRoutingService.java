@@ -10,12 +10,20 @@ import com.saasai.repository.UserRepository;
 import com.saasai.repository.AdminPackageConfigRepository;
 import com.saasai.entity.User;
 import com.saasai.entity.AdminPackageConfig;
+import org.springframework.beans.factory.annotation.Value;
 
-        @Service
-        public class PackageRoutingService {
 
-        private static final int DEFAULT_MAX_TOKENS = 2000;
-        private static final double DEFAULT_TEMPERATURE = 0.3;
+
+@Service
+public class PackageRoutingService {
+
+        @Value("${ai.max-tokens:2000}")
+        private int configuredMaxTokens;
+        @Value("${ai.temperature:0}")
+        private double configuredTemperature;
+
+        private static final int DEFAULT_MAX_TOKENS = Integer.parseInt(System.getProperty("AI_MAX_TOKENS", "2000"));
+        private static final double DEFAULT_TEMPERATURE = Double.parseDouble(System.getProperty("AI_TEMPERATURE", "0"));
 
         
         private final ObjectMapper objectMapper;
@@ -68,8 +76,8 @@ import com.saasai.entity.AdminPackageConfig;
                 return new ModelRoute(
                         primaryModel,
                         fallbackModel,
-                        DEFAULT_MAX_TOKENS,
-                        DEFAULT_TEMPERATURE
+                        configuredMaxTokens > 0 ? configuredMaxTokens : DEFAULT_MAX_TOKENS,
+                        configuredTemperature >= 0 ? configuredTemperature : DEFAULT_TEMPERATURE
                 );
         }
 
