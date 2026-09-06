@@ -119,7 +119,7 @@ public class DraftStateRedisRepositoryImpl implements DraftStateRedisRepository 
 
     private void validate(String sessionUuid, String userId) {
         if (sessionUuid == null) {
-            throw new IllegalArgumentException("sessionId không được để trống");
+            throw new IllegalArgumentException("sessionUuid không được để trống");
         }
         if (userId == null || userId.isBlank()) {
             throw new IllegalArgumentException("userId không được để trống");
