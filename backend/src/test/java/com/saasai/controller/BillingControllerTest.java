@@ -1,11 +1,13 @@
 package com.saasai.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saasai.dto.BillingInvoiceDTO;
 import com.saasai.entity.BillingInvoice;
 import com.saasai.entity.BillingInvoice.InvoiceStatus;
+import com.saasai.feature.payment.BillingController;
+import com.saasai.feature.payment.BillingInvoiceDTO;
+import com.saasai.feature.payment.BillingService;
 import com.saasai.entity.User;
-import com.saasai.service.BillingService;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,7 +72,7 @@ class BillingControllerTest {
 
         when(billingService.createInvoice(USER, "PROFESSIONAL", 12)).thenReturn(invoice);
 
-        mockMvc.perform(post("/api/v1/billing/invoice")
+        mockMvc.perform(post("/api/v1/billing/invoices")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "packageType", "PROFESSIONAL",

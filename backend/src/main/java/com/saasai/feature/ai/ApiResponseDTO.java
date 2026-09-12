@@ -14,6 +14,7 @@ public class ApiResponseDTO<T> {
     private String message;
     private T data;
     private Integer statusCode;
+    private String errorType;
 
     public static <T> ApiResponseDTO<T> success(T data) {
         return ApiResponseDTO.<T>builder()
@@ -36,15 +37,16 @@ public class ApiResponseDTO<T> {
                 .build();
     }
 
-    public static <T> ApiResponseDTO<T> failure(String message, int statusCode) {
+    public static <T> ApiResponseDTO<T> failure(String message, int statusCode, String errorType) {
         return ApiResponseDTO.<T>builder()
                 .success(false)
                 .message(message)
                 .statusCode(statusCode)
+                .errorType(errorType)
                 .build();
     }
 
     public static <T> ApiResponseDTO<T> failure(String message) {
-        return failure(message, 400);
+        return failure(message, 400, "BadRequest");
     }
 }

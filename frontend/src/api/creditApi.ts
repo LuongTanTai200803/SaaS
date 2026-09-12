@@ -1,21 +1,51 @@
 import axiosClient from './axiosClient';
 
 export const creditApi = {
-  // Quản lý tính toán credit tạm tính dựa trên form wizard
-  // payload có thể bao gồm số lượng từ, file đã upload hoặc model đã chọn
   estimateCredits(data: any) {
     const url = '/credits/estimate';
     return axiosClient.post(url, data);
   },
 
-  // Kiểm tra số dư ví (credits) hiện tại của người dùng
   getBalance() {
     const url = '/credits/balance';
     return axiosClient.get(url);
   },
 
-  // Sinh mã VietQR động để nạp tiền (có thể trả về dataURL của QR code)
-  generateVietQR(data: { amount: number, description: string }) {
+  getPackages() {
+    return axiosClient.get('/packages').catch((error) => {
+      if (error?.response?.status === 404 || error?.response?.status === 405) {
+        return axiosClient.get('/api/packages');
+      }
+      throw error;
+    });
+  },
+
+  createInvoice(data: { packageType: string; durationMonths: number }) {
+    const payload = {
+      packageType: data.packageType,
+      durationMonths: data.durationMonths,
+    };
+
+    return axiosClient.post('/billing/invoices', payload).catch((error) => {
+      if (error?.response?.status === 404 || error?.response?.status === 405) {
+        return axiosClient.post('/billing/invoices', payload);
+      }
+      throw error;
+    });
+  },
+
+  getInvoiceStatus(invoiceId: string) {
+    return axiosClient.get(`/billing/invoices/${invoiceId}/status`).catch((error) => {
+      if (error?.response?.status === 404 || error?.response?.status === 405) {
+        return axiosClient.get(`/billing/invoices/${invoiceId}/status`).catch(() => {
+          return axiosClient.get(`/billing/invoices/${invoiceId}/status`);
+        });
+      }
+      throw error;
+    });
+  },
+
+  generateVietQR(data: { amount: number; description: string }) {
     const url = '/credits/deposit/vietqr';
     return axiosClient.post(url, data);
   }

@@ -1,5 +1,6 @@
 package com.saasai.service;
 
+import com.saasai.admin.AdminService;
 import com.saasai.entity.AdminPackageConfig;
 import com.saasai.repository.AdminPackageConfigRepository;
 import com.saasai.repository.SystemStatsRepository;

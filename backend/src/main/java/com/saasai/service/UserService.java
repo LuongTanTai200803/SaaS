@@ -1,5 +1,6 @@
 package com.saasai.service;
 
+import com.saasai.admin.AdminController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.saasai.dto.DocumentDTO;
 import com.saasai.dto.PaginatedResponseDTO;
+import com.saasai.dto.UpdateUserProfileRequest;
 import com.saasai.dto.UserProfileDTO;
 import com.saasai.entity.FileMetadata;
 import com.saasai.entity.User;
@@ -15,11 +17,16 @@ import com.saasai.repository.ChatSessionRepository;
 import com.saasai.repository.UserRepository;
 import com.saasai.repository.FileMetadataRepository;
 
+import com.saasai.dto.UserCreditSummaryDTO;
+import com.saasai.feature.payment.CreditAccount;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class UserService {
+        private final AdminController adminController;
+
         @Autowired
         private UserRepository userRepository;
 
@@ -28,6 +35,10 @@ public class UserService {
 
         @Autowired
         private FileMetadataRepository fileUploadRepository;
+
+        UserService(AdminController adminController) {
+            this.adminController = adminController;
+        }
 
         public UserProfileDTO getUserProfileByEmail(String email) {
                 User user = userRepository.findByEmail(email)
@@ -38,6 +49,9 @@ public class UserService {
                                 .email(user.getEmail())
                                 .fullName(user.getFullName())
                                 .agency(user.getAgency())
+                                .phone(user.getPhone())
+                                .position(user.getPosition())
+                                .created_at(user.getCreatedAt())
                                 .role(user.getRole().toString())
                                 .creditBalance(user.getCreditBalance())
                                 .packageType(user.getAdminPackageConfig() != null
@@ -130,6 +144,95 @@ public class UserService {
                                 .currentPage(page)
                                 .pageSize(size)
                                 .build();
+        }
+
+        // Lấy thông tin tổng quan về credit của người dùng dựa trên email
+        public UserCreditSummaryDTO getUserCreditSummaryByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        CreditAccount account = user.getCreditAccount();
+
+        if (account == null) {
+                account = new CreditAccount();
+        }
+
+        return UserCreditSummaryDTO.builder()
+                .userId(user.getUserId())
+                .packageType(user.getAdminPackageConfig() != null
+                        ? user.getAdminPackageConfig().getPackageType()
+                        : null)
+                .subscriptionExpireDate(user.getExpireDate())
+                .monthly(UserCreditSummaryDTO.MonthlyCreditDTO.builder()
+                        .allocated(account.getMonthlyQuotaAllocated() != null
+                                ? account.getMonthlyQuotaAllocated()
+                                : 0.0)
+                        .remaining(account.getMonthlyQuotaRemaining() != null
+                                ? account.getMonthlyQuotaRemaining()
+                                : 0.0)
+                        .cycleStart(account.getMonthlyQuotaCycleStart())
+                        .cycleEnd(account.getMonthlyQuotaCycleEnd())
+                        .build())
+                .purchased(UserCreditSummaryDTO.PurchasedCreditDTO.builder()
+                        .balance(account.getPurchasedCreditBalance() != null
+                                ? account.getPurchasedCreditBalance()
+                                : 0.0)
+                        .purchasedAt(account.getPurchasedCreditPurchasedAt())
+                        .expireAt(account.getPurchasedCreditExpireAt())
+                        .build())
+                .build();
+        }
+
+        // Cập nhật thông tin hồ sơ người dùng dựa trên email và yêu cầu cập nhật
+        public UserProfileDTO updateUserProfileByEmail(String email, UpdateUserProfileRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (request == null) {
+                throw new IllegalArgumentException("Request không được null");
+        }
+
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+                user.setFullName(request.getFullName());
+        }
+
+        if (request.getAgency() != null) {
+                user.setAgency(request.getAgency().isBlank() ? null : request.getAgency());
+        }
+
+        if (request.getAffiliateCode() != null) {
+                user.setAffiliateCode(request.getAffiliateCode().isBlank() ? null : request.getAffiliateCode());
+        }
+
+        if (request.getPhone() != null) {
+                user.setPhone(request.getPhone().isBlank() ? null : request.getPhone());
+        }
+        if (request.getPosition() != null) {
+                user.setPosition(request.getPosition().isBlank() ? null : request.getPosition());
+        }
+        
+        user = userRepository.save(user);
+
+        return UserProfileDTO.builder()
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .agency(user.getAgency())
+                .phone(user.getPhone())
+                .position(user.getPosition())
+                .created_at(user.getCreatedAt())
+                .role(user.getRole() != null ? user.getRole().toString() : null)
+                .creditBalance(user.getCreditBalance())
+                .packageType(user.getAdminPackageConfig() != null
+                        ? user.getAdminPackageConfig().getPackageType()
+                        : null)
+                .expireDate(user.getExpireDate())
+                .affiliate(UserProfileDTO.AffiliateDTO.builder()
+                        .code(user.getAffiliateCode())
+                        .link(user.getAffiliateLink())
+                        .totalEarnings(user.getTotalEarnings())
+                        .build())
+                .build();
         }
 
         public Double updateUserCredit(String userId, Double creditAmount) {

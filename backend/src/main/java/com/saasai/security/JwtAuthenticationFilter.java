@@ -42,7 +42,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || path.startsWith("/login/oauth2/code")        // Callback từ Google
                 || path.startsWith("/v3/api-docs")
                 || path.startsWith("/swagger-ui")
-                || path.startsWith("/h2-console");
+                || path.startsWith("/h2-console")
+                || path.equals("/api/v1/sepay/webhook");        // SEPAY webhook không cần JWT
     }
 
     @Override

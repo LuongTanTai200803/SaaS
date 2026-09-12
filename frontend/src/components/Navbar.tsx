@@ -1,9 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Sparkles, ChevronDown, Menu, X, Bell, LayoutDashboard,
-  Languages, Phone, Mail, Shield, Zap
-} from 'lucide-react';
+
+import { Sparkles, ChevronDown ,LayoutDashboard , Languages , Bell , Shield , Menu} from 'lucide-react';
 import { BillingModal } from './BillingModal';
 import { useAuth } from '../context/AuthContext';
 import { EXTERNAL_LINKS } from '../api/urls'; // Giữ nguyên nếu EXTERNAL_LINKS được sử dụng
@@ -15,17 +13,18 @@ const navItems: { key: NavItem; label: string }[] = [
   { key: 'assistants', label: 'Menu Trợ lý' },
   { key: 'templates', label: 'Văn bản của Tôi' },
   { key: 'guide', label: 'Hướng dẫn' },
-  { key: 'pricing', label: 'Bảng giá' },
+  { key: 'pricing', label: 'Nâng Cấp' },
   { key: 'affiliate', label: 'Affiliate' },
 ];
 
 interface NavbarProps {
   onNavigate: (page: 'home' | 'wizard', assistantId?: string) => void;
+  onOpenBilling: () => void;
 }
 
-export function Navbar({ onNavigate }: NavbarProps) {
+export function Navbar({ onNavigate, onOpenBilling }: NavbarProps) {
   const { isLoggedIn, profile, showDashboard, setShowDashboard, openAuthModal } = useAuth(); // Lấy openAuthModal từ AuthContext
-  const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
+
   const [activeNav, setActiveNav] = useState<NavItem>('home'); // Navbar manages its own activeNav
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false);
@@ -53,6 +52,56 @@ export function Navbar({ onNavigate }: NavbarProps) {
       return;
     }
     onNavigate(page, assistantId);
+  };
+
+  const scrollToPricing = () => {
+    const target = document.getElementById('pricing');
+
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    navigate('/');
+    setTimeout(() => {
+      document.getElementById('pricing')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 200);
+  };
+
+
+  const handleNavAction = (key: NavItem) => {
+    setActiveNav(key);
+    setAssistantMenuOpen(false);
+    setShowDashboard(false);
+
+    if (key === 'home') {
+      onNavigate('home');
+      return;
+    }
+
+    if (key === 'pricing') {
+      window.history.pushState(null, '', '/#pricing');
+      onOpenBilling();
+      return;
+    }
+
+    if (key === 'templates') {
+      navigate('/workspace');
+      return;
+    }
+
+    if (key === 'guide') {
+      navigate('/wizard');
+      return;
+    }
+
+    if (key === 'affiliate') {
+      window.open('https://example.com/affiliate', '_blank');
+      return;
+    }
   };
 
   return (
@@ -141,13 +190,7 @@ export function Navbar({ onNavigate }: NavbarProps) {
               return (
                 <button
                   key={item.key}
-                  onClick={() => {
-                    setActiveNav(item.key);
-                    setAssistantMenuOpen(false); // Cán bộ chuyển trang khác ➡️ Ép đóng menu trợ lý lại
-                    setShowDashboard(false);
-                    if (item.key === 'home') handleProtectedNavigate('home');
-                    // Thêm các điều hướng trang khác của Tài tại đây...
-                  }}
+                  onClick={() => handleNavAction(item.key)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     activeNav === item.key
                       ? 'text-[#1E3A8A] bg-blue-50'
@@ -198,23 +241,59 @@ export function Navbar({ onNavigate }: NavbarProps) {
                   <Bell size={18} /> 
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
                 </button>
+
+                {/* Profile button */}
                 <button
-                  onClick={() => setShowDashboard(!showDashboard)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${showDashboard ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}
+                  onClick={() => setShowDashboard((prev: boolean) => !prev)}
+                  className={`
+                    group flex items-center gap-2.5
+                    px-2.5 py-1.5
+                    rounded-xl
+                    border
+                    transition-all duration-200
+                    ${
+                      showDashboard
+                        ? 'border-blue-200 bg-blue-50 shadow-sm'
+                        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
+                    }
+                  `}
                 >
-                  <div className="w-6 h-6 bg-[#1E3A8A] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    {profile ? profile.fullName.charAt(0) : '?'}
+                  {/* Avatar */}
+                  <div
+                    className="
+                      flex items-center justify-center
+                      w-8 h-8
+                      rounded-full
+                      bg-[#1E3A8A]
+                      text-white
+                      text-sm font-semibold
+                      shadow-sm
+                      ring-2 ring-white
+                      overflow-hidden
+                      shrink-0
+                    "
+                  >
+                    {profile?.fullName?.charAt(0)?.toUpperCase() || '?'}
                   </div>
-                  <span className="text-sm font-medium text-gray-700 hidden sm:block">{profile?.fullName || 'Tài khoản'}</span>
-                  <ChevronDown size={14} className={`text-gray-400 transition-transform ${showDashboard ? 'rotate-180' : ''}`} />
+
+                  {/* Name */}
+                  <span className="hidden sm:block max-w-[140px] truncate text-sm font-medium text-gray-700">
+                    {profile?.fullName || 'Tài khoản'}
+                  </span>
+
+                  {/* Chevron */}
+                  <ChevronDown
+                    size={15}
+                    strokeWidth={2}
+                    className={`
+                      text-gray-400
+                      transition-transform duration-200
+                      ${showDashboard ? 'rotate-180 text-blue-500' : 'group-hover:text-gray-600'}
+                    `}
+                  />
                 </button>
-                <button
-                  onClick={() => setIsBillingModalOpen(true)}
-                  className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all text-sm font-medium shadow-sm"
-                >
-                  <Zap size={14} />
-                  <span className="text-xs">{profile?.creditBalance || 0} credits</span>
-                </button>
+
+                {/* Nút admin */}
                 {profile?.role === 'ROLE_ADMIN' ? (
                   <button
                     onClick={() => navigate('/admin')}
@@ -274,7 +353,6 @@ export function Navbar({ onNavigate }: NavbarProps) {
         )}
       </header>
 
-      <BillingModal isOpen={isBillingModalOpen} onClose={() => setIsBillingModalOpen(false)} /> {/* BillingModal vẫn được quản lý tại Navbar */}
     </>
   );
 }

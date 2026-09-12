@@ -46,6 +46,7 @@ public class AuthController {
     public ResponseEntity<ApiResponseDTO<AuthResponseDTO>> login(@Valid @RequestBody LoginRequestDTO request) {
         logger.info("LOGIN REQUEST email={}", request.getEmail());
         AuthResponseDTO loginResponse = authService.loginUser(request);
+        
         logger.info("User logged in successfully: {}", request.getEmail());
         return ResponseEntity.ok(ApiResponseDTO.<AuthResponseDTO>builder()
                 .success(true)

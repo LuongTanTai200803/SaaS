@@ -16,6 +16,9 @@ public class UserProfileDTO {
     private String role;
     private Double creditBalance;
     private String packageType;
+    private String phone;
+    private String position;
+    private LocalDateTime created_at;
     private LocalDateTime expireDate;
     private AffiliateDTO affiliate;
 

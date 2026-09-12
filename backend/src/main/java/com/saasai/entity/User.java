@@ -4,6 +4,11 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import com.saasai.feature.payment.CreditAccount;
+
 @Entity
 @Table(name = "users")
 @Getter
@@ -15,6 +20,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "user_id", columnDefinition = "CHAR(36)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String userId;
 
     @Column(nullable = false, unique = true)
@@ -56,7 +62,7 @@ public class User {
 
     private LocalDateTime updatedAt;
 
-    @Column(name = "provider")
+    @Column(name = "provider", nullable = false, length = 20)
     private String provider = "LOCAL";           // LOCAL, GOOGLE, FACEBOOK
 
     @Column(name = "provider_id")
@@ -85,4 +91,17 @@ public class User {
     public enum UserRole {
         ROLE_USER, ROLE_ADMIN
     }
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = false)
+    private CreditAccount creditAccount;
+
+    public CreditAccount getCreditAccount() {
+        return creditAccount;
+    }
+
+    @Column(name = "phone", length = 32)
+    private String phone;
+
+    @Column(name = "position", length = 32)
+    private String position;
 }

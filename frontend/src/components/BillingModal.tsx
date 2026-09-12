@@ -1,125 +1,127 @@
-import { useState } from 'react';
-import { X, Check, Zap, Loader2, ArrowRight, HelpCircle, ShieldCheck } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, Check, Zap, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
+import api from '../api';
 
 interface BillingModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface PricingPlan {
-  id: string;
-  name: string;
-  pricePerMonth: number; // Đổi sang giá gốc theo tháng để tính toán động chính xác
-  credits: string;       // Chuỗi hiển thị credits kèm chu kỳ
-  model: string;         // Bổ sung phân loại model AI phục vụ chuyên sâu
-  features: string[];
-  popular?: boolean;
-  bgClass: string;       // Màu nền cực nhẹ ở trạng thái tĩnh
-  borderClass: string;   // Màu viền tương phản cao
-  textClass: string;     // Màu chữ đại diện cho icon/badge
+interface BillingInvoice {
+  invoiceId: string;
+  packageType: string;
+  durationMonths: number;
+  memoId: string;
+  originalAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  qrCodeUrl: string;
+  status: string;
+  paymentDate?: string | null;
+  createdAt?: string;
+  userId?: string;
 }
 
-const pricingPlans: PricingPlan[] = [
-  {
-    id: 'trial',
-    name: 'Dùng thử',
-    pricePerMonth: 0,
-    credits: '3 Credits',
-    model: ' (Tốc độ cao)',
-    bgClass: 'bg-red-50/40',
-    borderClass: 'border-red-200 hover:border-red-400',
-    textClass: 'text-red-700',
-    features: [
-      'Cấp ngay 3 Credits miễn phí trải nghiệm',
-      'Giới hạn tạo tối đa 3 văn bản/ngày',
-      'Quy đổi: Khoảng 3-5 công văn ngắn',
-      'Hỗ trợ cộng đồng qua Ticket cơ bản',
-      'Lưu trữ bản nháp trực tuyến tối đa 24 giờ'
-    ]
-  },
-  {
-    id: 'basic',
-    name: 'Cơ bản',
-    pricePerMonth: 199000,
-    credits: '100 Credits / tháng',
-    model: ' (Chính xác)',
-    bgClass: 'bg-blue-50/40',
-    borderClass: 'border-blue-200 hover:border-blue-400',
-    textClass: 'text-blue-700',
-    features: [
-      'Nhận 100 Credits nạp vào ví mỗi tháng',
-      'Quy đổi: Tạo ~100 văn bản hoặc 50 giáo án chi tiết',
-      'Không giới hạn số lượng sinh văn bản trong ngày',
-      'Hỗ trợ kỹ thuật qua Email phản hồi trong 12 giờ',
-      'Kho lưu trữ Văn bản cá nhân: 50MB (Bảo mật AES-256)',
-      'Tự động kiểm tra lỗi chính tả & thể thức hành chính'
-    ]
-  },
-  {
-    id: 'pro',
-    name: 'Chuyên nghiệp',
-    pricePerMonth: 549000,
-    credits: '300 Credits / tháng',
-    model: ' (Mới nhất & Thông minh)',
-    bgClass: 'bg-violet-50/40',
-    borderClass: 'border-violet-300 hover:border-violet-500',
-    textClass: 'text-violet-700',
-    features: [
-      'Nhận 300 Credits nạp vào ví mỗi tháng',
-      'Quy đổi: Soạn ~300 văn bản nghiệp vụ hoặc 150 đề thi',
-      'Ưu tiên băng thông AI (Không nghẽn giờ cao điểm)',
-      'Hỗ trợ ưu tiên trực tiếp qua Zalo / Hotline riêng',
-      'Kho lưu trữ mở rộng: 500MB tài liệu lưu trữ',
-      'Mở khóa tính năng API Access kết nối phần mềm nội bộ',
-      'Đường truyền riêng tư mã hóa dữ liệu đầu cuối'
-    ],
-    popular: true
-  },
-  {
-    id: 'premium',
-    name: 'Tổ chức / Pro',
-    pricePerMonth: 1199000,
-    credits: '800 Credits / tháng',
-    model: ' (Toàn bộ bằng bộ lõi Claude 4.6 Sonnet)',
-    bgClass: 'bg-amber-50/40',
-    borderClass: 'border-amber-300 hover:border-amber-500',
-    textClass: 'text-amber-700',
-    features: [
-      'Nhận 800 Credits nạp vào ví mỗi tháng',
-      'Quy đổi: Tạo ~800 tài liệu dài (Phù hợp tổ bộ môn / phòng ban)',
-      'Team Collaboration: Chia sẻ nhóm tối đa 5 tài khoản',
-      'Hỗ trợ kỹ thuật chuyên biệt 24/7 có kỹ sư vận hành riêng',
-      'Dung lượng lưu trữ dữ liệu văn phòng: Không giới hạn',
-      'Fine-tune nghiệp vụ: Huấn luyện AI theo phong cách riêng',
-      'Cam kết chất lượng vận hành ổn định Uptime 99.9%'
-    ]
+  interface PackageApiItem {
+    id: number;
+    packageType: string;
+    packageCategory?: string;
+    price: number;
+    displayPrice?: string;
+    creditLimit?: number | string;
+    duration?: number;
+    durationHuman?: string;
+    allowedModels?: string[];
+    description?: string;
+    storageQuotaMb?: number;
+    isFree?: boolean;
+    canPurchase?: boolean;
+    badge?: string;
   }
-];
+
+  interface PricingPlan {
+    id: string;
+    packageType: string;
+    packageGroup: 'subscription' | 'credit';
+    name: string;
+    pricePerMonth: number;
+    credits: string;
+    model: string;
+    features: string[];
+    popular?: boolean;
+    bgClass: string;
+    borderClass: string;
+    textClass: string;
+  }
 
 const monthOptions = [
   { value: 1, label: '1 tháng', discount: 0 },
-  { value: 3, label: '3 tháng', discount: 0 },
   { value: 6, label: '6 tháng', discount: 0.1 },
   { value: 12, label: '12 tháng', discount: 0.2 }
 ];
 
+const creditOnlyMonthOptions = [{ value: 1, label: '1 tháng', discount: 0 }];
+
+
+const planToPackageType: Record<string, string> = {
+  trial: 'TRIAL',
+  basic: 'BASIC',
+  pro: 'PRO',
+  premium: 'PREMIUM',
+};
+
 export function BillingModal({ isOpen, onClose }: BillingModalProps) {
+  if (!isOpen) return null;
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   const [selectedMonths, setSelectedMonths] = useState(1);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [invoiceData, setInvoiceData] = useState<BillingInvoice | null>(null);
+  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
+ 
 
-  if (!isOpen) return null;
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
-  const currentDiscount = monthOptions.find(m => m.value === selectedMonths)?.discount || 0;
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+  const [isLoadingPackages, setIsLoadingPackages] = useState(false);
+  const [packageError, setPackageError] = useState<string | null>(null);
 
-  const handleSelectPlan = (plan: PricingPlan) => {
-    setSelectedPlan(plan);
-    if (plan.pricePerMonth > 0) {
-      setShowCheckout(true);
+  const currentDiscount = monthOptions.find((m) => m.value === selectedMonths)?.discount || 0;
+
+  const [packageFilter, setPackageFilter] = useState<'subscription' | 'credit'>('subscription');
+  const visiblePlans = pricingPlans.filter((plan) => plan.packageGroup === packageFilter);
+
+  const getPackageErrorMessage = (error: any) => {
+    const status = error?.response?.status;
+    const serverMessage =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.response?.data?.detail;
+
+    if (status === 404) {
+      return 'Hiện tại danh sách gói chưa được mở hoặc chưa có dữ liệu. Vui lòng thử lại sau.';
     }
+
+    if (status === 401) {
+      return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+    }
+
+    if (status === 500) {
+      return 'Hệ thống đang gặp sự cố khi tải gói. Vui lòng thử lại sau.';
+    }
+
+    if (serverMessage) {
+      return serverMessage;
+    }
+
+    return 'Không tải được danh sách gói. Vui lòng thử lại sau.';
   };
 
+  const isCreditMode = packageFilter === 'credit';
+
+  const activeMonthOptions = isCreditMode ? creditOnlyMonthOptions : monthOptions;
+
   const calculateTotal = (basePricePerMonth: number) => {
+    if (isCreditMode) return basePricePerMonth;
     const rawTotal = basePricePerMonth * selectedMonths;
     return rawTotal * (1 - currentDiscount);
   };
@@ -131,29 +133,218 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
     }).format(price);
   };
 
-  // Mock QR dữ liệu đồng bộ
-  const qrData = {
-    accountNumber: '0123456789',
-    bankName: 'Vietcombank',
-    accountName: 'CONG TY TNHH AI ASSISTANT',
-    amount: selectedPlan ? calculateTotal(selectedPlan.pricePerMonth) : 0,
-    memo: `BILL${Date.now().toString().slice(-8)}`
+  const checkInvoiceStatus = async (invoiceId: string) => {
+    try {
+      const response = await api.creditApi.getInvoiceStatus(invoiceId);
+      const nextStatus = response?.data?.status ?? response?.status ?? 'PENDING';
+      setInvoiceData((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+      return nextStatus;
+    } catch (error) {
+      console.error('Invoice status check failed:', error);
+      return 'PENDING';
+    }
   };
 
-  return (
+  // 
+  useEffect(() => {
+    if (!invoiceData?.invoiceId || invoiceData.status !== 'PENDING') return;
+
+    let isMounted = true;
+    const poll = async () => {
+      const currentStatus = await checkInvoiceStatus(invoiceData.invoiceId);
+      if (currentStatus === 'PAID' && isMounted) {
+        setInvoiceData((prev) => (prev ? { ...prev, status: 'PAID' } : prev));
+      }
+    };
+
+    const interval = window.setInterval(poll, 5000);
+    poll();
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [invoiceData?.invoiceId, invoiceData?.status]);
+
+  // Chọn gói thanh toán
+  const handleSelectPlan = async (plan: PricingPlan) => {
+    setSelectedPlan(plan);
+    setInvoiceError(null);
+
+    if (plan.pricePerMonth <= 0) {
+      setInvoiceData(null);
+      setShowCheckout(false);
+      return;
+    }
+
+    setIsCreatingInvoice(true);
+
+    try {
+      const response = await api.creditApi.createInvoice({
+        packageType: plan.packageType,
+        durationMonths: selectedMonths,
+      });
+
+      const payload = response?.data?.data ?? response?.data ?? response;
+
+      setInvoiceData({
+        invoiceId: payload.invoiceId ?? '',
+        packageType: payload.packageType ?? plan.packageType,
+        durationMonths: Number(payload.durationMonths ?? selectedMonths),
+        memoId: payload.memoId ?? '',
+        originalAmount: Number(payload.originalAmount ?? 0),
+        discountAmount: Number(payload.discountAmount ?? 0),
+        finalAmount: Number(payload.finalAmount ?? 0),
+        qrCodeUrl: payload.qrCodeUrl ?? '',
+        status: payload.status ?? 'PENDING',
+        paymentDate: payload.paymentDate ?? null,
+        createdAt: payload.createdAt ?? undefined,
+        userId: payload.userId ?? undefined,
+      });
+
+      setShowCheckout(true);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        'Không thể tạo hoá đơn thanh toán.';
+      setInvoiceError(message);
+      setShowCheckout(false);
+    } finally {
+      setIsCreatingInvoice(false);
+    }
+  };
+
+  const handleManualStatusCheck = async () => {
+    if (!invoiceData?.invoiceId) return;
+    await checkInvoiceStatus(invoiceData.invoiceId);
+  };
+
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadPackages = async () => {
+      setIsLoadingPackages(true);
+      setPackageError(null);
+
+      try {
+        const raw = await api.creditApi.getPackages();
+
+        const data = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.data)
+            ? raw.data
+            : Array.isArray(raw?.result)
+              ? raw.result
+              : [];
+
+        const mapped: PricingPlan[] = data.map((pkg: PackageApiItem, index: number) => {
+        const price = Number(pkg.price ?? 0);
+        const creditLimit = pkg.creditLimit ?? 0;
+
+        const normalizedType = String(pkg.packageType ?? pkg.packageCategory ?? '').toUpperCase();
+        const packageGroup: 'subscription' | 'credit' =
+          normalizedType.includes('CREDIT') || normalizedType.includes('TOKEN') || normalizedType.includes('PACK') && !normalizedType.includes('SUB')
+            ? 'credit'
+            : 'subscription';
+
+        return {
+          id: String(pkg.id ?? pkg.packageType ?? index),
+          packageType: pkg.packageType,
+          packageGroup,
+          name: pkg.packageType || pkg.packageCategory || `Gói ${index + 1}`,
+          pricePerMonth: pkg.isFree ? 0 : price,
+          credits: pkg.creditLimit ? `${creditLimit} Credits` : 'Theo gói',
+          model: 'Model cao cấp',
+          features: [
+            pkg.description || 'Gói dịch vụ theo nhu cầu',
+            `${pkg.duration ?? 1} ${pkg.durationHuman || 'tháng'}`,
+            `Bộ nhớ: ${pkg.storageQuotaMb ? `${pkg.storageQuotaMb} MB` : 'Theo cấu hình'}`,
+            'Tối ưu AI chuyên nghiệp',
+          ],
+          popular: !!pkg.badge || index === 1,
+          bgClass: index % 2 === 0 ? 'bg-blue-50/40' : 'bg-violet-50/40',
+          borderClass: index % 2 === 0 ? 'border-blue-200 hover:border-blue-400' : 'border-violet-200 hover:border-violet-400',
+          textClass: index % 2 === 0 ? 'text-blue-700' : 'text-violet-700',
+        };
+      });
+
+        setPricingPlans(mapped);
+      } catch (error: any) {
+        setPackageError(getPackageErrorMessage(error));
+      } finally {
+        setIsLoadingPackages(false);
+      }
+    };
+    loadPackages();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (packageFilter === 'credit') {
+      setSelectedMonths(1);
+    }
+  }, [packageFilter]);
+
+  const packageGridClass =
+  visiblePlans.length === 1
+    ? 'lg:grid-cols-1'
+    : visiblePlans.length === 2
+      ? 'lg:grid-cols-2'
+      : visiblePlans.length === 3
+        ? 'lg:grid-cols-3'
+        : 'lg:grid-cols-4';
+
+  // Get a user-friendly label for the package type
+  const getFriendlyPackageLabel = (planName?: string, packageType?: string) => {
+    const raw = (planName ?? packageType ?? '').trim();
+
+    if (!raw) return 'Gói dịch vụ';
+
+    const upper = raw.toUpperCase();
+
+    if (upper.startsWith('CREDIT_')) {
+      const value = raw.replace(/^CREDIT_/i, '').trim();
+      return value ? `Credit ${value}` : 'Credit';
+    }
+
+    if (upper.startsWith('SUB_')) {
+      const value = raw.replace(/^SUB_/i, '').trim();
+      return value ? `Subscription ${value}` : 'Subscription';
+    }
+
+    if (upper.startsWith('PREMIUM')) return 'Premium';
+    if (upper.startsWith('PRO')) return 'Pro';
+    if (upper.startsWith('BASIC')) return 'Basic';
+    if (upper.startsWith('TRIAL')) return 'Trial';
+
+    return raw
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
+  // Get a user-friendly label for the package duration
+  const getFriendlyDurationLabel = (durationMonths?: number) => {
+    const months = Number(durationMonths ?? selectedMonths ?? 1);
+    if (months <= 1) return 'Thời hạn dùng trong 1 tháng';
+    return `Thời hạn dùng trong ${months} tháng`;
+  };
+
+    return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl max-w-7xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-gray-100">
-        
-        {/* ── HEADER MODAL ── */}
         <div className="bg-white border-b border-gray-100 px-8 py-5 flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               {showCheckout ? 'Thanh toán đơn hàng bảo mật' : 'Nâng cấp gói dịch vụ Trợ lý AI'}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              {showCheckout ? 'Quét mã QR qua ứng dụng Ngân hàng để kích hoạt tự động' : 'Mở khóa toàn bộ tính năng biên tập, tối ưu hóa hiệu suất văn phòng nghiệp vụ'}
+              {showCheckout
+                ? 'Quét mã QR qua ứng dụng Ngân hàng để kích hoạt tự động'
+                : 'Mở khóa toàn bộ tính năng biên tập, tối ưu hóa hiệu suất văn phòng nghiệp vụ'}
             </p>
           </div>
+
           <button
             onClick={onClose}
             className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
@@ -162,278 +353,345 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
           </button>
         </div>
 
-        {/* ── CONTENT BODY AREA ── */}
-        <div className="p-8 overflow-y-auto flex-1 bg-gray-50/40">
-          {!showCheckout ? (
-            <>
-              {/* 🎛️ KHU VỰC CHỌN CHU KỲ SỬ DỤNG (THỜI HẠN) */}
-              <div className="mb-8 bg-white border border-gray-200/60 rounded-xl p-5 shadow-sm max-w-md mx-auto">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2.5 text-center">
-                  Chọn chu kỳ hạn dùng (Tiết kiệm khi mua dài hạn)
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {monthOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setSelectedMonths(option.value)}
-                      className={`py-2 px-3 text-xs font-semibold rounded-lg border transition-all relative ${
-                        selectedMonths === option.value
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {option.label}
-                      {option.discount > 0 && (
-                        <span className="absolute -top-2 -right-1 bg-red-500 text-white text-[8px] font-bold px-1 py-0.5 rounded-full scale-90 shadow-sm">
-                          -{option.discount * 100}%
-                        </span>
-                      )}
-                    </button>
-                  ))}
+          {/* ================== Body ==================== */}
+          <div className="p-8 overflow-y-auto flex-1 bg-gray-50/40">
+            {!showCheckout ? (
+              <>
+                {/* ===== 1. CHỌN LOẠI GÓI ===== */}
+                <div className="flex justify-center gap-2 mb-8">
+                  <button
+                    type="button"
+                    onClick={() => setPackageFilter('subscription')}
+                    className={`py-2 px-4 rounded-lg font-semibold transition-all ${
+                      packageFilter === 'subscription'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    Subscription
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPackageFilter('credit')}
+                    className={`py-2 px-4 rounded-lg font-semibold transition-all ${
+                      packageFilter === 'credit'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    Credit
+                  </button>
                 </div>
-              </div>
 
-              {/* 📦 DANH SÁCH CARD BẢNG GIÁ DÀY THÔNG TIN */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-                {pricingPlans.map((plan) => {
-                  const finalTotal = calculateTotal(plan.pricePerMonth);
-                  const perMonthComputed = finalTotal / selectedMonths;
+                {/* ===== 2. CHỌN THÁNG CHỈ DÙNG CHO CẢ HAI LOẠI GÓI ===== */}
+                <div className="mb-8 bg-white border border-gray-200/60 rounded-xl p-5 shadow-sm max-w-md mx-auto">
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2.5 text-center">
+                    {isCreditMode
+                      ? 'Chu kỳ sử dụng trong 1 tháng'
+                      : 'Chọn chu kỳ hạn dùng (Tiết kiệm khi mua dài hạn)'}
+                  </label>
 
-                  return (
+                  <div className={`grid gap-2 ${isCreditMode ? 'grid-cols-1' : 'grid-cols-3'}`}>
+                    {activeMonthOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setSelectedMonths(option.value)}
+                        className={`py-2 px-3 text-xs font-semibold rounded-lg border transition-all relative ${
+                          selectedMonths === option.value
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {option.label}
+                        {option.discount > 0 && (
+                          <span className="absolute -top-2 -right-1 bg-red-500 text-white text-[8px] font-bold px-1 py-0.5 rounded-full scale-90 shadow-sm">
+                            -{option.discount * 100}%
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+
+                {/* ===== 3. TẢI GÓI + HIỂN THỊ LỖI ===== */}
+                {isLoadingPackages ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 px-5 py-3 text-sm text-blue-700">
+                      <Loader2 className="animate-spin" size={18} />
+                      Đang tải gói dịch vụ...
+                    </div>
+                  </div>
+                ) : packageError ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {packageError}
+                  </div>
+                ) : (
+                 <div className="w-full min-h-[420px] flex items-center justify-center">
+                  <div className="w-full max-w-6xl">
                     <div
-                      key={plan.id}
-                      onClick={() => handleSelectPlan(plan)}
-                      /* 🎨 ĐÃ ĐỒNG BỘ: Sử dụng các biến bgClass và borderClass kết hợp với hover hiệu ứng sạch */
-                      className={`relative border-2 rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 cursor-pointer ${
-                        plan.popular
-                          ? 'border-blue-600 shadow-lg scale-[1.01]'
-                          : `border-gray-200/80 ${plan.bgClass} hover:bg-white`
-                      }`}
-                    >
-                      {plan.popular && (
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                          <span className="bg-blue-600 text-white px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow">
-                            <Zap size={10} /> Phổ biến nhất
-                          </span>
-                        </div>
-                      )}
+                      className={`grid grid-cols-1 md:grid-cols-2 ${packageGridClass} gap-6 items-stretch justify-center`}
+                      >   
+                      {visiblePlans.map((plan) => {
+                      const finalTotal = calculateTotal(plan.pricePerMonth);
+                      const perMonthComputed = isCreditMode ? finalTotal : finalTotal / selectedMonths;
 
-                      <div>
-                        {/* Tên gói & Lõi xử lý AI */}
-                        <div className="mb-4">
-                          <h3 className="text-base font-bold text-gray-900">{plan.name}</h3>
-                          <span className={`text-[10px] font-semibold ${plan.textClass} bg-white/90 border px-2 py-0.5 rounded inline-block mt-1`}>
-                            {plan.model}
-                          </span>
-                        </div>
-
-                        {/* Giá hiển thị động */}
-                        <div className="mb-5 pb-4 border-b border-gray-100">
-                          {plan.pricePerMonth === 0 ? (
-                            <div className="text-2xl font-black text-gray-900">0 ₫</div>
-                          ) : (
-                            <>
-                              <div className="text-2xl font-black text-gray-900 tracking-tight">
-                                {formatPrice(finalTotal)}
-                              </div>
-                              <div className="text-[11px] text-gray-400 font-medium mt-0.5">
-                                Tính ra: {formatPrice(perMonthComputed)} / tháng
-                              </div>
-                              {selectedMonths > 1 && currentDiscount > 0 && (
-                                <div className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded inline-block mt-1.5">
-                                  Tiết kiệm: {formatPrice((plan.pricePerMonth * selectedMonths) - finalTotal)}
-                                </div>
-                              )}
-                            </>
+                      return (
+                        <div
+                          key={plan.id}
+                          onClick={() => handleSelectPlan(plan)}
+                          className={`relative border-2 rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 cursor-pointer ${
+                            plan.popular
+                              ? 'border-blue-600 shadow-lg scale-[1.01]'
+                              : `border-gray-200/80 ${plan.bgClass} hover:bg-white`
+                          }`}
+                        >
+                          {plan.popular && (
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                              <span className="bg-blue-600 text-white px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow">
+                                <Zap size={10} /> Phổ biến nhất
+                              </span>
+                            </div>
                           )}
-                          <div className="text-xs font-bold text-gray-700 mt-2.5">
-                            Cấp phát: <span className="text-blue-600 font-extrabold">{plan.credits}</span>
+
+                          <div>
+                            <div className="mb-4">
+                              <h3 className="text-base font-bold text-gray-900">{plan.name}</h3>
+                              <span
+                                className={`text-[10px] font-semibold ${plan.textClass} bg-white/90 border px-2 py-0.5 rounded inline-block mt-1`}
+                              >
+                                {plan.model}
+                              </span>
+                            </div>
+
+                            {/* ===== 4. THÔNG TIN GIÁ CẢ ===== */}
+                            <div className="mb-5 pb-4 border-b border-gray-100">
+                              {plan.pricePerMonth === 0 ? (
+                                <div className="text-2xl font-black text-gray-900">0 ₫</div>
+                              ) : (
+                                <>
+                                  <div className="text-2xl font-black text-gray-900 tracking-tight">
+                                    {formatPrice(finalTotal)}
+                                  </div>
+
+                                  {!isCreditMode && (
+                                    <div className="text-[11px] text-gray-400 font-medium mt-0.5">
+                                      Tính ra: {formatPrice(perMonthComputed)} / tháng
+                                    </div>
+                                  )}
+
+                                  {!isCreditMode && selectedMonths > 1 && currentDiscount > 0 && (
+                                    <div className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded inline-block mt-1.5">
+                                      Tiết kiệm: {formatPrice((plan.pricePerMonth * selectedMonths) - finalTotal)}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+
+                              <div className="text-xs font-bold text-gray-700 mt-2.5">
+                                Cấp phát: <span className="text-blue-600 font-extrabold">{plan.credits}</span>
+                              </div>
+                            </div>
+
+                            <ul className="space-y-2.5 mb-6">
+                              {plan.features.map((feature, index) => (
+                                <li key={index} className="flex items-start gap-2">
+                                  <Check className="text-emerald-500 flex-shrink-0 mt-0.5" size={14} />
+                                  <span className="text-xs text-gray-600 leading-relaxed">{feature}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isCreatingInvoice}
+                            className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm ${
+                              plan.popular
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-900 text-white hover:bg-gray-800'
+                            } disabled:opacity-60 disabled:cursor-not-allowed`}
+                          >
+                            {isCreatingInvoice && selectedPlan?.id === plan.id
+                              ? 'Đang tạo hoá đơn...'
+                              : plan.pricePerMonth === 0
+                                ? 'Dùng thử ngay'
+                                : 'Đăng ký nâng cấp'}{' '}
+                            <ArrowRight size={12} />
+                          </button>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                  </div> 
+               
+                </div> /* Close the w-full min-h-[420px] flex items-center justify-center div */
+                )}
+
+                {/* End of package selection grid */}
+                {invoiceError && (
+                  <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {invoiceError}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* ===== 5. CHI TIẾT HÓA ĐƠN / QR ===== */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                  <div className="bg-white border border-gray-200/70 shadow-sm rounded-xl p-6 flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900 pb-3 border-b border-gray-100 mb-4">
+                        Chi tiết hóa đơn dịch vụ
+                      </h3>
+
+                      <div className="space-y-3 text-xs mb-5">
+                     <div className="flex justify-between">
+                        <span className="text-gray-500">Gói giải pháp nâng cấp:</span>
+                        <span className="font-bold text-gray-800">
+                          {getFriendlyPackageLabel(selectedPlan?.name, invoiceData?.packageType ?? selectedPlan?.packageType)}
+                        </span>
+                      </div>
+                      {/* Invoice details */}
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Invoice ID:</span>
+                          <span className="font-bold text-gray-800 break-all">
+                            {invoiceData?.invoiceId}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Thời gian:</span>
+                          <span className="font-bold text-gray-800">
+                            {getFriendlyDurationLabel(invoiceData?.durationMonths)}
+                          </span>
+                        </div>
+                        {/* Invoice status */}
+                         <div className="flex justify-between">
+                            <span className="text-gray-500">Trạng thái:</span>
+                            <span
+                              className={`font-bold ${
+                                invoiceData?.status === 'PAID' ? 'text-emerald-600' : 'text-amber-600'
+                              }`}
+                            >
+                              {invoiceData?.status ?? 'PENDING'}
+                            </span>
                           </div>
                         </div>
+                      {/* End of invoice details */}
+                    </div>
 
-                        {/* Chi tiết tính năng nghiệp vụ */}
-                        <ul className="space-y-2.5 mb-6">
-                          {plan.features.map((feature, index) => (
-                            <li key={index} className="flex items-start gap-2">
-                              <Check className="text-emerald-500 flex-shrink-0 mt-0.5" size={14} />
-                              <span className="text-xs text-gray-600 leading-relaxed">{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
+                    <div>
+                      <div className="border-t-2 border-dashed border-gray-200 pt-4 mb-5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-bold text-gray-900">Tổng kinh phí thanh toán:</span>
+                          <span className="text-xl font-black text-blue-600">
+                            {invoiceData ? formatPrice(invoiceData.finalAmount) : '0 ₫'}
+                          </span>
+                        </div>
                       </div>
 
                       <button
                         type="button"
-                        className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm ${
-                          plan.popular
-                            ? 'bg-blue-600 text-white hover:bg-blue-700'
-                            : 'bg-gray-900 text-white hover:bg-gray-800'
-                        }`}
+                        onClick={() => setShowCheckout(false)}
+                        className="w-full py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors text-xs font-bold"
                       >
-                        {plan.pricePerMonth === 0 ? 'Dùng thử ngay' : 'Đăng ký nâng cấp'} <ArrowRight size={12} />
+                        ← Quay lại bảng chọn gói
                       </button>
                     </div>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            /* ── CHECKOUT VIEW ── */
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              {/* Cột trái: Tóm tắt đơn hàng */}
-              <div className="bg-white border border-gray-200/70 shadow-sm rounded-xl p-6 flex flex-col justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-gray-900 pb-3 border-b border-gray-100 mb-4">
-                    Chi tiết hóa đơn dịch vụ
-                  </h3>
-
-                  <div className="space-y-3 text-xs mb-5">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Gói giải pháp nâng cấp:</span>
-                      <span className="font-bold text-gray-800">{selectedPlan?.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Tổng dung lượng Credits:</span>
-                      <span className="font-bold text-blue-600">
-                        {selectedPlan ? parseInt(selectedPlan.credits) * selectedMonths : 0} Credits vào tài khoản
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Thời gian duy trì chu kỳ:</span>
-                      <span className="font-bold text-gray-800">{selectedMonths} tháng</span>
-                    </div>
                   </div>
 
-                  <div className="border-t border-gray-100 pt-3 space-y-2.5 text-xs mb-5">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Đơn giá gốc tổng số tháng:</span>
-                      <span className="text-gray-700 line-through">
-                        {selectedPlan ? formatPrice(selectedPlan.pricePerMonth * selectedMonths) : '0 ₫'}
-                      </span>
-                    </div>
-                    {currentDiscount > 0 && (
-                      <div className="flex justify-between text-emerald-600 font-medium">
-                        <span>Chính sách giảm giá chu kỳ (-{currentDiscount * 100}%):</span>
-                        <span>-{selectedPlan ? formatPrice((selectedPlan.pricePerMonth * selectedMonths) * currentDiscount) : '0 ₫'}</span>
+                  <div className="bg-white border-2 border-blue-100 rounded-xl p-6 shadow-sm">
+                    <h3 className="text-sm font-bold text-gray-900 mb-4 text-center flex items-center justify-center gap-1.5">
+                      <ShieldCheck size={16} className="text-blue-600" /> Cổng quét mã QR chuyển khoản bảo mật
+                    </h3>
+
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 mb-4">
+                      <div className="bg-white rounded-lg p-4 max-w-[240px] mx-auto shadow-sm border border-gray-200/50 mb-4 text-center">
+                        {invoiceData?.qrCodeUrl ? (
+                          <img
+                            src={invoiceData.qrCodeUrl}
+                            alt="Mã QR thanh toán VietQR"
+                            className="w-full aspect-square object-contain mx-auto"
+                          />
+                        ) : (
+                          <div className="w-full aspect-square rounded-lg bg-gray-100 animate-pulse" />
+                        )}
+                        <p className="text-[10px] text-gray-400 font-semibold text-center mt-3 tracking-widest uppercase">
+                          Quét bằng App Ngân hàng (VietQR)
+                        </p>
                       </div>
-                    )}
-                  </div>
-                </div>
 
-                <div>
-                  <div className="border-t-2 border-dashed border-gray-200 pt-4 mb-5">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-gray-900">Tổng kinh phí thanh toán:</span>
-                      <span className="text-xl font-black text-blue-600">
-                        {selectedPlan ? formatPrice(calculateTotal(selectedPlan.pricePerMonth)) : '0 ₫'}
-                      </span>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between py-1.5 border-b border-gray-200/60">
+                          <span className="text-gray-500">Giá trị thực chuyển:</span>
+                          <span className="font-black text-blue-600 text-sm">
+                            {invoiceData ? formatPrice(invoiceData.finalAmount) : '0 ₫'}
+                          </span>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200/70 rounded-xl p-3 mt-3 shadow-inner">
+                          <p className="text-[10px] text-amber-800 mb-1 font-bold uppercase tracking-wider">
+                            Nội dung chuyển khoản chính xác (BẮT BUỘC):
+                          </p>
+                          <div className="flex gap-1.5">
+                            <p className="flex-1 font-mono font-black text-amber-900 text-base bg-white border border-amber-100 px-3 py-1 rounded-md text-center tracking-wide">
+                              {invoiceData?.memoId || 'Đang tạo nội dung...'}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!invoiceData?.memoId) return;
+                                navigator.clipboard.writeText(invoiceData.memoId);
+                                alert('Đã sao chép nội dung chuyển khoản!');
+                              }}
+                              className="px-2.5 bg-amber-600 text-white text-[11px] font-bold rounded-md hover:bg-amber-700 transition-colors"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100 flex items-center gap-3">
+                        <Loader2
+                          className={`text-blue-600 ${invoiceData?.status === 'PENDING' ? 'animate-spin' : ''} flex-shrink-0`}
+                          size={18}
+                        />
+                        <div className="leading-tight">
+                          <span className="text-xs font-bold text-gray-800">
+                            {invoiceData?.status === 'PAID'
+                              ? 'Giao dịch đã được xác nhận thành công.'
+                              : 'Đang đợi lệnh khớp từ phía ngân hàng...'}
+                          </span>
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {invoiceData?.status === 'PAID'
+                              ? 'Hệ thống đã cập nhật trạng thái PAID. Credits sẽ được kích hoạt cho tài khoản.'
+                              : 'Hệ thống tự động kiểm tra trạng thái theo invoiceId khi người dùng đã chuyển khoản.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleManualStatusCheck}
+                        disabled={!invoiceData?.invoiceId || invoiceData.status === 'PAID'}
+                        className="w-full py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-xs font-bold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {invoiceData?.status === 'PAID' ? 'Thanh toán đã hoàn tất' : 'Tôi đã chuyển khoản thành công'}
+                      </button>
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowCheckout(false)}
-                    className="w-full py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors text-xs font-bold"
-                  >
-                    ← Quay lại bảng chọn gói
-                  </button>
                 </div>
-              </div>
-
-              {/* Cột phải: Quét mã QR VietQR */}
-              {/* ➡️ CỘT BÊN PHẢI: CỔNG QUÉT MÃ QR VIETQR XỊN 100% */}
-<div className="bg-white border-2 border-blue-100 rounded-xl p-6 shadow-sm">
-  <h3 className="text-sm font-bold text-gray-900 mb-4 text-center flex items-center justify-center gap-1.5">
-    <ShieldCheck size={16} className="text-blue-600" /> Cổng quét mã QR chuyển khoản bảo mật
-  </h3>
-
-  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 mb-4">
-    
-    {/* 🎯 ĐÃ NÂNG CẤP: Gọi trực tiếp API VietQR mã hóa tự động số tiền và nội dung chuyển khoản */}
-    <div className="bg-white rounded-lg p-4 max-w-[240px] mx-auto shadow-sm border border-gray-200/50 mb-4 text-center">
-      {selectedPlan && (
-        <img 
-          src={`https://img.vietqr.io/image/${qrData.bankName}-${qrData.accountNumber}-qr_only.png?amount=${qrData.amount}&addInfo=${encodeURIComponent(qrData.memo)}&accountName=${encodeURIComponent(qrData.accountName)}`}
-          alt="Mã QR Thanh toán VietQR xịn"
-          className="w-full aspect-square object-contain mx-auto"
-        />
-      )}
-      <p className="text-[10px] text-gray-400 font-semibold text-center mt-3 tracking-widest uppercase">Quét bằng App Ngân hàng (VietQR)</p>
-    </div>
-
-    {/* Thông tin tài khoản nhận */}
-    <div className="space-y-2 text-xs">
-      <div className="flex justify-between py-1.5 border-b border-gray-200/60">
-        <span className="text-gray-500">Đơn vị thụ hưởng:</span>
-        <span className="font-bold text-gray-800">{qrData.bankName}</span>
-      </div>
-      <div className="flex justify-between py-1.5 border-b border-gray-200/60">
-        <span className="text-gray-500">Số tài khoản doanh nghiệp:</span>
-        <span className="font-bold text-gray-900 font-mono tracking-wide">{qrData.accountNumber}</span>
-      </div>
-      <div className="flex justify-between py-1.5 border-b border-gray-200/60">
-        <span className="text-gray-500">Tên chủ tài khoản:</span>
-        <span className="font-bold text-gray-800 uppercase text-[11px]">{qrData.accountName}</span>
-      </div>
-      <div className="flex justify-between py-1.5 border-b border-gray-200/60">
-        <span className="text-gray-500">Giá trị thực chuyển:</span>
-        <span className="font-black text-blue-600 text-sm">
-          {formatPrice(qrData.amount)}
-        </span>
-      </div>
-      
-      {/* 📋 Ô CHỨA MÃ VÀ NÚT COPY THÔNG MINH */}
-      <div className="bg-amber-50 border border-amber-200/70 rounded-xl p-3 mt-3 shadow-inner">
-        <p className="text-[10px] text-amber-800 mb-1 font-bold uppercase tracking-wider">
-          Nội dung chuyển khoản chính xác (BẮT BUỘC):
-        </p>
-        <div className="flex gap-1.5">
-          <p className="flex-1 font-mono font-black text-amber-900 text-base bg-white border border-amber-100 px-3 py-1 rounded-md text-center tracking-wide">
-            {qrData.memo}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              navigator.clipboard.writeText(qrData.memo);
-              alert('Đã sao chép nội dung chuyển khoản!');
-            }}
-            className="px-2.5 bg-amber-600 text-white text-[11px] font-bold rounded-md hover:bg-amber-700 transition-colors"
-          >
-            Copy
-          </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-
-  {/* Chờ cổng thanh toán webhook ngầm & Nút xác nhận thủ công */}
-  <div className="space-y-3">
-    <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100 flex items-center gap-3">
-      <Loader2 className="text-blue-600 animate-spin flex-shrink-0" size={18} />
-      <div className="leading-tight">
-        <span className="text-xs font-bold text-gray-800">
-          Đang đợi lệnh khớp từ phía Ngân hàng...
-        </span>
-        <p className="text-[10px] text-gray-500 mt-0.5">
-          Hệ thống tự động phê duyệt credits sau 3-5 giây khi giao dịch thành công.
-        </p>
-      </div>
-    </div>
-
-    <button
-      type="button"
-      onClick={() => alert('Hệ thống đang kiểm tra lại giao dịch của bạn trên sao kê, vui lòng đợi trong giây lát!')}
-      className="w-full py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-xs font-bold shadow-sm"
-    >
-      Tôi đã chuyển khoản thành công
-    </button>
-  </div>
-</div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+    );
 }

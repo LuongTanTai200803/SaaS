@@ -54,6 +54,7 @@ public class CreditTransaction {
     }
 
     public enum TransactionType {
+        TOPUP,
         HOLD,
         DEDUCT,
         REFUND

@@ -1,7 +1,24 @@
+# build output
+target/
+build/
+out/
 
+# local runtime data
+logs/
+uploads/
 backups/
 
+# IDE
+.vscode/
+.idea/
+*.iml
+.DS_Store
 
-
+# env / secrets
 .env
 .env.*
+*.local
+*.secret
+
+# logs
+*.log

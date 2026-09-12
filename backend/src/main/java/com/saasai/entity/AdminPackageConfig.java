@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
-import com.saasai.entity.BillingInvoice.InvoiceStatus;
-
 @Entity
 @Table(name = "admin_packages")
 @Getter
@@ -21,11 +19,23 @@ public class AdminPackageConfig {
     @Column(name = "package_type", unique = true, nullable = false)
     private String packageType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "package_category", length = 50, nullable = false)
+    private PackageCategory packageCategory; // SUBSCRIPTION or CREDIT_PACK
+
     @Column(nullable = false)
     private Long price;
 
-    @Column(nullable = false)
+    @Column(name = "credit_limit", nullable = false)
     private Double creditLimit;
+
+    /**
+     * Duration semantics:
+     * - For SUBSCRIPTION: duration is months (e.g. 30 -> you may interpret as days if you prefer).
+     * - For CREDIT_PACK: duration is days (expiry window for purchased credits).
+     */
+    @Column(name = "duration", nullable = false)
+    private Integer duration;
 
     @Column(columnDefinition = "JSON")
     private String allowedModels;
@@ -67,5 +77,8 @@ public class AdminPackageConfig {
         };
     }
 
-
+    public enum PackageCategory {
+        SUBSCRIPTION,
+        CREDIT_PACK
+    }
 }
