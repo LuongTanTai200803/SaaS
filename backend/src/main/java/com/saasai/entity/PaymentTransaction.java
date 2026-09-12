@@ -33,8 +33,8 @@ public class PaymentTransaction {
     @Column(name = "status")
     private String status;
 
-    @Column(name = "payos_transaction_id")
-    private String payosTransactionId;
+    @Column(name = "external_transaction_id", unique = true)
+    private String externalTransactionId;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

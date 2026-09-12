@@ -1,8 +1,9 @@
 package com.saasai.controller;
 
-import com.saasai.dto.AdminPackageUpdateDTO;
+import com.saasai.admin.AdminService;
+import com.saasai.admin.AdminPackageUpdateDTO;
 import com.saasai.security.JwtTokenProvider;
-import com.saasai.service.AdminService;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;

@@ -45,9 +45,6 @@ public class BillingInvoice {
     @Column(name = "memo_id")
     private String memoId;
 
-    @Column(name = "qr_code_url")
-    private String qrCodeUrl;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50) // Khớp độ dài VARCHAR(50) của SQL
     private InvoiceStatus status;
@@ -69,4 +66,22 @@ public class BillingInvoice {
     public enum InvoiceStatus {
         PENDING, PAID, CANCELLED, EXPIRED
     }
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "invoice_type", length = 50)
+    private InvoiceType invoiceType;
+
+    @Column(name = "package_snapshot", columnDefinition = "TEXT")
+    private String packageSnapshot;
+
+    public enum InvoiceType {
+    SUBSCRIPTION, CREDIT_PACK
+    }
+
+    // inside entity fields
+    @Column(name = "qr_code_url", length = 2048)
+    private String qrCodeUrl;
+
+    @Column(name = "qr_bank_snapshot", columnDefinition = "JSON")
+    private String qrBankSnapshot; // store JSON snapshot of PaymentBankConfig used when creating invoice
 }

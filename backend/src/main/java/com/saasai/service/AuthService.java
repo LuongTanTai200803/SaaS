@@ -8,6 +8,7 @@ import com.saasai.entity.RefreshToken;
 import com.saasai.entity.User;
 import com.saasai.entity.User.UserRole;
 import com.saasai.exception.AuthException;
+import com.saasai.feature.payment.ResetPackageService;
 import com.saasai.repository.AdminPackageConfigRepository;
 import com.saasai.repository.UserRepository;
 import com.saasai.security.JwtTokenProvider;
@@ -32,6 +33,9 @@ public class AuthService {
     private PasswordEncoder passwordEncoder;
 
     @Autowired
+    private ResetPackageService resetPackageService;
+
+    @Autowired
     private JwtTokenProvider tokenProvider;
     
     @Autowired
@@ -52,9 +56,9 @@ public class AuthService {
                 .fullName(request.getEmail().split("@")[0])
                 .agency("")
                 .role(User.UserRole.ROLE_USER)
-                .creditBalance(3.0)
+                .creditBalance(freePackage.getCreditLimit())
                 .adminPackageConfig(freePackage) // Gán gói FREE mặc định
-                .expireDate(LocalDateTime.now().plusDays(30))
+                .expireDate(null) // Không đặt ngày hết hạn cho gói FREE
                 .build();
         userRepository.save(user);
     }
@@ -132,9 +136,9 @@ public class AuthService {
                         .fullName(fullName != null ? fullName : email)
                         .agency("")
                         .role(User.UserRole.ROLE_USER)
-                        .creditBalance(3.0)
+                        .creditBalance(freePackage.getCreditLimit())
                         .adminPackageConfig(freePackage)
-                        .expireDate(LocalDateTime.now().plusDays(30))
+                        .expireDate(null)
                         .avatarUrl(avatarUrl)
                         .provider("GOOGLE")
                         .providerId(providerId)

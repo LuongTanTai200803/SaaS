@@ -13,6 +13,7 @@ import { UserProfile } from '../api/userApi'; // Giữ lại kiểu dữ liệu 
 import api from '../api'; // Import đối tượng 'api' tổng hợp
 import { Navbar } from './Navbar'; // Import Navbar component
 import { useAuth } from '../context/AuthContext';
+import { ProfilePanel } from './admin/ProfilePanel';
  
 type NavItem = 'home' | 'assistants' | 'templates' | 'pricing' | 'guide' | 'affiliate';
 
@@ -163,38 +164,38 @@ export function HomePage({ onNavigate, initialShowDashboard = false }: HomePageP
     }
     onNavigate(page, assistantId);
   };
+
+  const closeBillingModal = () => {
+    setIsBillingModalOpen(false);
+    if (window.location.hash === '#pricing') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar
         onNavigate={onNavigate}
+        onOpenBilling={() => setIsBillingModalOpen(true)}
       />
 
-      {/* ── DASHBOARD PANEL (dropdown) ── */}
-      {showDashboard && ( // Sử dụng state showDashboard để điều khiển hiển thị
-        <div className="max-w-[1280px] mx-auto px-8 py-6">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">Quản lý cá nhân</h2> 
-              <button onClick={() => setShowDashboard(false)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
-                <X size={16} />
-              </button>
-            </div>
-            <Dashboard />
-          </div>
-        </div>
-      )}
+      <BillingModal isOpen={isBillingModalOpen} onClose={closeBillingModal} />
 
-      {!showDashboard && ( // Sử dụng state showDashboard để điều khiển hiển thị
-        <>
-          {isLoggedIn && profile && (
-            <section className="max-w-[1280px] mx-auto px-8 py-8 bg-blue-50 rounded-xl border border-blue-100 mt-8 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-[#1F2937]">Chào mừng trở lại, {profile.fullName}!</h2>
-                <p className="text-gray-600 text-sm mt-1">Bạn có {profile.creditBalance} credits còn lại. Hãy tiếp tục công việc của bạn.</p>
-              </div>
-              
-            </section>
-          )}
+      
+      {/* ── DASHBOARD PANEL (dropdown) ── */}
+        <div className="relative z-0">
+        {isLoggedIn && profile && (
+          <section className="max-w-[1280px] mx-auto px-8 py-8 bg-blue-50 rounded-xl border border-blue-100 mt-8 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-[#1F2937]">
+                Chào mừng trở lại, {profile.fullName}!
+              </h2>
+              <p className="text-gray-600 text-sm mt-1">
+                Hãy tiếp tục công việc của bạn.
+              </p>
+            </div>
+          </section>
+        )}
           {/* ── ASSISTANTS ── */}
           
           <section className="py-20 bg-gray-50">
@@ -212,7 +213,7 @@ export function HomePage({ onNavigate, initialShowDashboard = false }: HomePageP
                   <button
                     key={a.id}
                     onClick={() => handleProtectedNavigate('wizard', a.id)}
-                    /* 🎨 ĐÃ CẬP NHẬT: Loại bỏ bg-white cứng, thay bằng border-2 ăn theo ${a.border} và nền nhạt ${a.bg} */
+                    
                     className={`group p-5 ${a.bg} rounded-xl border-2 ${a.border} hover:bg-white hover:shadow-xl hover:border-current transition-all duration-200 text-left`}
                     style={{ '--current-color': a.color } as React.CSSProperties} // Mẹo giữ màu mượt mà khi hover
                   >
@@ -425,21 +426,23 @@ export function HomePage({ onNavigate, initialShowDashboard = false }: HomePageP
           </section>
 
           {/* ── PRICING ── */}
-          <section className="py-20 bg-gray-50">
-            <div className="max-w-[1280px] mx-auto px-8">
-              <div className="text-center mb-12">
-                <span className="text-xs font-semibold text-[#1E3A8A] uppercase tracking-widest">Bảng giá</span>
-                <h2 className="text-3xl font-bold text-[#1F2937] mt-2 mb-3">Chọn gói phù hợp với bạn</h2>
-                <p className="text-gray-500">Hệ thống credit linh hoạt, không cam kết hợp đồng dài hạn</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                {pricingPlans.map((plan, i) => (
-                  <div key={i} className={`relative rounded-2xl border-2 p-6 flex flex-col ${plan.highlighted ? 'border-[#1E3A8A] shadow-xl shadow-blue-100' : 'border-gray-100'}`}>
-                    {plan.badge && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <span className="px-3 py-1 bg-[#1E3A8A] text-white text-xs font-semibold rounded-full">{plan.badge}</span>
-                      </div>
-                    )}
+          <section id="pricing" className="py-20 bg-gray-50">
+              <div className="max-w-[1280px] mx-auto px-8">
+                <div className="text-center mb-12">
+                  <span className="text-xs font-semibold text-[#1E3A8A] uppercase tracking-widest">Bảng giá</span>
+                  <h2 className="text-3xl font-bold text-[#1F2937] mt-2 mb-3">Chọn gói phù hợp với bạn</h2>
+                  <p className="text-gray-500">Hệ thống credit linh hoạt, không cam kết hợp đồng dài hạn</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                  {pricingPlans.map((plan, i) => (
+                    <div
+                      key={i}
+                      className={`relative rounded-2xl border-2 p-6 flex flex-col ${
+                        plan.highlighted ? 'border-[#1E3A8A] shadow-xl shadow-blue-100' : 'border-gray-100'
+                      }`}
+                    >
+                    {/* PLAN HEADER */}
                     <h3 className="font-bold text-[#1F2937] mb-1">{plan.name}</h3>
                     <div className="mb-1">
                       <span className="text-2xl font-bold text-[#1E3A8A]">{plan.price}</span>
@@ -455,8 +458,18 @@ export function HomePage({ onNavigate, initialShowDashboard = false }: HomePageP
                       ))}
                     </ul>
                     <button
-                      onClick={() => plan.price === '0đ' ? handleProtectedNavigate('wizard') : setIsBillingModalOpen(true)}
-                      className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${plan.highlighted ? 'bg-[#1E3A8A] text-white hover:bg-blue-800 shadow-md' : 'border-2 border-gray-200 text-gray-700 hover:border-[#1E3A8A] hover:text-[#1E3A8A]'}`}
+                      onClick={() => {
+                        if (plan.price === '0đ') {
+                          handleProtectedNavigate('wizard');
+                          return;
+                        }
+                        setIsBillingModalOpen(true);
+                      }}
+                      className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                        plan.highlighted
+                          ? 'bg-[#1E3A8A] text-white hover:bg-blue-800 shadow-md'
+                          : 'border-2 border-gray-200 text-gray-700 hover:border-[#1E3A8A] hover:text-[#1E3A8A]'
+                      }`}
                     >
                       {plan.price === '0đ' ? 'Dùng thử ngay' : 'Mua ngay'}
                     </button>
@@ -569,9 +582,11 @@ export function HomePage({ onNavigate, initialShowDashboard = false }: HomePageP
               </div>
             </div>
           </footer>
-        </>
-      )}
+        </div>
 
-    </div>
-  );
-}
+          {/* ── DASHBOARD OVERLAY PANEL ── */}
+        
+                  {showDashboard && <ProfilePanel />}
+      </div>
+    );
+  }

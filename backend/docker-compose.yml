@@ -25,8 +25,7 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
+    
     command: ["redis-server", "--save", "60", "1"]
 
   app:
@@ -49,8 +48,14 @@ services:
       - STORAGE_TYPE=local
       - STORAGE_LOCAL_BASE_PATH=/app/uploads/
       - STORAGE_BASE_URL=${STORAGE_BASE_URL:-http://localhost:8080/uploads/}
-      - server.port=8080
-      - spring.profiles.active=prod
+      - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=prod
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - SEPAY_WEBHOOK_SECRET=${SEPAY_WEBHOOK_SECRET}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL}
+      - OPENROUTER_TIMEOUT=${OPENROUTER_TIMEOUT}
     ports:
       - "8080:8080"
     command: ["sh","-c","until nc -z db 3306; do echo 'waiting for db'; sleep 2; done; java -jar app.jar"]

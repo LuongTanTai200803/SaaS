@@ -1,8 +1,10 @@
 package com.saasai.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saasai.dto.AdminStatsResponseDTO;
-import com.saasai.service.AdminService;
+import com.saasai.admin.AdminController;
+import com.saasai.admin.AdminService;
+import com.saasai.admin.AdminStatsResponseDTO;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -1,4 +1,4 @@
-import { UserProfile, Document, DocumentsResponse } from './userApi';
+import { UserProfile, Document, DocumentsResponse ,CreditSummaryResponse} from './userApi';
 import { FileCategory, UploadFileResponse } from './fileApi';
 import { ChatMessage, CompletionRequest, ChatSession } from './chatApi';
 import {
@@ -105,15 +105,44 @@ export const authApi = {
 export const userApi = {
   getProfile: async () => {
     return new Promise<UserProfile>((resolve, reject) => {
-      setTimeout(() => { // Trả về profile của người dùng đang đăng nhập, hoặc profile mặc định nếu chưa ai đăng nhập
+      setTimeout(() => {
         if (currentMockUser) {
           resolve(currentMockUser);
         } else {
-          reject(new Error('No user logged in')); // Reject if no user is logged in
+          reject(new Error('No user logged in'));
         }
       }, MOCK_DELAY);
     });
   },
+  getCreditSummary: async (): Promise<CreditSummaryResponse> => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: true,
+          message: 'OK',
+          data: {
+            userId: currentMockUser?.id?.toString() ?? 'mock-user',
+            packageType: 'PREMIUM',
+            subscriptionExpireDate: '2027-03-10T09:39:43',
+            monthly: {
+              allocated: 1500,
+              remaining: 1500,
+              cycleStart: '2026-09-09T09:39:43',
+              cycleEnd: '2026-10-09T09:39:43',
+            },
+            purchased: {
+              balance: 500,
+              purchasedAt: '2026-09-11T20:05:50',
+              expireAt: '2026-10-11T20:05:50',
+            },
+          },
+          statusCode: 200,
+          errorType: null,
+        });
+      }, MOCK_DELAY);
+    });
+  },
+
   getDocuments: async (page: number, size: number) => {
     return new Promise((resolve) => {
       setTimeout(() => {

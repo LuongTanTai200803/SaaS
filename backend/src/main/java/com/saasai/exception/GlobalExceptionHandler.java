@@ -4,10 +4,12 @@ import com.saasai.feature.ai.ApiResponseDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.NoSuchElementException;
@@ -30,6 +32,7 @@ public class GlobalExceptionHandler {
                         .success(false)
                         .message(ex.getMessage())
                         .statusCode(status.value())
+                        .errorType(ex.getClass().getSimpleName())
                         .build());
     }
 
@@ -41,6 +44,7 @@ public class GlobalExceptionHandler {
                         .success(false)
                         .message(ex.getMessage())
                         .statusCode(HttpStatus.FORBIDDEN.value())
+                        .errorType(ex.getClass().getSimpleName())
                         .build());
     }
 
@@ -52,6 +56,7 @@ public class GlobalExceptionHandler {
                         .success(false)
                         .message(ex.getMessage())
                         .statusCode(HttpStatus.BAD_REQUEST.value())
+                        .errorType(ex.getClass().getSimpleName())
                         .build());
     }
 
@@ -62,6 +67,7 @@ public class GlobalExceptionHandler {
                         .success(false)
                         .message(ex.getMessage())
                         .statusCode(HttpStatus.NOT_FOUND.value())
+                        .errorType(ex.getClass().getSimpleName())
                         .build());
     }
 
@@ -72,6 +78,7 @@ public class GlobalExceptionHandler {
                         .success(false)
                         .message(ex.getMessage())
                         .statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                        .errorType(ex.getClass().getSimpleName())
                         .build());
     }
 
@@ -125,4 +132,25 @@ public class GlobalExceptionHandler {
                         .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
                         .build());
     }
+
+    @ExceptionHandler(ResponseStatusException.class)
+        public ResponseEntity<ApiResponseDTO<Object>> handleResponseStatusException(
+                ResponseStatusException ex) {
+
+        HttpStatusCode statusCode = ex.getStatusCode();
+
+        logger.warn(
+                "ResponseStatusException: status={}, reason={}",
+                statusCode.value(),
+                ex.getReason()
+        );
+
+        return ResponseEntity.status(statusCode)
+                .body(ApiResponseDTO.builder()
+                        .success(false)
+                        .message(ex.getReason())
+                        .statusCode(statusCode.value())
+                        .errorType(ex.getClass().getSimpleName())
+                        .build());
+        }
 }

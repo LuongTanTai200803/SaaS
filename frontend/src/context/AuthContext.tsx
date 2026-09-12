@@ -9,11 +9,11 @@ interface AuthContextType {
   isLoggedIn: boolean;
   profile: UserProfile | null;
   loading: boolean;
-  showDashboard: boolean; // Thêm trạng thái showDashboard
-  setShowDashboard: (show: boolean) => void; // Thêm setter cho showDashboard
+  showDashboard: boolean;
+  setShowDashboard: React.Dispatch<React.SetStateAction<boolean>>;
   login: (token: string) => Promise<void>;
   logout: () => void;
-  openAuthModal: (initialTab: Tab) => void; // New: Function to open AuthModal
+  openAuthModal: (initialTab: Tab) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

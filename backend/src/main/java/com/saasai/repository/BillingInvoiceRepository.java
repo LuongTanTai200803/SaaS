@@ -16,4 +16,5 @@ public interface BillingInvoiceRepository extends JpaRepository<BillingInvoice, 
 
 
     Optional<BillingInvoice> findById(String testInvoiceId);
+
 }
