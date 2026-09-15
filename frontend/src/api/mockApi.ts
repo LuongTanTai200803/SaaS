@@ -355,6 +355,7 @@ export const adminApi: AdminApiContract = {
     statusCode: 200,
     errorType: null,
   }),
+  
 
   getPackage: async () => ({
     success: true,
@@ -488,6 +489,7 @@ export const adminApi: AdminApiContract = {
     statusCode: 200,
     errorType: null,
   }),
+  
 };
 
 
