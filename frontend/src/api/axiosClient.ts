@@ -25,14 +25,25 @@ ht.interceptors.response.use(
   (error) => {
     try {
       if (error.response) {
-        console.error('API response error:', {
-          status: error.response.status,
-          url: error.config?.url,
-          data: error.response.data,
-        });
+        const requestUrl = error.config?.url ?? '';
 
-        if (error.response.status >= 500) {
-          alert('Lỗi máy chủ (500). Vui lòng thử lại sau hoặc kiểm tra backend.');
+        const isInvoiceStatusRequest =
+          requestUrl.includes('/billing/invoices/') &&
+          requestUrl.endsWith('/status');
+
+        // Không log và không popup cho request polling trạng thái invoice.
+        if (!isInvoiceStatusRequest) {
+          console.error('API response error:', {
+            status: error.response.status,
+            url: requestUrl,
+            data: error.response.data,
+          });
+
+          if (error.response.status >= 500) {
+            alert(
+              'Lỗi máy chủ (500). Vui lòng thử lại sau hoặc kiểm tra backend.'
+            );
+          }
         }
       } else if (error.request) {
         console.error('No response from server (network error):', {

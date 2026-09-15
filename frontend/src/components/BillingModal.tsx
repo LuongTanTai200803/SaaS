@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Check, Zap, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
 import api from '../api';
 
@@ -70,13 +71,20 @@ const planToPackageType: Record<string, string> = {
   premium: 'PREMIUM',
 };
 
+const POLLING_DURATION_MS = 10 * 60 * 1000;
+const POLLING_INTERVAL_MS = 5 * 1000;
+
 export function BillingModal({ isOpen, onClose }: BillingModalProps) {
-  if (!isOpen) return null;
+  const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   const [selectedMonths, setSelectedMonths] = useState(1);
   const [showCheckout, setShowCheckout] = useState(false);
   const [invoiceData, setInvoiceData] = useState<BillingInvoice | null>(null);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
+
+  // Polling configuration for checking invoice status
+  const [pollingDeadline, setPollingDeadline] = useState<number | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
  
 
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
@@ -136,8 +144,24 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
   const checkInvoiceStatus = async (invoiceId: string) => {
     try {
       const response = await api.creditApi.getInvoiceStatus(invoiceId);
-      const nextStatus = response?.data?.status ?? response?.status ?? 'PENDING';
-      setInvoiceData((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+
+      const rawStatus =
+        response?.data?.data?.status ??
+        response?.data?.status ??
+        response?.status ??
+        'PENDING';
+
+      const nextStatus = String(rawStatus).toUpperCase();
+
+      setInvoiceData((previous) =>
+        previous
+          ? {
+              ...previous,
+              status: nextStatus,
+            }
+          : previous
+      );
+
       return nextStatus;
     } catch (error) {
       console.error('Invoice status check failed:', error);
@@ -145,26 +169,114 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
     }
   };
 
-  // 
+  // polling trạng thái hoá đơn
   useEffect(() => {
-    if (!invoiceData?.invoiceId || invoiceData.status !== 'PENDING') return;
+    const invoiceId = invoiceData?.invoiceId;
+    const deadline = pollingDeadline;
 
-    let isMounted = true;
+    if (
+      !invoiceId ||
+      invoiceData.status !== 'PENDING' ||
+      !deadline
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    let finalCheckStarted = false;
+
     const poll = async () => {
-      const currentStatus = await checkInvoiceStatus(invoiceData.invoiceId);
-      if (currentStatus === 'PAID' && isMounted) {
-        setInvoiceData((prev) => (prev ? { ...prev, status: 'PAID' } : prev));
+      if (cancelled) return;
+
+      const now = Date.now();
+
+      if (now >= deadline) {
+        if (finalCheckStarted) return;
+
+        finalCheckStarted = true;
+
+        // Kiểm tra lần cuối đúng thời điểm hết 10 phút.
+        await checkInvoiceStatus(invoiceId);
+
+        if (!cancelled) {
+          setRemainingSeconds(0);
+          setPollingDeadline(null);
+        }
+
+        return;
       }
+
+      await checkInvoiceStatus(invoiceId);
     };
 
-    const interval = window.setInterval(poll, 5000);
+    const intervalId = window.setInterval(poll, POLLING_INTERVAL_MS);
+
+    // Kiểm tra ngay sau khi mở QR, không phải chờ 5 giây.
     poll();
 
     return () => {
-      isMounted = false;
-      window.clearInterval(interval);
+      cancelled = true;
+      window.clearInterval(intervalId);
     };
-  }, [invoiceData?.invoiceId, invoiceData?.status]);
+  }, [invoiceData?.invoiceId, invoiceData?.status, pollingDeadline]);
+
+  // Cập nhật thời gian còn lại cho việc polling hoá đơn
+  useEffect(() => {
+    if (!pollingDeadline || invoiceData?.status !== 'PENDING') {
+      setRemainingSeconds(0);
+      return;
+    }
+
+    const updateRemainingTime = () => {
+      const remainingMs = Math.max(0, pollingDeadline - Date.now());
+      const nextSeconds = Math.ceil(remainingMs / 1000);
+
+      setRemainingSeconds(nextSeconds);
+
+    // Polling effect sẽ thực hiện lần check cuối khi deadline đến.
+    };
+
+    updateRemainingTime();
+
+    const timerId = window.setInterval(updateRemainingTime, 1000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [pollingDeadline, invoiceData?.status]);
+
+
+  // Chuyển hướng người dùng về trang chủ sau khi hoá đơn được thanh toán thành công.
+  useEffect(() => {
+    if (!isOpen || invoiceData?.status !== 'PAID') {
+      return;
+    }
+
+    const redirectTimer = window.setTimeout(() => {
+      // Xóa trạng thái cũ để mở lại bảng giá không bị redirect lần nữa.
+      setInvoiceData(null);
+      setShowCheckout(false);
+      setPollingDeadline(null);
+      setRemainingSeconds(0);
+
+      onClose();
+
+      navigate(
+        {
+          pathname: '/',
+          search: '',
+          hash: '',
+        },
+        {
+          replace: true,
+        }
+      );
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(redirectTimer);
+    };
+  }, [isOpen, invoiceData?.status, navigate, onClose]);
 
   // Chọn gói thanh toán
   const handleSelectPlan = async (plan: PricingPlan) => {
@@ -187,7 +299,7 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
 
       const payload = response?.data?.data ?? response?.data ?? response;
 
-      setInvoiceData({
+      const createdInvoice = {
         invoiceId: payload.invoiceId ?? '',
         packageType: payload.packageType ?? plan.packageType,
         durationMonths: Number(payload.durationMonths ?? selectedMonths),
@@ -196,11 +308,21 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
         discountAmount: Number(payload.discountAmount ?? 0),
         finalAmount: Number(payload.finalAmount ?? 0),
         qrCodeUrl: payload.qrCodeUrl ?? '',
-        status: payload.status ?? 'PENDING',
+        status: String(payload.status ?? 'PENDING').toUpperCase(),
         paymentDate: payload.paymentDate ?? null,
         createdAt: payload.createdAt ?? undefined,
         userId: payload.userId ?? undefined,
-      });
+      };
+
+      setInvoiceData(createdInvoice);
+
+      if (createdInvoice.status === 'PENDING') {
+        setPollingDeadline(Date.now() + POLLING_DURATION_MS);
+        setRemainingSeconds(POLLING_DURATION_MS / 1000);
+      } else {
+        setPollingDeadline(null);
+        setRemainingSeconds(0);
+      }
 
       setShowCheckout(true);
     } catch (error: any) {
@@ -329,6 +451,18 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
     if (months <= 1) return 'Thời hạn dùng trong 1 tháng';
     return `Thời hạn dùng trong ${months} tháng`;
   };
+
+  if (!isOpen) return null;
+    if (invoiceData?.status === 'PAID') {
+    return <PaymentSuccess />;
+  }
+
+  const formatRemainingTime = (totalSeconds: number) => {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
 
     return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -660,14 +794,22 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
                     <div className="space-y-3">
                       <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100 flex items-center gap-3">
                         <Loader2
-                          className={`text-blue-600 ${invoiceData?.status === 'PENDING' ? 'animate-spin' : ''} flex-shrink-0`}
-                          size={18}
-                        />
+    className={`flex-shrink-0 ${
+      invoiceData?.status === 'PENDING' && pollingDeadline
+        ? 'animate-spin text-blue-600'
+        : invoiceData?.status === 'PAID'
+          ? 'text-emerald-600'
+          : 'text-amber-600'
+    }`}
+    size={18}
+  />
                         <div className="leading-tight">
                           <span className="text-xs font-bold text-gray-800">
                             {invoiceData?.status === 'PAID'
-                              ? 'Giao dịch đã được xác nhận thành công.'
-                              : 'Đang đợi lệnh khớp từ phía ngân hàng...'}
+  ? 'Thanh toán đã hoàn tất'
+  : pollingDeadline
+    ? 'Tôi đã chuyển khoản thành công'
+    : 'Đã hết thời gian kiểm tra tự động'}
                           </span>
                           <p className="text-[10px] text-gray-500 mt-0.5">
                             {invoiceData?.status === 'PAID'
@@ -677,21 +819,72 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={handleManualStatusCheck}
-                        disabled={!invoiceData?.invoiceId || invoiceData.status === 'PAID'}
-                        className="w-full py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-xs font-bold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {invoiceData?.status === 'PAID' ? 'Thanh toán đã hoàn tất' : 'Tôi đã chuyển khoản thành công'}
-                      </button>
+                        {/* Manual status check button */}
+                      {/* Manual status check button */}
+<button
+  type="button"
+  onClick={handleManualStatusCheck}
+  disabled={
+    !invoiceData?.invoiceId ||
+    invoiceData.status === 'PAID' ||
+    !pollingDeadline
+  }
+  className="w-full py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-xs font-bold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+>
+  Kiểm tra trạng thái thanh toán
+</button>
+
+                        {/* Status message based on invoiceData and pollingDeadline */}
+                        {pollingDeadline && invoiceData?.status !== 'PAID' && (
+  <div className="mt-4 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-center">
+    <p className="text-xs font-semibold text-blue-800">
+      Đang chờ xác nhận thanh toán
+    </p>
+
+    <div className="mt-1 text-2xl font-bold text-blue-700 tabular-nums">
+      {formatRemainingTime(remainingSeconds)}
+    </div>
+
+    <p className="text-[10px] text-blue-600 mt-1">
+      Hệ thống đang tự động kiểm tra giao dịch
+    </p>
+  </div>
+)}
+
+
+                      {/* Removed the extra closing button tag */}
                     </div>
                   </div>
                 </div>
               </>
             )}
+
+
           </div>
         </div>
       </div>
     );
+}
+function PaymentSuccess() {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white px-8 py-9 text-center shadow-2xl">
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
+          <Check
+            size={42}
+            strokeWidth={3}
+            className="text-emerald-600"
+          />
+        </div>
+
+        <h2 className="text-2xl font-bold text-gray-900">
+          Thanh toán thành công
+        </h2>
+
+        <p className="mt-3 text-sm leading-relaxed text-gray-500">
+          Gói dịch vụ và Credits đã được cập nhật cho tài khoản của bạn.
+        </p>
+      </div>
+    </div>
+  );
 }
