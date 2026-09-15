@@ -33,8 +33,7 @@ export const fileApi = {
     axios.post(`${API_BASE_URL}/export/download`, payload,  {
       responseType: 'blob',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('access_token')}`,
-        'ngrok-skip-browser-warning': 'true'
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`
       }
     }),
 };
