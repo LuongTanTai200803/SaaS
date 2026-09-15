@@ -8,6 +8,14 @@ interface BillingModalProps {
   onClose: () => void;
 }
 
+interface PaymentInfo {
+  bankCode: string;
+  accountNumber: string;
+  accountName: string;
+  amount: number;
+  additionalInfo: string;
+}
+
 interface BillingInvoice {
   invoiceId: string;
   packageType: string;
@@ -18,6 +26,7 @@ interface BillingInvoice {
   finalAmount: number;
   qrCodeUrl: string;
   status: string;
+  paymentInfo?: PaymentInfo;
   paymentDate?: string | null;
   createdAt?: string;
   userId?: string;
@@ -299,20 +308,33 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
 
       const payload = response?.data?.data ?? response?.data ?? response;
 
-      const createdInvoice = {
-        invoiceId: payload.invoiceId ?? '',
-        packageType: payload.packageType ?? plan.packageType,
-        durationMonths: Number(payload.durationMonths ?? selectedMonths),
-        memoId: payload.memoId ?? '',
-        originalAmount: Number(payload.originalAmount ?? 0),
-        discountAmount: Number(payload.discountAmount ?? 0),
-        finalAmount: Number(payload.finalAmount ?? 0),
-        qrCodeUrl: payload.qrCodeUrl ?? '',
-        status: String(payload.status ?? 'PENDING').toUpperCase(),
-        paymentDate: payload.paymentDate ?? null,
-        createdAt: payload.createdAt ?? undefined,
-        userId: payload.userId ?? undefined,
-      };
+      const paymentInfo = payload.paymentInfo
+      ? {
+          bankCode: String(payload.paymentInfo.bankCode ?? ''),
+          accountNumber: String(payload.paymentInfo.accountNumber ?? ''),
+          accountName: String(payload.paymentInfo.accountName ?? ''),
+          amount: Number(payload.paymentInfo.amount ?? payload.finalAmount ?? 0),
+          additionalInfo: String(
+            payload.paymentInfo.additionalInfo ?? payload.memoId ?? ''
+          ),
+        }
+      : undefined;
+
+    const createdInvoice: BillingInvoice = {
+      invoiceId: payload.invoiceId ?? '',
+      packageType: payload.packageType ?? plan.packageType,
+      durationMonths: Number(payload.durationMonths ?? selectedMonths),
+      memoId: payload.memoId ?? '',
+      originalAmount: Number(payload.originalAmount ?? 0),
+      discountAmount: Number(payload.discountAmount ?? 0),
+      finalAmount: Number(payload.finalAmount ?? 0),
+      qrCodeUrl: payload.qrCodeUrl ?? '',
+      status: String(payload.status ?? 'PENDING').toUpperCase(),
+      paymentInfo,
+      paymentDate: payload.paymentDate ?? null,
+      createdAt: payload.createdAt ?? undefined,
+      userId: payload.userId ?? undefined,
+    };
 
       setInvoiceData(createdInvoice);
 
@@ -466,7 +488,13 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
 
     return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-7xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-gray-100">
+
+      <div
+  className={`bg-white rounded-2xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-gray-100 ${
+    showCheckout ? 'max-w-xl' : 'max-w-7xl'
+  }`}
+>
+       
         <div className="bg-white border-b border-gray-100 px-8 py-5 flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -666,6 +694,7 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
                 )}
 
                 {/* End of package selection grid */}
+                {/* Invoice error message */}
                 {invoiceError && (
                   <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {invoiceError}
@@ -675,187 +704,182 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
             ) : (
               <>
                 {/* ===== 5. CHI TIẾT HÓA ĐƠN / QR ===== */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
-                  <div className="bg-white border border-gray-200/70 shadow-sm rounded-xl p-6 flex flex-col justify-between">
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900 pb-3 border-b border-gray-100 mb-4">
-                        Chi tiết hóa đơn dịch vụ
-                      </h3>
+               <div className="max-w-xl mx-auto">
+  <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
 
-                      <div className="space-y-3 text-xs mb-5">
-                     <div className="flex justify-between">
-                        <span className="text-gray-500">Gói giải pháp nâng cấp:</span>
-                        <span className="font-bold text-gray-800">
-                          {getFriendlyPackageLabel(selectedPlan?.name, invoiceData?.packageType ?? selectedPlan?.packageType)}
-                        </span>
-                      </div>
-                      {/* Invoice details */}
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Invoice ID:</span>
-                          <span className="font-bold text-gray-800 break-all">
-                            {invoiceData?.invoiceId}
-                          </span>
-                        </div>
+    {/* Header */}
+    <h3 className="text-sm font-bold text-gray-900 text-center mb-4">
+      Thanh toán qua mã QR
+    </h3>
 
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Thời gian:</span>
-                          <span className="font-bold text-gray-800">
-                            {getFriendlyDurationLabel(invoiceData?.durationMonths)}
-                          </span>
-                        </div>
-                        {/* Invoice status */}
-                         <div className="flex justify-between">
-                            <span className="text-gray-500">Trạng thái:</span>
-                            <span
-                              className={`font-bold ${
-                                invoiceData?.status === 'PAID' ? 'text-emerald-600' : 'text-amber-600'
-                              }`}
-                            >
-                              {invoiceData?.status ?? 'PENDING'}
-                            </span>
-                          </div>
-                        </div>
-                      {/* End of invoice details */}
-                    </div>
+    {/* Invoice summary */}
+    <div className="bg-gray-50 rounded-xl p-3 mb-4 text-xs space-y-2">
+      <div className="flex justify-between">
+        <span className="text-gray-500">Gói dịch vụ</span>
+        <span className="font-bold text-gray-800">
+          {getFriendlyPackageLabel(
+            selectedPlan?.name,
+            invoiceData?.packageType ?? selectedPlan?.packageType
+          )}
+        </span>
+      </div>
 
-                    <div>
-                      <div className="border-t-2 border-dashed border-gray-200 pt-4 mb-5">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-bold text-gray-900">Tổng kinh phí thanh toán:</span>
-                          <span className="text-xl font-black text-blue-600">
-                            {invoiceData ? formatPrice(invoiceData.finalAmount) : '0 ₫'}
-                          </span>
-                        </div>
-                      </div>
+      <div className="flex justify-between">
+        <span className="text-gray-500">Chu kỳ</span>
+        <span className="font-bold text-gray-800">
+          {getFriendlyDurationLabel(invoiceData?.durationMonths)}
+        </span>
+      </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setShowCheckout(false)}
-                        className="w-full py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors text-xs font-bold"
-                      >
-                        ← Quay lại bảng chọn gói
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-white border-2 border-blue-100 rounded-xl p-6 shadow-sm">
-                    <h3 className="text-sm font-bold text-gray-900 mb-4 text-center flex items-center justify-center gap-1.5">
-                      <ShieldCheck size={16} className="text-blue-600" /> Cổng quét mã QR chuyển khoản bảo mật
-                    </h3>
-
-                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 mb-4">
-                      <div className="bg-white rounded-lg p-4 max-w-[240px] mx-auto shadow-sm border border-gray-200/50 mb-4 text-center">
-                        {invoiceData?.qrCodeUrl ? (
-                          <img
-                            src={invoiceData.qrCodeUrl}
-                            alt="Mã QR thanh toán VietQR"
-                            className="w-full aspect-square object-contain mx-auto"
-                          />
-                        ) : (
-                          <div className="w-full aspect-square rounded-lg bg-gray-100 animate-pulse" />
-                        )}
-                        <p className="text-[10px] text-gray-400 font-semibold text-center mt-3 tracking-widest uppercase">
-                          Quét bằng App Ngân hàng (VietQR)
-                        </p>
-                      </div>
-
-                      <div className="space-y-2 text-xs">
-                        <div className="flex justify-between py-1.5 border-b border-gray-200/60">
-                          <span className="text-gray-500">Giá trị thực chuyển:</span>
-                          <span className="font-black text-blue-600 text-sm">
-                            {invoiceData ? formatPrice(invoiceData.finalAmount) : '0 ₫'}
-                          </span>
-                        </div>
-
-                        <div className="bg-amber-50 border border-amber-200/70 rounded-xl p-3 mt-3 shadow-inner">
-                          <p className="text-[10px] text-amber-800 mb-1 font-bold uppercase tracking-wider">
-                            Nội dung chuyển khoản chính xác (BẮT BUỘC):
-                          </p>
-                          <div className="flex gap-1.5">
-                            <p className="flex-1 font-mono font-black text-amber-900 text-base bg-white border border-amber-100 px-3 py-1 rounded-md text-center tracking-wide">
-                              {invoiceData?.memoId || 'Đang tạo nội dung...'}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!invoiceData?.memoId) return;
-                                navigator.clipboard.writeText(invoiceData.memoId);
-                                alert('Đã sao chép nội dung chuyển khoản!');
-                              }}
-                              className="px-2.5 bg-amber-600 text-white text-[11px] font-bold rounded-md hover:bg-amber-700 transition-colors"
-                            >
-                              Copy
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100 flex items-center gap-3">
-                        <Loader2
-    className={`flex-shrink-0 ${
-      invoiceData?.status === 'PENDING' && pollingDeadline
-        ? 'animate-spin text-blue-600'
-        : invoiceData?.status === 'PAID'
-          ? 'text-emerald-600'
-          : 'text-amber-600'
-    }`}
-    size={18}
-  />
-                        <div className="leading-tight">
-                          <span className="text-xs font-bold text-gray-800">
-                            {invoiceData?.status === 'PAID'
-  ? 'Thanh toán đã hoàn tất'
-  : pollingDeadline
-    ? 'Tôi đã chuyển khoản thành công'
-    : 'Đã hết thời gian kiểm tra tự động'}
-                          </span>
-                          <p className="text-[10px] text-gray-500 mt-0.5">
-                            {invoiceData?.status === 'PAID'
-                              ? 'Hệ thống đã cập nhật trạng thái PAID. Credits sẽ được kích hoạt cho tài khoản.'
-                              : 'Hệ thống tự động kiểm tra trạng thái theo invoiceId khi người dùng đã chuyển khoản.'}
-                          </p>
-                        </div>
-                      </div>
-
-                        {/* Manual status check button */}
-                      {/* Manual status check button */}
-<button
-  type="button"
-  onClick={handleManualStatusCheck}
-  disabled={
-    !invoiceData?.invoiceId ||
-    invoiceData.status === 'PAID' ||
-    !pollingDeadline
-  }
-  className="w-full py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-xs font-bold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
->
-  Kiểm tra trạng thái thanh toán
-</button>
-
-                        {/* Status message based on invoiceData and pollingDeadline */}
-                        {pollingDeadline && invoiceData?.status !== 'PAID' && (
-  <div className="mt-4 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-center">
-    <p className="text-xs font-semibold text-blue-800">
-      Đang chờ xác nhận thanh toán
-    </p>
-
-    <div className="mt-1 text-2xl font-bold text-blue-700 tabular-nums">
-      {formatRemainingTime(remainingSeconds)}
+      <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
+        <span className="font-bold text-gray-700">
+          Tổng thanh toán
+        </span>
+        <span className="text-lg font-black text-blue-600">
+          {invoiceData
+            ? formatPrice(invoiceData.finalAmount)
+            : '0 ₫'}
+        </span>
+      </div>
     </div>
 
-    <p className="text-[10px] text-blue-600 mt-1">
-      Hệ thống đang tự động kiểm tra giao dịch
+    {/* QR */}
+    <div className="flex justify-center mb-4">
+      <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
+        {invoiceData?.qrCodeUrl ? (
+          <img
+            src={invoiceData.qrCodeUrl}
+            alt="Mã QR thanh toán VietQR"
+            className="w-[220px] h-[220px] object-contain"
+          />
+        ) : (
+          <div className="w-[220px] h-[220px] rounded-lg bg-gray-100 animate-pulse" />
+        )}
+      </div>
+    </div>
+
+    <p className="text-[10px] text-gray-400 text-center mb-4">
+      Quét bằng App Ngân hàng (VietQR)
     </p>
-  </div>
-)}
+
+    {/* Payment information */}
+    <div className="border border-gray-200 rounded-xl overflow-hidden text-xs">
+
+      <div className="flex justify-between px-3 py-2.5 border-b border-gray-100">
+        <span className="text-gray-500">Ngân hàng</span>
+        <span className="font-bold text-gray-800">
+          {invoiceData?.paymentInfo?.bankCode || '—'}
+        </span>
+      </div>
+
+      <div className="flex justify-between px-3 py-2.5 border-b border-gray-100">
+        <span className="text-gray-500">Chủ tài khoản</span>
+        <span className="font-bold text-gray-800 text-right">
+          {invoiceData?.paymentInfo?.accountName || '—'}
+        </span>
+      </div>
+
+      <div className="flex justify-between px-3 py-2.5 border-b border-gray-100">
+        <span className="text-gray-500">Số tài khoản</span>
+        <span className="font-mono font-bold text-gray-800">
+          {invoiceData?.paymentInfo?.accountNumber || '—'}
+        </span>
+      </div>
+
+      <div className="flex justify-between px-3 py-2.5 border-b border-gray-100">
+        <span className="text-gray-500">Số tiền</span>
+        <span className="font-black text-blue-600">
+          {invoiceData
+            ? formatPrice(invoiceData.finalAmount)
+            : '0 ₫'}
+        </span>
+      </div>
+
+      <div className="flex justify-between gap-3 px-3 py-2.5">
+        <span className="text-gray-500 shrink-0">
+          Nội dung CK
+        </span>
+
+        <div className="flex items-center gap-1">
+          <span className="font-mono font-bold text-gray-800 text-right break-all">
+            {invoiceData?.memoId || '—'}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (!invoiceData?.memoId) return;
+              navigator.clipboard.writeText(invoiceData.memoId);
+              alert('Đã sao chép nội dung chuyển khoản!');
+            }}
+            className="px-2 py-1 text-[10px] bg-blue-600 text-white rounded-md"
+          >
+            Copy
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    {/* Warning */}
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">
+      <p className="text-[10px] text-amber-800 font-semibold">
+        ⚠ Nhập chính xác số tiền và nội dung chuyển khoản để
+        hệ thống tự động xác nhận thanh toán.
+      </p>
+    </div>
+
+    {/* Status */}
+    <div className="mt-3 bg-blue-50 rounded-xl p-3 text-center">
+
+      <p className="text-xs font-semibold text-blue-800">
+        {invoiceData?.status === 'PAID'
+          ? 'Thanh toán đã hoàn tất'
+          : 'Đang chờ xác nhận thanh toán'}
+      </p>
+
+      {pollingDeadline && invoiceData?.status !== 'PAID' && (
+        <div className="text-2xl font-bold text-blue-700 tabular-nums mt-1">
+          {formatRemainingTime(remainingSeconds)}
+        </div>
+      )}
+
+      <p className="text-[10px] text-blue-600 mt-1">
+        Hệ thống đang tự động kiểm tra giao dịch
+      </p>
+    </div>
+
+    {/* Manual check */}
+    <button
+      type="button"
+      onClick={handleManualStatusCheck}
+      disabled={
+        !invoiceData?.invoiceId ||
+        invoiceData.status === 'PAID' ||
+        !pollingDeadline
+      }
+      className="w-full mt-3 py-2.5 bg-blue-600 text-white rounded-xl
+                 hover:bg-blue-700 transition-colors text-xs font-bold
+                 disabled:opacity-60 disabled:cursor-not-allowed"
+    >
+      Kiểm tra trạng thái thanh toán
+    </button>
+
+    {/* Back */}
+    <button
+      type="button"
+      onClick={() => setShowCheckout(false)}
+      className="w-full mt-2 py-2.5 border border-gray-300 text-gray-600
+                 rounded-xl hover:bg-gray-50 transition-colors text-xs font-bold"
+    >
+      ← Quay lại bảng chọn gói
+    </button>
+
+  </div>  {/* bg-white */}
+</div>  {/* max-w-xl */}
 
 
                       {/* Removed the extra closing button tag */}
-                    </div>
-                  </div>
-                </div>
               </>
             )}
 
