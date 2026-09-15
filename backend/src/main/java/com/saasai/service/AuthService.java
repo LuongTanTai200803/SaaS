@@ -7,13 +7,16 @@ import com.saasai.entity.AdminPackageConfig;
 import com.saasai.entity.RefreshToken;
 import com.saasai.entity.User;
 import com.saasai.entity.User.UserRole;
+import jakarta.persistence.EntityManager;
 import com.saasai.exception.AuthException;
+import com.saasai.feature.payment.MonthlyQuotaPolicy;
 import com.saasai.feature.payment.ResetPackageService;
 import com.saasai.repository.AdminPackageConfigRepository;
 import com.saasai.repository.UserRepository;
 import com.saasai.security.JwtTokenProvider;
 import com.saasai.service.RefreshTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,9 @@ public class AuthService {
     private PasswordEncoder passwordEncoder;
 
     @Autowired
+    private EntityManager entityManager;
+
+    @Autowired
     private ResetPackageService resetPackageService;
 
     @Autowired
@@ -44,23 +50,47 @@ public class AuthService {
     @Autowired
     private RefreshTokenService refreshTokenService;
 
+    @Autowired
+    private MonthlyQuotaPolicy monthlyQuotaPolicy;
+
+    @Transactional
     public void registerUser(RegisterRequestDTO request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new AuthException("Email này đã được đăng ký trong hệ thống!");
         }
         AdminPackageConfig freePackage = adminPackageConfigRepository.findByPackageType("FREE")
                     .orElseThrow(() -> new RuntimeException("Gói FREE chưa được khởi tạo dưới DB!"));
+        
+        String encodedPassword =
+        passwordEncoder.encode(request.getPassword());
+
         User user = User.builder()
                 .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .password(encodedPassword)
                 .fullName(request.getEmail().split("@")[0])
                 .agency("")
                 .role(User.UserRole.ROLE_USER)
-                .creditBalance(freePackage.getCreditLimit())
                 .adminPackageConfig(freePackage) // Gán gói FREE mặc định
                 .expireDate(null) // Không đặt ngày hết hạn cho gói FREE
                 .build();
-        userRepository.save(user);
+
+        user = userRepository.save(user);
+
+        System.out.println(
+                "[REGISTER] User created successfully: userId="
+                        + user.getUserId()
+                        + ", email="
+                        + user.getEmail()
+        );
+
+        if (user.getUserId() == null) {
+            throw new IllegalStateException(
+                    "User chưa được sinh userId sau khi save"
+            );
+        }
+
+            monthlyQuotaPolicy.allocateSubscriptionCredits(user, freePackage);
+        ;
     }
 
     public AuthResponseDTO loginUser(LoginRequestDTO request) {
@@ -68,8 +98,14 @@ public class AuthService {
                 .orElseThrow(() -> new AuthException("Email hoặc mật khẩu không chính xác", HttpStatus.UNAUTHORIZED));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new AuthException("Email hoặc mật khẩu không chính xác", HttpStatus.UNAUTHORIZED);
+            throw new AuthException(
+                "Email hoặc mật khẩu không chính xác", 
+                HttpStatus.UNAUTHORIZED);
         }
+        // Cập nhật thời gian đăng nhập cuối cùng
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
+
 
         String role = user.getRole() != null ? user.getRole().toString() : "ROLE_USER";
         String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), role);
@@ -95,6 +131,7 @@ public class AuthService {
     }
     
     // Thêm logic verify Google ID token và cấp JWT nội bộ
+    @Transactional
     public AuthResponseDTO loginWithGoogle(String googleIdToken) {
     if (googleIdToken == null || googleIdToken.trim().isEmpty()) {
         throw new RuntimeException("Google ID Token không được để trống");
@@ -136,7 +173,6 @@ public class AuthService {
                         .fullName(fullName != null ? fullName : email)
                         .agency("")
                         .role(User.UserRole.ROLE_USER)
-                        .creditBalance(freePackage.getCreditLimit())
                         .adminPackageConfig(freePackage)
                         .expireDate(null)
                         .avatarUrl(avatarUrl)
@@ -144,12 +180,17 @@ public class AuthService {
                         .providerId(providerId)
                         .build();
 
-                userRepository.save(user);
+                user = userRepository.save(user);
+                monthlyQuotaPolicy.allocateSubscriptionCredits(user, freePackage);
                 System.out.println("[AuthService] Tạo user mới từ Google: " + email);
             }
 
             // Tạo token
             String role = user.getRole() != null ? user.getRole().toString() : "ROLE_USER";
+            // Cập nhật thời gian đăng nhập cuối cùng
+            user.setLastLoginAt(LocalDateTime.now());
+            userRepository.save(user);
+
             String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), role);
             String refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
 

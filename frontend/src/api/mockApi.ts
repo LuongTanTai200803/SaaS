@@ -15,6 +15,12 @@ import {
   mockRevenueData,
 } from './mockTestData'; // Import dữ liệu mock từ file mới
 
+import type {
+  AdminApiContract,
+  AdminDashboard,
+  AdminUser,
+} from './adminApi';
+
 const MOCK_DELAY = 500; // milliseconds
 
 // Dữ liệu người dùng đã đăng ký trong phiên mock (chỉ tồn tại trong bộ nhớ)
@@ -295,29 +301,195 @@ export const aiApi = {
 };
 
 // --- Mock Admin API ---
-export const adminApi = {
-  getUsers: async (params?: any) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockAdminUsers);
-      }, MOCK_DELAY);
-    });
-  },
-  toggleUserStatus: async (userId: string, isActive: boolean) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ success: true, message: `User ${userId} status toggled to ${isActive}` });
-      }, MOCK_DELAY);
-    });
-  },
-  getRevenueChart: async (params?: { startDate: string; endDate: string }) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockRevenueData);
-      }, MOCK_DELAY);
-    });
-  },
+export const adminApi: AdminApiContract = {
+  getDashboard: async () => ({
+    success: true,
+    message: 'OK',
+    data: {
+      userCount: 1250,
+      activeUserCount: 340,
+      transactionCount: 86,
+      aiUsageCount: 4210,
+      creditsConsumed: 874.5,
+      revenueToday: 1500000,
+      revenueMonth: 28500000,
+      asOfDate: '2026-09-14',
+    },
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  getUsers: async () => ({
+    success: true,
+    message: 'OK',
+    data: mockAdminUsers,
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  getUser: async (userId: string) => ({
+    success: true,
+    message: 'OK',
+    data: mockAdminUsers.find(
+      user => String(user.userId) === String(userId)
+    ),
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  updateUser: async (userId, data) => ({
+    success: true,
+    message: 'Updated',
+    data: {
+      userId,
+      ...data,
+    },
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  getPackages: async () => ({
+    success: true,
+    message: 'OK',
+    data: [],
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  getPackage: async () => ({
+    success: true,
+    message: 'OK',
+    data: null,
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  updatePackage: async (_packageType, data) => ({
+    success: true,
+    message: 'Updated',
+    data,
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  getModelPackages: async () => ({
+    success: true,
+    message: 'OK',
+    data: [],
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  updateModelCreditRate: async (id, creditRate) => ({
+    success: true,
+    message: 'Updated',
+    data: { id, creditRate },
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  getPaymentInvoices: async () => ({
+    success: true,
+    message: 'OK',
+    data: [],
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  getPaymentInvoice: async invoiceId => ({
+    success: true,
+    message: 'OK',
+    data: { invoiceId },
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  getBankConfigs: async () => ({
+    success: true,
+    message: 'OK',
+    data: [],
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  getBankConfigById: async id => ({
+    success: true,
+    message: 'OK',
+    data: { id },
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  createBankConfig: async data => ({
+    success: true,
+    message: 'Created',
+    data,
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  updateBankConfig: async (id, data) => ({
+    success: true,
+    message: 'Updated',
+    data: { id, ...data },
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  activateBankConfig: async id => ({
+    success: true,
+    message: 'Activated',
+    data: { id },
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  deleteBankConfig: async id => ({
+    success: true,
+    message: 'Deleted',
+    data: { id },
+    statusCode: 200,
+    errorType: null,
+  }),
+  getRevenue: async (range) => ({
+    success: true,
+    message: 'OK',
+    data: {
+      range,
+      from: '',
+      to: '',
+      totalRevenue: 0,
+      paidInvoiceCount: 0,
+    },
+    statusCode: 200,
+    errorType: null,
+  }),
+
+  getAiUsage: async (range) => ({
+    success: true,
+    message: 'OK',
+    data: {
+      range,
+      from: '',
+      to: '',
+      transactionCount: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      creditsConsumed: 0,
+    },
+    statusCode: 200,
+    errorType: null,
+  }),
+  getTopAssistants: async () => ({
+    success: true,
+    message: 'OK',
+    data: [],
+    statusCode: 200,
+    errorType: null,
+  }),
 };
+
 
 // --- Mock Credit API ---
 export const creditApi = {

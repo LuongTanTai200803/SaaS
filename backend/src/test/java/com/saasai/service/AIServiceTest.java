@@ -1,104 +1,58 @@
 package com.saasai.service;
 
-import com.saasai.ai.AiProvider;
-import com.saasai.feature.ai.AiService;
-import com.saasai.feature.ai.AiStreamResponseDTO;
-import com.saasai.entity.ChatSession;
-import com.saasai.entity.CreditTransaction;
 import com.saasai.entity.User;
-import com.saasai.repository.ChatSessionRepository;
-import org.junit.jupiter.api.BeforeEach;
+import com.saasai.feature.ai.AiCompletionRequestDTO;
+import com.saasai.feature.ai.AiCompletionService;
+import com.saasai.feature.ai.AiProviderResultDTO;
+import com.saasai.feature.ai.AiService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Optional;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-
+@ExtendWith(MockitoExtension.class)
 class AIServiceTest {
-    @Mock
-    private ChatSessionRepository chatSessionRepository;
 
     @Mock
-    private UserService userService;
-
-    @Mock
-    private ChatSessionService chatSessionService;
-
-    @Mock
-    private AiProvider aiProvider;
-
-    @Mock
-    private CreditService creditService;
+    private AiCompletionService aiCompletionService;
 
     @InjectMocks
     private AiService aiService;
 
-    private ChatSession session;
-    private User user;
-    private final String testUserId = "user-uuid-1"; // 🎯 ĐÃ SỬA: Chuyển sang String UUID
-
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-        session = new ChatSession();
-        session.setSessionId(10);
-        // 🎯 ĐÃ SỬA: Chuyển sang String UUID 
-        session.setUser(User.builder().userId(testUserId).build()); // 🎯 ĐÃ SỬA
-        user = User.builder().userId(testUserId).creditBalance(20.0).build(); // 🎯 ĐÃ SỬA: Dùng userId(String)
-    }
-
     @Test
-    void processCompletion_shouldDeductActualCreditsAndSendVerifyDone() throws IOException {
-        // 1. 🎯 ĐÃ SỬA: Tạo đối tượng Entity mồi để trả về đúng kiểu dữ liệu
-        CreditTransaction mockTransaction = CreditTransaction.builder()
-                .user(user) // Giả sử thực thể CreditTransaction của ông có trường id kiểu Long
-                .totalCreditHold(5.0)
+    void processCompletion_shouldDelegateToAiCompletionService() {
+        User user = new User();
+        user.setUserId("user-uuid-1");
+
+        AiCompletionRequestDTO request = AiCompletionRequestDTO.builder()
+                .sessionUuid("session-uuid-1")
+                .promptCommand("Rewrite")
+                .userText("Prompt text")
+                .model("gpt-4")
+                .pinEditorContext(false)
                 .build();
 
-        when(chatSessionRepository.findBySessionIdAndUser_UserId(10, testUserId)).thenReturn(Optional.of(session));
-        when(aiProvider.streamCompletion(any(), any())).thenReturn(List.of("token one", "token two"));
-        when(userService.getUserById(testUserId)).thenReturn(user);
-        
-        // 2. 🎯 ĐÃ SỬA: `.thenReturn(mockTransaction)` thay vì `.thenReturn(123L)`
-        when(creditService.recordHoldTransaction(eq(testUserId), anyDouble(), eq("AI completion hold")))
-                .thenReturn(mockTransaction); 
-
-        SseEmitter emitter = new SseEmitter(0L);
-        aiService.processCompletion(10, testUserId, null, "prompt text", false, "gpt-4", emitter);
-
-        verify(creditService).recordHoldTransaction(eq(testUserId), anyDouble(), eq("AI completion hold"));
-        
-        // 3. 🎯 LƯU Ý PHỤ CHÍ MẠNG: Nếu hàm `deductCredit` của ông bốc ID từ transaction ra để xử lý, 
-        // thì verify truyền vào đúng số 123L là chuẩn bài rồi.
-        verify(creditService).deductCredit(eq("123"), anyDouble(), anyDouble());
-        verify(chatSessionRepository).save(any(ChatSession.class));
-    }
-
-    @Test
-    void processCompletion_onProviderError_shouldRefundHold() throws IOException {
-        CreditTransaction mockTransaction = CreditTransaction.builder()
-                .user(user) // Giả sử thực thể CreditTransaction của ông có trường id kiểu Long
-                .totalCreditHold(5.0)
+        AiProviderResultDTO expected = AiProviderResultDTO.builder()
+                .content("Generated content")
+                .model("gpt-4")
+                .finishReason("stop")
+                .promptTokens(10)
+                .completionTokens(20)
+                .totalTokens(30)
                 .build();
-                
-        when(chatSessionRepository.findBySessionIdAndUser_UserId(10, testUserId)).thenReturn(Optional.of(session)); // 🎯 ĐÃ SỬA
-        when(aiProvider.streamCompletion(any(), any())).thenThrow(new IOException("Provider failed"));
-        when(creditService.recordHoldTransaction(eq(testUserId), anyDouble(), eq("AI completion hold"))).thenReturn(mockTransaction); // 🎯 ĐÃ SỬA
 
-        SseEmitter emitter = new SseEmitter(0L);
-        aiService.processCompletion(10, testUserId, null, "prompt text", false, "gpt-4", emitter); // 🎯 ĐÃ SỬA
+        when(aiCompletionService.complete(user, request))
+                .thenReturn(expected);
 
-        verify(creditService).recordHoldTransaction(eq(testUserId), anyDouble(), eq("AI completion hold")); // 🎯 ĐÃ SỬA
-        verify(creditService).refundHold(eq("124"), anyDouble());
-        verify(creditService, never()).deductCredit(eq("124"), anyDouble(), anyDouble());
+        AiProviderResultDTO result =
+                aiService.processCompletion(user, request);
+
+        assertThat(result).isSameAs(expected);
+        verify(aiCompletionService).complete(user, request);
     }
 }

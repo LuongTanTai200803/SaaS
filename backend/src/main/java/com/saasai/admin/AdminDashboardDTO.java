@@ -3,11 +3,13 @@ package com.saasai.admin;
 import java.time.LocalDate;
 
 public record AdminDashboardDTO(
-    long userCount,
-    long ordersCount,
-    long aiUsageCount,
-    long creditsConsumed,
-    long revenueToday,
-    long revenueMonth,
-    LocalDate asOfDate
-) {}
+        long userCount,
+        long activeUserCount,
+        long transactionCount,
+        long aiUsageCount,
+        double creditsConsumed,
+        long revenueToday,
+        long revenueMonth,
+        LocalDate asOfDate
+) {
+}

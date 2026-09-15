@@ -8,7 +8,5 @@ public record AdminPackageDTO(
     Double creditLimit,
     Integer duration,
     String description,
-    Long storageQuotaMb,
-    String badge,
-    Boolean isActive
+    Long storageQuotaMb
 ) {}

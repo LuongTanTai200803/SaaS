@@ -12,15 +12,24 @@ public interface AdminService {
     UserAdminDTO updateUser(String userId, UserUpdateRequest req);
     void deleteUser(String userId);
 
+    // User payment history
+    List<UserPaymentHistoryDTO> listUserPayments(String userId);
+
+    // User AI usage history
+    List<UserAiUsageDTO> listUserAiUsage(String userId);
+
     List<AdminPackageDTO> listPackages();
         // add this line to the interface
     com.saasai.entity.AdminPackageConfig getPackageConfig(String packageType);
     AdminPackageDTO getPackage(String packageType);
     
+    // Upsert (update or insert) a package configuration
     AdminPackageDTO upsertPackageConfig(String packageType, AdminPackageUpdateDTO req);
 
-    // finance
-    List<InvoiceDTO> listInvoices(int page, int size);
-    InvoiceDTO getInvoice(String invoiceId);
-    AdminStatsResponseDTO getFinanceStats();
+    AdminRevenueDTO getRevenue(DashboardRange range);
+
+    AdminAiUsageDTO getAiUsage(DashboardRange range);
+    List<AdminTopAssistantDTO> getTopAssistants(
+            DashboardRange range
+    );
 }

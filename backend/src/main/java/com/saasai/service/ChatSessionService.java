@@ -278,12 +278,24 @@ public class ChatSessionService {
                 .currentEditorContent(session.getEditorContent())
                 .createdAt(session.getCreatedAt())
                 .editorContent(session.getEditorContent())
+                .assistantId(session.getAssistant() != null ? session.getAssistant().getAssistantId() : null)
                 .build();
     }
 
-    public List<ChatSessionDTO> getSessionsByUser(String userId) {
-        List<ChatSession> sessions = chatSessionRepository.findByUser_UserId(userId);
-        return sessions.stream().map(this::convertToDTO).collect(Collectors.toList());
+    public List<ChatSessionDTO> getSessionsByUser(
+        String userId,
+        Integer assistantId
+    ) {
+        List<ChatSession> sessions =
+                chatSessionRepository
+                        .findByUser_UserIdAndAssistant_AssistantId(
+                                userId,
+                                assistantId
+                        );
+
+        return sessions.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     public void deleteSession(String sessionUuid, String userId) {
@@ -301,7 +313,9 @@ public class ChatSessionService {
         chatSessionRepository.save(session);
 
         DraftStateDTO state = new DraftStateDTO();
+        state.setSessionUuid(session.getSessionUuid());
         state.setEditorText(content);
+        state.setUserId(userId);
         state.setStatus("EDITING");
         draftRepository.save(state);
     }

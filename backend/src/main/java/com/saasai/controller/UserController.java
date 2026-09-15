@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -11,10 +12,13 @@ import com.saasai.dto.DocumentDTO;
 import com.saasai.dto.PaginatedResponseDTO;
 import com.saasai.dto.UpdateUserProfileRequest;
 import com.saasai.dto.UserProfileDTO;
+import com.saasai.entity.BillingInvoice;
 import com.saasai.service.UserService;
 
 import com.saasai.dto.UserCreditSummaryDTO;
 import com.saasai.feature.ai.ApiResponseDTO;
+import com.saasai.feature.payment.BillingInvoiceDTO;
+
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -75,4 +79,13 @@ public class UserController {
         UserCreditSummaryDTO summary = userService.getUserCreditSummaryByEmail(email);
         return ResponseEntity.ok(ApiResponseDTO.success("OK", summary));
     }
+
+    // Lấy thông tin hóa đơn cụ thể của người dùng dựa trên invoiceId
+    @GetMapping("/invoice")
+    public ResponseEntity<ApiResponseDTO<BillingInvoiceDTO>> getMyInvoice(@RequestParam("invoiceId") String invoiceId) {
+        String userId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        BillingInvoiceDTO dto = userService.getInvoiceForUser(userId, invoiceId);
+        return ResponseEntity.ok(ApiResponseDTO.success("OK", dto));
+    }
+    
 }

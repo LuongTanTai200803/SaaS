@@ -9,6 +9,8 @@ import api from '../api'; // Import đối tượng 'api' tổng hợp
 import { aiApi } from '../api/aiApi';
 import { sessionApi } from '../api/sessionAPi';
 
+import { getApiErrorMessage } from '../api/axiosClient';
+
 // 🔌 Nạp hệ thống co giãn từ thư mục UI có sẵn của bạn
 import {
   ResizableHandle,
@@ -861,20 +863,25 @@ export function DocumentWorkspace({
             : message
         )
       );
-    } catch (error) {
-      console.error('[Workspace] AI edit failed:', error);
+    } catch (error: unknown) {
+  console.error('[Workspace] AI edit failed:', error);
 
-      setChatMessages(prev =>
-        prev.map(message =>
-          message.id === assistantMessageId
-            ? {
-                ...message,
-                content: 'Lỗi khi gọi AI. Vui lòng thử lại.',
-                timestamp: new Date(),
-              }
-            : message
-        )
-      );
+  const errorMessage = getApiErrorMessage(
+    error,
+    'Lỗi khi tinh chỉnh văn bản. Vui lòng thử lại.'
+  );
+
+  setChatMessages(prev =>
+    prev.map(message =>
+      message.id === assistantMessageId
+        ? {
+            ...message,
+            content: errorMessage,
+            timestamp: new Date(),
+          }
+        : message
+    )
+  );
     } finally {
       setIsSending(false);
     }

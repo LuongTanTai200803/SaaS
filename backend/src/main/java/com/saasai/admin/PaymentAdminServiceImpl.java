@@ -2,12 +2,17 @@ package com.saasai.admin;
 
 import com.saasai.entity.BillingInvoice;
 import com.saasai.entity.TransactionRecord;
+import com.saasai.feature.payment.PaymentQrService;
 import com.saasai.repository.BillingInvoiceRepository;
 import com.saasai.repository.TransactionRecordRepository;
+
+import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,6 +23,9 @@ public class PaymentAdminServiceImpl implements PaymentAdminService {
 
     @Autowired
     private TransactionRecordRepository transactionRecordRepository;
+
+    @Autowired
+    private PaymentQrService paymentQrService;
 
     @Override
     public List<InvoiceDTO> listInvoices() {
@@ -41,10 +49,47 @@ public class PaymentAdminServiceImpl implements PaymentAdminService {
     }
 
     @Override
+    @Transactional
     public InvoiceDTO regenerateInvoiceQr(String invoiceId) {
-        // Minimal safe behaviour: return current invoice DTO.
-        // If you want to regenerate QR and persist, call BillingService logic here.
-        return getInvoice(invoiceId);
+        BillingInvoice invoice =
+                billingInvoiceRepository.findById(invoiceId)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Invoice không tồn tại: " + invoiceId
+                                ));
+
+        if (invoice.getStatus() == BillingInvoice.InvoiceStatus.PAID) {
+            throw new IllegalStateException(
+                    "Không thể regenerate QR cho invoice đã thanh toán"
+            );
+        }
+
+        // if (invoice.getStatus() != BillingInvoice.InvoiceStatus.PENDING) {
+        //     throw new IllegalStateException(
+        //             "Chỉ được regenerate QR cho invoice đang PENDING"
+        //     );
+        // }
+
+        if (invoice.getFinalAmount() == null
+                || invoice.getFinalAmount() <= 0) {
+            throw new IllegalStateException(
+                    "Invoice không có số tiền hợp lệ"
+            );
+        }
+
+    PaymentQrService.QrPayload qr =
+            paymentQrService.generate(
+                    invoice.getFinalAmount(),
+                    invoice.getMemoId()
+            );
+
+        invoice.setQrCodeUrl(qr.qrCodeUrl());
+        invoice.setQrBankSnapshot(qr.bankSnapshot());
+
+        BillingInvoice saved =
+                billingInvoiceRepository.save(invoice);
+
+        return toDto(saved);
     }
 
     private InvoiceDTO toDto(BillingInvoice i) {
@@ -70,5 +115,24 @@ public class PaymentAdminServiceImpl implements PaymentAdminService {
                 t.getStatus(),
                 t.getCreatedAt()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TransactionDTO> searchTransactions(
+            String status,
+            String userId,
+            LocalDateTime from,
+            LocalDateTime to
+    ) {
+        return transactionRecordRepository.search(
+                        status,
+                        userId,
+                        from,
+                        to
+                )
+                .stream()
+                .map(this::toTransactionDto)
+                .toList();
     }
 }

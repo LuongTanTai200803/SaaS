@@ -1,6 +1,5 @@
 package com.saasai.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saasai.dto.DocumentDTO;
 import com.saasai.dto.PaginatedResponseDTO;
 import com.saasai.dto.UserProfileDTO;
@@ -37,12 +36,16 @@ class UserControllerTest {
     private UserController userController;
 
     private MockMvc mockMvc;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(userController).build();
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(USER_ID, null);
+        mockMvc = MockMvcBuilders
+                .standaloneSetup(userController)
+                .build();
+
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(USER_ID, null);
+
         authentication.setDetails("test@example.com");
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
@@ -53,51 +56,62 @@ class UserControllerTest {
     }
 
     @Test
-    void getProfileShouldReturnUserProfile() throws Exception {
+    void getProfileShouldReturnUserProfileWithoutLegacyCreditBalance()
+            throws Exception {
+
         UserProfileDTO profile = UserProfileDTO.builder()
                 .userId(USER_ID)
                 .email("test@example.com")
-                .fullName("Nguyễn Văn A")
+                .fullName("Nguyen Van A")
                 .role("ROLE_USER")
-                .creditBalance(350.0)
+                .packageType("FREE")
                 .build();
 
-        // Mock the correct method call in UserService
-        when(userService.getUserProfileByEmail("test@example.com")).thenReturn(profile);
+        when(userService.getUserProfileByEmail("test@example.com"))
+                .thenReturn(profile);
 
         mockMvc.perform(get("/api/v1/users/profile"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(USER_ID))
                 .andExpect(jsonPath("$.email").value("test@example.com"))
-                .andExpect(jsonPath("$.fullName").value("Nguyễn Văn A"));
+                .andExpect(jsonPath("$.fullName").value("Nguyen Van A"))
+                .andExpect(jsonPath("$.creditBalance").doesNotExist());
     }
 
     @Test
-    void getDocumentsShouldReturnPaginatedDocuments() throws Exception {
-        DocumentDTO doc = DocumentDTO.builder()
+    void getDocumentsShouldReturnPaginatedDocuments()
+            throws Exception {
+
+        DocumentDTO document = DocumentDTO.builder()
                 .sessionId("501")
-                .sessionName("Báo cáo tổng kết")
-                .tagId("Văn kiện Đảng")
+                .sessionName("Bao cao tong ket")
+                .tagId("Van kien Dang")
                 .updatedAt(LocalDateTime.now())
-                .status("Hoàn thành")
+                .status("Hoan thanh")
                 .build();
 
-        PaginatedResponseDTO<DocumentDTO> response = PaginatedResponseDTO.<DocumentDTO>builder()
-                .content(List.of(doc))
-                .totalPages(1)
-                .totalElements(1L)
-                .currentPage(0)
-                .pageSize(10)
-                .build();
+        PaginatedResponseDTO<DocumentDTO> response =
+                PaginatedResponseDTO.<DocumentDTO>builder()
+                        .content(List.of(document))
+                        .totalPages(1)
+                        .totalElements(1L)
+                        .currentPage(0)
+                        .pageSize(10)
+                        .build();
 
-        when(userService.getUserDocumentsByUserEmail("test@example.com", 0, 10)).thenReturn(response);
+        when(userService.getUserDocumentsByUserEmail(
+                "test@example.com",
+                0,
+                10
+        )).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/users/documents")
-                .param("page", "0")
-                .param("size", "10"))
+                        .param("page", "0")
+                        .param("size", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].sessionId").value("501"))
-                .andExpect(jsonPath("$.content[0].status").value("Hoàn thành"))
+                .andExpect(jsonPath("$.content[0].status")
+                        .value("Hoan thanh"))
                 .andExpect(jsonPath("$.totalPages").value(1))
                 .andExpect(jsonPath("$.totalElements").value(1));
     }

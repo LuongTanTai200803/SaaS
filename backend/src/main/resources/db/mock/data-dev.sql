@@ -1,12 +1,11 @@
 -- Dữ liệu này chỉ chạy ở máy Local để lập trình viên test Postman
-INSERT INTO users (email, password_hash, full_name, agency, role, credit_balance, package_type, expire_date, created_at, updated_at)
+INSERT INTO users (email, password_hash, full_name, agency, role, package_type, expire_date, created_at, updated_at)
 VALUES (
     'admin.tai@coquan.gov.vn', 
     '$2a$10$8/Vnyg67YrYQae6YPNHvsOaBMDGt0cPxWL9I.mvhCGmFpYvDfF1LC', -- Mã băm chuẩn của MatKhauManh123@
     'Lương Tấn Tài (Admin)', 
     'Ban Quản Trị Hệ Thống', 
-    'ROLE_ADMIN', 
-    9999.0, 
+    'ROLE_ADMIN',
     'FREE', 
     '2030-12-31 23:59:59',
     NOW(),

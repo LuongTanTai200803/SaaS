@@ -12,7 +12,6 @@ public record PackageDTO(
     Double creditLimit,
     Integer duration,
     String durationHuman,
-    List<String> allowedModels,
     String description,
     Long storageQuotaMb,
     Boolean isFree,

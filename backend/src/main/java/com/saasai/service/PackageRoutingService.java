@@ -4,12 +4,18 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.ArrayList;
 import java.util.List;
 import com.saasai.dto.ModelRoute;
+import java.util.Optional;
 import com.saasai.repository.UserRepository;
 import com.saasai.repository.AdminPackageConfigRepository;
+import com.saasai.repository.AiModelPackageRepository;
 import com.saasai.entity.User;
 import com.saasai.entity.AdminPackageConfig;
+import com.saasai.entity.AiModelPackage;
+
 import org.springframework.beans.factory.annotation.Value;
 
 
@@ -27,58 +33,102 @@ public class PackageRoutingService {
 
         
         private final ObjectMapper objectMapper;
+        private final AiModelPackageRepository aiModelPackageRepository;
+        
 
-        public PackageRoutingService(ObjectMapper objectMapper) {
+        public PackageRoutingService(ObjectMapper objectMapper, AiModelPackageRepository aiModelPackageRepository) {
                 this.objectMapper = objectMapper;
+                this.aiModelPackageRepository = aiModelPackageRepository;
         }
 
+        // Service responsible for routing AI model requests based on the user's package configuration.
         @Transactional(readOnly = true)
-        public ModelRoute resolveRoute(User user) {
+        public ModelRoute resolveRoute(User user, String modelOption) {
 
-                if (user == null) {
-                        throw new IllegalArgumentException(
-                                "Thông tin người dùng không được để trống"
-                        );
+        if (user == null) {
+                throw new IllegalArgumentException("User required");
+        }
+
+        AdminPackageConfig pkg = user.getAdminPackageConfig();
+        if (pkg == null) {
+                throw new IllegalStateException("User has no package");
+        }
+
+        // User hiện tại tối thiểu level 1
+        int userMaxLevel = pkg.getModelPackageLevel() != null
+                ? pkg.getModelPackageLevel()
+                : 1;
+
+        // Mặc định level 1
+        int requestedLevel = 1;
+
+        // Client có gửi model option thì thử parse
+        if (modelOption != null && !modelOption.isBlank()) {
+                try {
+                int level = Integer.parseInt(modelOption.trim());
+
+                // Chỉ nhận level hợp lệ > 0
+                if (level > 0) {
+                        requestedLevel = level;
+                }
+                } catch (NumberFormatException ignored) {
+                // Input sai -> mặc định level 1
+                }
+        }
+
+        // Chỉ chặn trường hợp vượt quyền
+        if (requestedLevel > userMaxLevel) {
+                throw new IllegalArgumentException(
+                        "Requested model package level not allowed for this user"
+                );
+        }
+
+        // Load model package
+        AiModelPackage modelPackage = aiModelPackageRepository
+                .findById((long) requestedLevel)
+                .orElseThrow(() ->
+                        new IllegalStateException("Model package not found")
+                );
+
+        if (!Boolean.TRUE.equals(modelPackage.getActive())) {
+                throw new IllegalStateException("Model package is not active");
+        }
+
+        try {
+                List<String> models = objectMapper.readValue(
+                        modelPackage.getModels(),
+                        new TypeReference<List<String>>() {}
+                );
+
+                if (models == null || models.isEmpty()) {
+                throw new IllegalStateException("Model package contains no models");
                 }
 
-                AdminPackageConfig packageConfig =
-                        user.getAdminPackageConfig();
+                String primary = validateModelId(models.get(0));
 
-                if (packageConfig == null) {
-                        throw new IllegalStateException(
-                                "Người dùng chưa được gán gói dịch vụ"
-                        );
-                }
-
-                List<String> allowedModels =
-                        parseAllowedModels(
-                                packageConfig.getAllowedModels()
-                        );
-
-                if (allowedModels.isEmpty()) {
-                        throw new IllegalStateException(
-                                "Gói hiện tại chưa được cấu hình model"
-                        );
-                }
-
-                String primaryModel =
-                        validateModelId(
-                                allowedModels.get(0)
-                        );
-
-                String fallbackModel =
-                        allowedModels.size() > 1
-                                ? validateModelId(
-                                        allowedModels.get(1)
-                                )
-                                : null;
+                String fallback = models.size() > 1
+                        ? validateModelId(models.get(1))
+                        : null;
 
                 return new ModelRoute(
-                        primaryModel,
-                        fallbackModel,
-                        configuredMaxTokens > 0 ? configuredMaxTokens : DEFAULT_MAX_TOKENS,
-                        configuredTemperature >= 0 ? configuredTemperature : DEFAULT_TEMPERATURE
+                        primary,
+                        fallback,
+                        configuredMaxTokens > 0
+                                ? configuredMaxTokens
+                                : DEFAULT_MAX_TOKENS,
+                        configuredTemperature >= 0
+                                ? configuredTemperature
+                                : DEFAULT_TEMPERATURE,
+                        modelPackage.getId(),
+                        modelPackage.getCreditRate()
                 );
+
+        } catch (Exception ex) {
+                throw new IllegalStateException(
+                        "Malformed models in model package",
+                        ex
+                );
+        }
         }
 
         // Phương thức parseAllowedModels và normalizeModelId được sử dụng để xử lý danh sách model được phép từ cấu hình gói dịch vụ.

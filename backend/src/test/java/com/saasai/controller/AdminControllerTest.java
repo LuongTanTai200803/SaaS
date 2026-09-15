@@ -1,9 +1,9 @@
 package com.saasai.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saasai.admin.AdminController;
+
 import com.saasai.admin.AdminService;
-import com.saasai.admin.AdminStatsResponseDTO;
+
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,16 +30,10 @@ class AdminControllerTest {
     @Mock
     private AdminService adminService;
 
-    @InjectMocks
-    private AdminController adminController;
 
     private MockMvc mockMvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @BeforeEach
-    void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(adminController).build();
-    }
 
     @Test
     void updatePackageShouldReturnSuccess() throws Exception {
@@ -56,22 +50,5 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.statusCode").value(200));
     }
 
-    @Test
-    void getFinanceStatsShouldReturnStats() throws Exception {
-        AdminStatsResponseDTO stats = AdminStatsResponseDTO.builder()
-                .totalRevenue(158400000L)
-                .newUsersCount(142L)
-                .activeAffiliates(28L)
-                .totalCreditConsumed(45020.0)
-                .build();
-
-        when(adminService.getFinanceStats()).thenReturn(stats);
-
-        mockMvc.perform(get("/api/v1/admin/stats/finance"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalRevenue").value(158400000))
-                .andExpect(jsonPath("$.newUsersCount").value(142))
-                .andExpect(jsonPath("$.activeAffiliates").value(28))
-                .andExpect(jsonPath("$.totalCreditConsumed").value(45020.0));
-    }
+    
 }

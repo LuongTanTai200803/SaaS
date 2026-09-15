@@ -58,6 +58,12 @@ public class BillingService {
 
     @Autowired
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper; // or new ObjectMapper()
+    private final PaymentQrService paymentQrService;
+
+    @Autowired
+    public BillingService(PaymentQrService paymentQrService) {
+        this.paymentQrService = paymentQrService;
+    }
 
     private static final Logger logger = LoggerFactory.getLogger(BillingService.class);
 
@@ -489,78 +495,16 @@ public class BillingService {
 
 
     private BillingInvoice.BillingInvoiceBuilder attachQrToBuilder(
-                BillingInvoice.BillingInvoiceBuilder builder,
-                Long amount,
-                String memoId) {
-
-        PaymentBankConfig activeCfg =
-        paymentBankConfigRepository.findFirstByIsActiveTrue()
-            .orElseThrow(() -> new ResponseStatusException(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "Chưa cấu hình tài khoản thanh toán"
-            ));
-        if (activeCfg == null) {
-                return builder;
-        }
-
-        String qrCodeUrl = buildVietQRUrl(activeCfg, amount, memoId);
-        String qrBankSnapshot = buildBankSnapshotJson(activeCfg);
-
-        return builder.qrCodeUrl(qrCodeUrl)
-                        .qrBankSnapshot(qrBankSnapshot);
-        }
-
-        // Tạo URL VietQR dựa trên thông tin ngân hàng, số tiền và memo
-    private String buildVietQRUrl(
-        PaymentBankConfig cfg,
+        BillingInvoice.BillingInvoiceBuilder builder,
         Long amount,
-        String memo
+        String memoId
         ) {
+        PaymentQrService.QrPayload qr =
+                paymentQrService.generate(amount, memoId);
 
-        String bank = cfg.getBankCode() != null
-                ? cfg.getBankCode() : "";
-
-        String acc = cfg.getAccountNumber() != null
-                ? cfg.getAccountNumber() : "";
-
-        String name = cfg.getAccountName() != null
-                ? cfg.getAccountName() : "";
-
-        String addInfo = memo != null
-                ? memo : "";
-
-        String amountStr = amount != null
-                ? String.valueOf(amount) : "0";
-
-        String params = "amount=" + urlEncode(amountStr)
-                + "&addInfo=" + urlEncode(addInfo)
-                + "&accountName=" + urlEncode(name);
-
-        return "https://img.vietqr.io/image/"
-                + bank + "-" + acc + "-qr_only.png?"
-                + params;
+        return builder
+                .qrCodeUrl(qr.qrCodeUrl())
+                .qrBankSnapshot(qr.bankSnapshot());
         }
 
-        private String urlEncode(String s) {
-        try {
-                return java.net.URLEncoder.encode(s == null ? "" : s, java.nio.charset.StandardCharsets.UTF_8);
-        } catch (Exception e) {
-                return "";
-        }
-        }
-        private String buildBankSnapshotJson(PaymentBankConfig cfg) {
-        try {
-                // only include necessary fields
-                Map<String,Object> snap = new HashMap<>();
-                snap.put("bankCode", cfg.getBankCode());
-                snap.put("accountNumber", cfg.getAccountNumber());
-                snap.put("accountName", cfg.getAccountName());
-                snap.put("vaNumber", cfg.getVaNumber());
-                snap.put("template", cfg.getTemplate());
-                snap.put("store", cfg.getStore());
-                return objectMapper.writeValueAsString(snap);
-        } catch (Exception ex) {
-                return "{}";
-        }
-        }
 }

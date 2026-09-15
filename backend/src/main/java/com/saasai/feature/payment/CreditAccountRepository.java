@@ -1,5 +1,6 @@
 package com.saasai.feature.payment;
 
+import com.saasai.entity.User;
 import com.saasai.feature.payment.CreditAccount;
 
 import java.time.LocalDateTime;
@@ -11,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional; 
 public interface CreditAccountRepository extends JpaRepository<CreditAccount, String> { 
+    
     List<CreditAccount> findByPurchasedCreditExpireAtLessThanEqual(
         LocalDateTime now
     );
@@ -25,4 +27,6 @@ public interface CreditAccountRepository extends JpaRepository<CreditAccount, St
         WHERE c.purchasedCreditExpireAt <= :now
     """)
     int expirePurchasedCredits(@Param("now") LocalDateTime now);
+
+    List<CreditAccount> findByUser(User user);
 }

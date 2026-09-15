@@ -14,7 +14,6 @@ public class UserProfileDTO {
     private String fullName;
     private String agency;
     private String role;
-    private Double creditBalance;
     private String packageType;
     private String phone;
     private String position;

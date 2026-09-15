@@ -5,12 +5,18 @@ import com.saasai.feature.payment.PaymentBankConfigDTO;
 import com.saasai.feature.payment.PaymentBankConfigRequest;
 import com.saasai.feature.payment.PaymentBankConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 import java.util.List;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/admin/payment")
+@PreAuthorize("hasRole('ADMIN')")
 @CrossOrigin
 public class PaymentAdminController {
     @Autowired
@@ -33,6 +39,32 @@ public class PaymentAdminController {
     public ResponseEntity<ApiResponseDTO<List<TransactionDTO>>> listTransactions() {
         return ResponseEntity.ok(ApiResponseDTO.success("OK", paymentAdminService.listTransactions()));
     }
+
+    @GetMapping("/transactions/search")
+    public ResponseEntity<ApiResponseDTO<List<TransactionDTO>>>
+    searchTransactions(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String userId,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime from,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime to
+    ) {
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "OK",
+                        paymentAdminService.searchTransactions(
+                                status,
+                                userId,
+                                from,
+                                to
+                        )
+                )
+        );
+    }
+
 
     @PostMapping("/invoices/{invoiceId}/regenerate-qr")
     public ResponseEntity<ApiResponseDTO<InvoiceDTO>> regenerateQr(@PathVariable String invoiceId) {

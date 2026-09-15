@@ -38,8 +38,6 @@ public class User {
     @Column(nullable = false)
     private UserRole role;
 
-    private Double creditBalance;
-
     // QUAN TRỌNG: Thiết lập liên kết khóa ngoại package_id động sang
     // AdminPackageConfig
     @ManyToOne(fetch = FetchType.LAZY)
@@ -61,6 +59,9 @@ public class User {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
 
     @Column(name = "provider", nullable = false, length = 20)
     private String provider = "LOCAL";           // LOCAL, GOOGLE, FACEBOOK
@@ -92,7 +93,12 @@ public class User {
         ROLE_USER, ROLE_ADMIN
     }
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = false)
+    @OneToOne(
+        mappedBy = "user",
+        cascade = CascadeType.ALL,
+        fetch = FetchType.LAZY,
+        optional = true
+    )
     private CreditAccount creditAccount;
 
     public CreditAccount getCreditAccount() {
