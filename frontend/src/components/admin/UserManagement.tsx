@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Edit, Ban, DollarSign, ChevronDown, MoreVertical, Clock } from 'lucide-react';
+import api  from '../../api';
 
 interface User {
   id: string;
@@ -27,74 +28,46 @@ const assistantHistory = [
 ];
 
 export function UserManagement() {
+  const [users, setUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+  let cancelled = false;
+
+  const fetchUsers = async () => {
+    try {
+      const response = await api.adminApi.getUsers({
+        page: 0,
+        size: 20,
+      });
+
+      if (cancelled) return;
+
+      const users = Array.isArray(response)
+        ? response
+        : response?.data ?? [];
+
+      setUsers(users);
+    } catch (error) {
+      if (!cancelled) {
+        console.error('[UserManagement] Không thể tải users:', error);
+        setUsers([]);
+      }
+    }
+  };
+
+  fetchUsers();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPlan, setFilterPlan] = useState<string>('all');
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
   const [filterCreditStatus, setFilterCreditStatus] = useState<string>('all');
   const [selectedHistoryUserId, setSelectedHistoryUserId] = useState<string | null>(null);
 
-  const users: User[] = [
-    {
-      id: 'USR001',
-      name: 'Nguyễn Văn An',
-      email: 'an.nguyen@education.gov.vn',
-      avatar: 'A',
-      agency: 'Bộ Giáo dục',
-      plan: 'Enterprise',
-      creditBalance: 8500,
-      creditLimit: 10000,
-      status: 'ACTIVE',
-      lastActive: '2 phút trước',
-    },
-    {
-      id: 'USR002',
-      name: 'Trần Thị Bình',
-      email: 'binh.tran@tinh.gov.vn',
-      avatar: 'B',
-      agency: 'Tỉnh ủy',
-      plan: 'Pro',
-      creditBalance: 450,
-      creditLimit: 5000,
-      status: 'PENDING_VERIFY',
-      lastActive: '1 giờ trước',
-    },
-    {
-      id: 'USR003',
-      name: 'Lê Minh Cường',
-      email: 'cuong.le@truongthptnguyendu.vn',
-      avatar: 'C',
-      agency: 'Trường THPT Nguyễn Du',
-      plan: 'Basic',
-      creditBalance: 0,
-      creditLimit: 1000,
-      status: 'EXPIRED',
-      lastActive: '3 giờ trước',
-    },
-    {
-      id: 'USR004',
-      name: 'Phạm Thu Dung',
-      email: 'dung.pham@trunguong.gov.vn',
-      avatar: 'D',
-      agency: 'Cơ quan Trung ương',
-      plan: 'Pro',
-      creditBalance: 4800,
-      creditLimit: 5000,
-      status: 'SUSPENDED',
-      lastActive: '2 ngày trước',
-    },
-    {
-      id: 'USR005',
-      name: 'Hoàng Văn Em',
-      email: 'em.hoang@finance.gov.vn',
-      avatar: 'E',
-      agency: 'Sở Tài chính',
-      plan: 'Enterprise',
-      creditBalance: 9850,
-      creditLimit: 20000,
-      status: 'PENDING_VERIFY',
-      lastActive: '10 phút trước',
-    },
-  ];
 
   const getPlanColor = (plan: string) => {
     switch (plan) {

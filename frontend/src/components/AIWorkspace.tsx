@@ -227,53 +227,82 @@ export function AIWorkspace({
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { profile, showDashboard, setShowDashboard } = useAuth();
+
+  // ========================
+  // User credit summary
+  // ========================
+  const [totalCredits, setTotalCredits] = useState(0);
+  useEffect(() => {
+    const loadCreditSummary = async () => {
+      try {
+        const response = await api.userApi.getCreditSummary();
+        const summary = response?.data;
+
+        const monthlyCredits = Number(summary?.monthly?.remaining ?? 0);
+        const purchasedCredits = Number(summary?.purchased?.balance ?? 0);
+
+        setTotalCredits(monthlyCredits + purchasedCredits);
+      } catch (error) {
+        console.error('[AIWorkspace] Không thể tải số dư credit:', error);
+        setTotalCredits(0);
+      }
+    };
+
+    loadCreditSummary();
+  }, []);
+
   const activeAssistant = ASSISTANTS.find(a => a.id === selectedAssistantId) ?? null;
 
   const [sessionStatus, setSessionStatus] = useState<string | null>(null);
-
-  const selectAssistant = async (assistantId: string) => {
+  const [isSessionHistoryLoaded, setIsSessionHistoryLoaded] = useState(false);
+  const selectAssistant = (assistantId: string) => {
     setSelectedAssistantId(assistantId);
     setActiveSessionUuid(null);
+    setSessionStatus(null);
     setMessages([]);
-
-    try {
-      const res = await sessionApi.getSessions(assistantId);
-      setSessionHistory(res.data);
-    } catch (error) {
-      console.error('Không tải được lịch sử phiên:', error);
-      setSessionHistory([]);
-    }
-  };
-
-  const [isSessionHistoryLoaded, setIsSessionHistoryLoaded] =
-  useState(false);
-  
-  const loadSessionHistory = async (assistantId: string) => {
-    try {
-      const sessions = await api.sessionApi.getSessions(assistantId);
-      setSessionHistory(sessions.data);
-    } catch (error) {
-      console.error('Không tải được lịch sử phiên:', error);
-      setSessionHistory([]);
-      throw error;
-    }
+    setSessionHistory([]);
+    setIsSessionHistoryLoaded(false);
   };
 
   useEffect(() => {
-    if (!selectedAssistantId) return;
+    if (!selectedAssistantId) {
+      setSessionHistory([]);
+      setIsSessionHistoryLoaded(false);
+      return;
+    }
 
-    setIsSessionHistoryLoaded(false);
+    let cancelled = false;
 
     const load = async () => {
+      setIsSessionHistoryLoaded(false);
+
       try {
-        await loadSessionHistory(selectedAssistantId);
+        const response = await api.sessionApi.getSessions(selectedAssistantId);
+
+        if (cancelled) return;
+
+        const sessions = response?.data ?? response;
+
+        setSessionHistory(
+          Array.isArray(sessions)
+            ? sessions
+            : sessions?.content ?? []
+        );
         setIsSessionHistoryLoaded(true);
       } catch (error) {
-        // API lỗi thì không validate session
+        if (cancelled) return;
+
+        console.error('Không tải được lịch sử phiên:', error);
+        setSessionHistory([]);
+        setIsSessionHistoryLoaded(true);
       }
     };
 
     load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedAssistantId]);
 
   const getSessionUuid = (session?: Partial<ChatSession> | null) =>
@@ -479,10 +508,14 @@ export function AIWorkspace({
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* User credit summary */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
             <Zap size={13} className="text-amber-500" />
-            <span className="text-xs font-semibold text-amber-700">{profile?.creditBalance || 0} credits</span>
+            <span className="text-xs font-semibold text-amber-700">
+              {totalCredits} credits
+            </span>
           </div>
+
           <button
             onClick={() => setIsBillingOpen(true)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1E3A8A] text-white rounded-lg hover:bg-blue-800 transition-colors text-xs font-semibold shadow-sm"

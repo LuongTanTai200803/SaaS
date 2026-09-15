@@ -40,7 +40,8 @@ const api = {
   aiApi,
   adminApi,
   creditApi,
-  sessionApi
+  sessionApi,
+
 };
 
 export default api;

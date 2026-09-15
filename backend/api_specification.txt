@@ -40,7 +40,13 @@ Bảo mật hệ thống: Yêu cầu Header 'Authorization: Bearer <JWT_TOKEN>' 
   "fullName": "Nguyễn Văn A",
   "agency": "Văn phòng Tỉnh ủy",
   "role": "ROLE_USER",
-  "creditBalance": 350,
+  "monthly": {
+  "allocated": 350,
+  "remaining": 350
+  },
+  "purchased": {
+    "balance": 0
+  }
   "packageType": "PROFESSIONAL",
   "expireDate": "2026-12-25T23:59:59",
   "affiliate": {

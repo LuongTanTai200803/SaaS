@@ -45,6 +45,7 @@ public class PaymentBankConfigService {
 
     @Transactional
     public PaymentBankConfigDTO create(PaymentBankConfigRequest req) {
+        validateRequest(req);
         PaymentBankConfig e = PaymentBankConfig.builder()
                 .bankCode(req.getBankCode())
                 .accountNumber(req.getAccountNumber())
@@ -70,6 +71,7 @@ public class PaymentBankConfigService {
 
     @Transactional
     public PaymentBankConfigDTO update(Long id, PaymentBankConfigRequest req) {
+        validateRequest(req);
         PaymentBankConfig e = repo.findById(id).orElseThrow(() -> new IllegalArgumentException("Config not found: " + id));
         e.setBankCode(req.getBankCode());
         e.setAccountNumber(req.getAccountNumber());
@@ -113,5 +115,34 @@ public class PaymentBankConfigService {
                     c.setUpdatedAt(LocalDateTime.now());
                     repo.save(c);
                 });
+    }
+
+    private void validateRequest(PaymentBankConfigRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException(
+                    "Request không được null"
+            );
+        }
+
+        if (request.getBankCode() == null
+                || request.getBankCode().isBlank()) {
+            throw new IllegalArgumentException(
+                    "bankCode không được để trống"
+            );
+        }
+
+        if (request.getAccountNumber() == null
+                || request.getAccountNumber().isBlank()) {
+            throw new IllegalArgumentException(
+                    "accountNumber không được để trống"
+            );
+        }
+
+        if (request.getAccountName() == null
+                || request.getAccountName().isBlank()) {
+            throw new IllegalArgumentException(
+                    "accountName không được để trống"
+            );
+        }
     }
 }

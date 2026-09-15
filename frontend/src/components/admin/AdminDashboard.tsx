@@ -57,115 +57,165 @@ export function AdminDashboard() {
     }
   };
 
-  return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden">
-      {/* Sidebar */}
-      <aside
-        className={`${
-          sidebarOpen ? 'w-[280px]' : 'w-0'
-        } bg-slate-950 border-r border-slate-800 transition-all duration-300 overflow-hidden flex flex-col`}
-      >
-        {/* Logo */}
-        <div className="h-16 px-6 flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center">
-              <Cpu size={18} className="text-cyan-300" />
-            </div>
-              <span className="font-bold text-lg text-slate-100">Quản trị AI</span>
+ return (
+  <div className="flex h-screen bg-white text-slate-900 overflow-hidden">
+    {/* Sidebar */}
+    <aside
+      className={`${
+        sidebarOpen ? 'w-[280px]' : 'w-0'
+      } bg-white transition-all duration-300 overflow-hidden flex flex-col`}
+    >
+      {/* Logo */}
+      <div className="h-16 px-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-sm">
+            <Cpu size={18} className="text-white" />
           </div>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden p-1 hover:bg-slate-800 rounded"
-          >
-            <X size={20} className="text-slate-100" />
-          </button>
+
+          <span className="font-bold text-lg text-slate-900">
+            Quản trị AI
+          </span>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {sidebarItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setCurrentPage(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
+        >
+          <X size={20} className="text-slate-600" />
+        </button>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-1">
+        {sidebarItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setCurrentPage(item.id)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              currentPage === item.id
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <span
+              className={
                 currentPage === item.id
-                  ? 'bg-slate-800 text-slate-100 border border-slate-700'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'
-              }`}
+                  ? 'text-blue-600'
+                  : 'text-slate-400'
+              }
             >
               {item.icon}
-              <span className="font-medium text-sm">{item.label}</span>
-            </button>
-          ))}
-        </nav>
+            </span>
 
-        {/* User Profile (Moved to header for better visibility and consistency) */}
-        <div className="p-4 border-t border-slate-800">
-          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-900 transition-colors group">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-slate-700 flex items-center justify-center text-white font-semibold text-sm">
+            <span className="font-medium text-sm">
+              {item.label}
+            </span>
+          </button>
+        ))}
+      </nav>
+
+      {/* User Profile */}
+      <div className="p-4">
+        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors group">
+          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
+            A
+          </div>
+
+          <div className="flex-1 text-left">
+            <div className="text-sm font-medium text-slate-800">
+              Admin User
+            </div>
+
+            <div className="text-xs text-slate-500">
+              admin@example.com
+            </div>
+          </div>
+
+          <LogOut
+            size={16}
+            className="text-slate-400 group-hover:text-slate-600"
+          />
+        </button>
+      </div>
+    </aside>
+
+    {/* Main Content */}
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header */}
+      <header className="h-16 bg-white px-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <Menu size={20} className="text-slate-600" />
+          </button>
+
+          {/* Home Button */}
+          <button
+            onClick={() => navigate('/')}
+            className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors"
+          >
+            Về trang chủ
+          </button>
+
+          {/* Global Search */}
+          <div className="relative">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+
+            <input
+              type="text"
+              placeholder="Tìm kiếm người dùng, giao dịch, nhật ký..."
+              className="w-[400px] pl-10 pr-4 py-2 bg-slate-50 border-0 rounded-lg text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white transition-all"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {/* System Health */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg">
+            <Circle
+              size={8}
+              className="fill-emerald-500 text-emerald-500 animate-pulse"
+            />
+
+            <span className="text-xs font-medium text-emerald-700">
+              API Online
+            </span>
+          </div>
+
+          {/* Admin Profile Dropdown */}
+          <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
               A
             </div>
-            <div className="flex-1 text-left">
-              <div className="text-sm font-medium text-slate-100">Admin User</div>
-              <div className="text-xs text-slate-400">admin@example.com</div>
+
+            <div className="flex-1 text-left hidden md:block">
+              <div className="text-sm font-medium text-slate-800">
+                Quản trị viên
+              </div>
+
+              <div className="text-xs text-slate-500">
+                admin@example.com
+              </div>
             </div>
-            <LogOut size={16} className="text-slate-400 group-hover:text-red-400" />
+
+            <ChevronDown
+              size={16}
+              className="text-slate-400"
+            />
           </button>
         </div>
-      </aside>
+      </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header (Adjusted for dark slate theme) */}
-        <header className="h-16 bg-slate-950 border-b border-slate-800 px-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-            >
-              <Menu size={20} className="text-slate-100" />
-            </button>
-
-            {/* Home Button */}
-            <button
-              onClick={() => navigate('/')}
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-lg text-sm font-medium transition-colors"
-            >
-              Về trang chủ
-            </button>
-            {/* Global Search */}
-            <div className="relative">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input type="text" placeholder="Tìm kiếm người dùng, giao dịch, nhật ký..." className="w-[400px] pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-slate-100 placeholder:text-slate-500" />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* System Health */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-lg border border-slate-700">
-              <Circle size={8} className="fill-emerald-500 text-emerald-500 animate-pulse" />
-              <span className="text-xs font-medium text-slate-300">API Online</span>
-            </div>
-
-            {/* Admin Profile Dropdown */}
-            <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-900 rounded-lg transition-colors">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-slate-700 flex items-center justify-center text-white font-semibold text-sm">
-                A
-              </div>
-              <div className="flex-1 text-left hidden md:block">
-                <div className="text-sm font-medium text-slate-100">Quản trị viên</div>
-                <div className="text-xs text-slate-400">admin@example.com</div>
-              </div>
-              <ChevronDown size={16} className="text-slate-400" />
-            </button>
-          </div>
-        </header>
-
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-slate-950 p-6">
-          {renderContent()}
-        </main>
-      </div>
+      {/* Page Content */}
+      <main className="flex-1 overflow-auto bg-slate-50 p-6">
+        {renderContent()}
+      </main>
     </div>
-  );
+  </div>
+);
 }

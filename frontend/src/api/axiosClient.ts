@@ -65,3 +65,31 @@ ht.interceptors.response.use(
 );
 
 export default ht;
+
+export const getApiErrorMessage = (
+  error: unknown,
+  fallback = 'Đã xảy ra lỗi. Vui lòng thử lại.'
+): string => {
+  const apiError = error as {
+    response?: {
+      data?: {
+        message?: unknown;
+        error?: unknown;
+        data?: {
+          message?: unknown;
+        };
+      };
+    };
+    message?: unknown;
+  };
+
+  const message =
+    apiError.response?.data?.message ??
+    apiError.response?.data?.data?.message ??
+    apiError.response?.data?.error ??
+    apiError.message;
+
+  return typeof message === 'string' && message.trim()
+    ? message
+    : fallback;
+};

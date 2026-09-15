@@ -55,7 +55,6 @@ class FileServiceQuotaTest {
         AdminPackageConfig freePackage = AdminPackageConfig.builder()
                 .packageType("FREE")
                 .price(0L)
-                .creditLimit(0.0)
                 .storageQuotaMb(1L)
                 .build();
 
@@ -63,7 +62,6 @@ class FileServiceQuotaTest {
                 .userId(testUserId) // 🎯 ĐÃ SỬA
                 .email("test@example.com")
                 .fullName("Test User")
-                .creditBalance(10.0)
                 .adminPackageConfig(freePackage) // 🎯 ĐÃ SỬA: Gán qua Object liên kết ngoại
                 .build();
 

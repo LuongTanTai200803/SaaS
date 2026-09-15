@@ -54,6 +54,38 @@ export function Navbar({ onNavigate, onOpenBilling }: NavbarProps) {
     onNavigate(page, assistantId);
   };
 
+  // ========================
+  // User credit summary
+  // ========================
+  const [totalCredits, setTotalCredits] = useState<number | null>(null);
+
+useEffect(() => {
+  if (!isLoggedIn) {
+    setTotalCredits(null);
+    return;
+  }
+
+  const loadCredits = async () => {
+    try {
+      const response = await api.userApi.getCreditSummary();
+      const summary = response?.data;
+
+      const monthlyCredits = Number(summary?.monthly?.remaining ?? 0);
+      const purchasedCredits = Number(summary?.purchased?.balance ?? 0);
+
+      setTotalCredits(monthlyCredits + purchasedCredits);
+    } catch (error) {
+      console.error('[Navbar] Không thể tải số dư credit:', error);
+      setTotalCredits(0);
+    }
+  };
+
+  loadCredits();
+}, [isLoggedIn]);
+// ========================
+// Scroll to pricing section
+// ========================
+
   const scrollToPricing = () => {
     const target = document.getElementById('pricing');
 

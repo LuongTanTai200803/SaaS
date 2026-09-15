@@ -6,6 +6,8 @@ import com.saasai.entity.BillingInvoice;
 import com.saasai.entity.CreditTransaction;
 import com.saasai.entity.User;
 import com.saasai.feature.payment.BillingService;
+import com.saasai.feature.payment.CreditAccount;
+import com.saasai.feature.payment.MonthlyQuotaPolicy;
 import com.saasai.repository.BillingInvoiceRepository;
 import com.saasai.repository.CreditTransactionRepository;
 import com.saasai.repository.UserRepository;
@@ -38,6 +40,9 @@ class BillingServiceTest {
     @InjectMocks
     private BillingService billingService;
 
+    @Mock
+    private MonthlyQuotaPolicy monthlyQuotaPolicy;
+
     private final String testUserId = "user-uuid-10293"; // 🎯 ĐÃ SỬA
     private final String testInvoiceId = "invoice-uuid-100"; // 🎯 ĐÃ SỬA
 
@@ -57,10 +62,19 @@ class BillingServiceTest {
 
         User user = User.builder()
                 .userId(testUserId) // 🎯 ĐÃ SỬA
-                .creditBalance(10.0)
                 .expireDate(LocalDateTime.now().minusDays(1))
                 .adminPackageConfig(config) // 🎯 ĐÃ SỬA: Nạp Object Config liên kết ngoại
                 .build();
+
+        CreditAccount account = CreditAccount.builder()
+        .userId(testUserId)
+        .user(user)
+        .monthlyQuotaRemaining(10.0)
+        .monthlyQuotaAllocated(10.0)
+        .purchasedCreditBalance(0.0)
+        .build();
+
+        user.setCreditAccount(account);
 
         BillingInvoice invoice = BillingInvoice.builder()
                 .invoiceId(testInvoiceId) // 🎯 ĐÃ SỬA
@@ -69,6 +83,7 @@ class BillingServiceTest {
                 .durationMonths(2)
                 .status(BillingInvoice.InvoiceStatus.PAID) // 🎯 ĐÃ SỬA
                 .build();
+
 
         when(billingInvoiceRepository.findById(testInvoiceId)).thenReturn(Optional.of(invoice));
         when(userRepository.findById(testUserId)).thenReturn(Optional.of(user));
@@ -79,13 +94,17 @@ class BillingServiceTest {
 
         billingService.processPaidInvoice(testInvoiceId);
 
-        assertThat(user.getCreditBalance()).isEqualTo(110.0);
         assertThat(user.getExpireDate()).isAfter(LocalDateTime.now().plusDays(59));
-        
+        assertThat(account.getMonthlyQuotaRemaining())
+        .isEqualTo(100.0);
+
         verify(creditTransactionRepository, times(1)).save(any(CreditTransaction.class));
 
         // Tái lập tính Idempotency
         billingService.processPaidInvoice(testInvoiceId);
+        
+        verify(monthlyQuotaPolicy)
+        .allocateSubscriptionCredits(user, config);
         verify(creditTransactionRepository, times(1)).save(any(CreditTransaction.class));
     }
 }

@@ -59,7 +59,7 @@ class ChatSessionControllerTest {
     void createSessionShouldReturnCreated() throws Exception {
         ChatSessionDTO session = ChatSessionDTO.builder()
                 .sessionUuid("502")
-                .tagId("dang_tinh_uy")
+                .assistantId(1)
                 .sessionName("Khởi tạo văn bản mới")
                 .currentEditorContent("")
                 .createdAt(LocalDateTime.now())
@@ -75,8 +75,8 @@ class ChatSessionControllerTest {
                                 "sessionName", "Khởi tạo văn bản mới"
                         ))))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.sessionId").value(502))
-                .andExpect(jsonPath("$.tagId").value("dang_tinh_uy"));
+                .andExpect(jsonPath("$.sessionUuid").value("502"))
+                .andExpect(jsonPath("$.assistantId").value(1));
     }
 
     @Test

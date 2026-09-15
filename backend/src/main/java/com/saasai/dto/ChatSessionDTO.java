@@ -15,6 +15,7 @@ public class ChatSessionDTO {
     private String currentEditorContent;
     private LocalDateTime createdAt;
     private String editorContent;
+    private Integer assistantId;
 
     
 }

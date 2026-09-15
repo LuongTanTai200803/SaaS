@@ -1,6 +1,7 @@
 package com.saasai.dto;
 
 import lombok.*;
+import java.util.List;
 
 import java.time.LocalDateTime;
 
@@ -40,4 +41,12 @@ public class UserCreditSummaryDTO {
         private LocalDateTime purchasedAt;
         private LocalDateTime expireAt;
     }
+
+    // thêm nested DTO
+    public static record InvoiceDTO(String invoiceId, String status, Long amount, LocalDateTime createdAt, String type) {}
+
+    // ở builder DTO
+    private List<InvoiceDTO> recentInvoices;
+    private long aiCallCount;
+
 }

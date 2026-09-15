@@ -8,12 +8,28 @@ CREATE TABLE IF NOT EXISTS admin_packages (
     price BIGINT NOT NULL,
     credit_limit DOUBLE NOT NULL,
     duration INT NOT NULL DEFAULT 30,
-    allowed_models JSON,
+    model_package_level INT,
     description VARCHAR(255),
     storage_quota_mb BIGINT,
     created_at DATETIME NOT NULL,
     updated_at DATETIME,
     UNIQUE INDEX idx_admin_packages_type (package_type)
+);
+
+-- =========================================================================
+-- 1.1 BẢNG CẤU HÌNH CÁC GÓI MODEL AI
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS ai_model_packages (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(100) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    credit_rate DOUBLE NOT NULL DEFAULT 1.0,
+    models JSON NOT NULL,
+    description VARCHAR(500),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME,
+    UNIQUE INDEX uk_ai_model_packages_code (code)
 );
 
 -- =========================================================================
@@ -27,13 +43,13 @@ CREATE TABLE IF NOT EXISTS users (
     agency VARCHAR(255),
     role VARCHAR(50) NOT NULL,
     package_id BIGINT,
-    credit_balance DOUBLE,
     expire_date DATETIME,
     affiliate_code VARCHAR(255),
     affiliate_link VARCHAR(255),
     total_earnings DOUBLE,
     created_at DATETIME NOT NULL,
     updated_at DATETIME,
+    last_login_at DATETIME,
     provider VARCHAR(20) DEFAULT 'LOCAL' NULL COMMENT 'LOCAL, GOOGLE, FACEBOOK...', -- Đã đổi thành NULL
     provider_id VARCHAR(255) COMMENT 'ID từ Google/Facebook',
     avatar_url VARCHAR(500) COMMENT 'Ảnh đại diện từ Google',
@@ -139,18 +155,43 @@ CREATE TABLE IF NOT EXISTS transactions (
 -- 8. BẢNG NHẬT KÝ GIAO DỊCH CREDITS (CREDIT_TRANSACTIONS)
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS credit_transactions (
+
     transaction_id CHAR(36) PRIMARY KEY,
+
     user_id CHAR(36) NOT NULL,
+
+    -- AI usage
+    model VARCHAR(255),
+    model_package_id BIGINT,
+    prompt_tokens INT,
+    completion_tokens INT,
+    total_tokens INT,
+
+    -- Credit pricing snapshot
     input_credit DOUBLE,
     output_credit DOUBLE,
+    credit_rate DOUBLE,
+    output_weight DOUBLE,
+
+    -- Credit lifecycle
     total_credit_hold DOUBLE,
     actual_credit_deducted DOUBLE,
     refunded_credit DOUBLE,
+
+    -- Transaction info
     type VARCHAR(50),
     description LONGTEXT,
+
     created_at DATETIME NOT NULL,
+
     INDEX idx_credit_transactions_user_id (user_id),
-    CONSTRAINT fk_credit_transactions_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    INDEX idx_credit_transactions_model_package_id (model_package_id),
+
+    CONSTRAINT fk_credit_transactions_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE
+
 );
 
 -- =========================================================================

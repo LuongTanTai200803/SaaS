@@ -1,6 +1,7 @@
 package com.saasai.config;
 
 import com.saasai.entity.User;
+import com.saasai.feature.payment.MonthlyQuotaPolicy;
 import com.saasai.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import com.saasai.entity.AdminPackageConfig;
 import com.saasai.repository.AdminPackageConfigRepository;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
@@ -17,7 +19,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 @Component
-@Profile("dev")
+@Profile({"dev", "prod"})
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
@@ -36,6 +38,9 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${app.admin.name}")
     private String adminName;
 
+    @Autowired
+    private MonthlyQuotaPolicy monthlyQuotaPolicy;
+
     @Override
     public void run(String... args) throws Exception {
         if (userRepository.findByEmail(adminEmail).isEmpty()) {
@@ -49,13 +54,14 @@ public class DataInitializer implements CommandLineRunner {
                     .fullName(adminName)
                     .agency("Ban Quản Trị Hệ Thống")
                     .role(User.UserRole.ROLE_ADMIN)
-                    .creditBalance(9999.0)
                     .adminPackageConfig(freePackage)
+                    .provider("KHÔNG CÓ")
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
                     .build();
 
-            userRepository.save(admin);
+            admin = userRepository.save(admin);
+            monthlyQuotaPolicy.allocateSubscriptionCredits(admin, freePackage);
 
             System.out.println("🚀 [DEV PROFILE] Khởi tạo thành công tài khoản mồi Admin: " + adminEmail);
         } else {

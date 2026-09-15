@@ -1,6 +1,8 @@
 package com.saasai.service;
 
-import com.saasai.admin.AdminController;
+import com.saasai.repository.BillingInvoiceRepository;
+import com.saasai.repository.CreditTransactionRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -11,22 +13,27 @@ import com.saasai.dto.DocumentDTO;
 import com.saasai.dto.PaginatedResponseDTO;
 import com.saasai.dto.UpdateUserProfileRequest;
 import com.saasai.dto.UserProfileDTO;
+import com.saasai.entity.BillingInvoice;
+import com.saasai.entity.CreditTransaction;
 import com.saasai.entity.FileMetadata;
 import com.saasai.entity.User;
 import com.saasai.repository.ChatSessionRepository;
 import com.saasai.repository.UserRepository;
+
+import org.springframework.transaction.annotation.Transactional;
+
 import com.saasai.repository.FileMetadataRepository;
 
 import com.saasai.dto.UserCreditSummaryDTO;
+import com.saasai.feature.payment.BillingInvoiceDTO;
 import com.saasai.feature.payment.CreditAccount;
+import com.saasai.feature.payment.CreditAccountRepository;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class UserService {
-        private final AdminController adminController;
-
         @Autowired
         private UserRepository userRepository;
 
@@ -36,9 +43,15 @@ public class UserService {
         @Autowired
         private FileMetadataRepository fileUploadRepository;
 
-        UserService(AdminController adminController) {
-            this.adminController = adminController;
-        }
+        @Autowired
+        private CreditAccountRepository creditAccountRepository;
+
+        @Autowired
+        private BillingInvoiceRepository billingInvoiceRepository;
+
+        @Autowired 
+        private CreditTransactionRepository creditTransactionRepository;
+
 
         public UserProfileDTO getUserProfileByEmail(String email) {
                 User user = userRepository.findByEmail(email)
@@ -53,7 +66,6 @@ public class UserService {
                                 .position(user.getPosition())
                                 .created_at(user.getCreatedAt())
                                 .role(user.getRole().toString())
-                                .creditBalance(user.getCreditBalance())
                                 .packageType(user.getAdminPackageConfig() != null
                                                 ? user.getAdminPackageConfig().toString()
                                                 : null)
@@ -76,7 +88,6 @@ public class UserService {
                                 .fullName(user.getFullName())
                                 .agency(user.getAgency())
                                 .role(user.getRole().toString())
-                                .creditBalance(user.getCreditBalance())
                                 .packageType(user.getAdminPackageConfig() != null
                                                 ? user.getAdminPackageConfig().toString()
                                                 : null)
@@ -146,15 +157,28 @@ public class UserService {
                                 .build();
         }
 
-        // Lấy thông tin tổng quan về credit của người dùng dựa trên email
+        // Lấy thông tin tóm tắt tín dụng của người dùng dựa trên email
+        @Transactional(readOnly = true)
         public UserCreditSummaryDTO getUserCreditSummaryByEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        CreditAccount account = user.getCreditAccount();
+        long aiCallCount = creditTransactionRepository.countByUser_UserIdAndType(
+                user.getUserId(), CreditTransaction.TransactionType.DEDUCT);
 
-        if (account == null) {
-                account = new CreditAccount();
+        List<CreditAccount> accounts = creditAccountRepository.findByUser(user);
+        CreditAccount account;
+        if (accounts.isEmpty()) {
+                account = CreditAccount.builder()
+                        .user(user)
+                        .userId(user.getUserId())
+                        .monthlyQuotaAllocated(0.0)
+                        .monthlyQuotaRemaining(0.0)
+                        .purchasedCreditBalance(0.0)
+                        .build();
+                account = creditAccountRepository.save(account);
+        } else {
+                account = accounts.get(0);
         }
 
         return UserCreditSummaryDTO.builder()
@@ -180,9 +204,54 @@ public class UserService {
                         .purchasedAt(account.getPurchasedCreditPurchasedAt())
                         .expireAt(account.getPurchasedCreditExpireAt())
                         .build())
+                .aiCallCount(aiCallCount)
                 .build();
         }
 
+        // helper mapper
+        private BillingInvoiceDTO mapToBillingInvoiceDTO(BillingInvoice inv) {
+        return BillingInvoiceDTO.builder()
+                .invoiceId(inv.getInvoiceId())
+                .userId(inv.getUser() != null ? inv.getUser().getUserId() : null)
+                .packageType(inv.getAdminPackageConfig() != null ? inv.getAdminPackageConfig().getPackageType() : null)
+                .durationMonths(inv.getDurationMonths())
+                .memoId(inv.getMemoId())
+                .originalAmount(inv.getOriginalAmount())
+                .discountAmount(inv.getDiscountAmount())
+                .finalAmount(inv.getFinalAmount())
+                .qrCodeUrl(inv.getQrCodeUrl())
+                .status(inv.getStatus() != null ? inv.getStatus().name() : null)
+                .createdAt(inv.getCreatedAt())
+                .paymentDate(inv.getPaymentDate())
+                .build();
+        }
+
+        // Lấy hóa đơn cụ thể của người dùng dựa trên userId và invoiceId
+        @Transactional(readOnly = true)
+        public BillingInvoiceDTO getInvoiceForUser(String userId, String invoiceId) {
+        BillingInvoice inv = billingInvoiceRepository
+                .findByInvoiceIdAndUser_UserId(invoiceId, userId)
+                .orElseThrow(() -> new RuntimeException("Invoice not found"));
+        return mapToBillingInvoiceDTO(inv);
+        }
+
+        // Lấy danh sách hóa đơn của người dùng với phân trang
+        @Transactional(readOnly = true)
+        public PaginatedResponseDTO<BillingInvoiceDTO> getUserInvoices(String userId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<BillingInvoice> p = billingInvoiceRepository.findByUser_UserIdOrderByCreatedAtDesc(userId, pageable);
+        List<BillingInvoiceDTO> items = p.getContent().stream()
+                .map(this::mapToBillingInvoiceDTO)
+                .collect(Collectors.toList());
+
+        return PaginatedResponseDTO.<BillingInvoiceDTO>builder()
+                .content(items)
+                .totalPages(p.getTotalPages())
+                .totalElements(p.getTotalElements())
+                .currentPage(page)
+                .pageSize(size)
+                .build();
+        }
         // Cập nhật thông tin hồ sơ người dùng dựa trên email và yêu cầu cập nhật
         public UserProfileDTO updateUserProfileByEmail(String email, UpdateUserProfileRequest request) {
         User user = userRepository.findByEmail(email)
@@ -222,7 +291,6 @@ public class UserService {
                 .position(user.getPosition())
                 .created_at(user.getCreatedAt())
                 .role(user.getRole() != null ? user.getRole().toString() : null)
-                .creditBalance(user.getCreditBalance())
                 .packageType(user.getAdminPackageConfig() != null
                         ? user.getAdminPackageConfig().getPackageType()
                         : null)
@@ -233,15 +301,6 @@ public class UserService {
                         .totalEarnings(user.getTotalEarnings())
                         .build())
                 .build();
-        }
-
-        public Double updateUserCredit(String userId, Double creditAmount) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
-                Double currentBalance = user.getCreditBalance() != null ? user.getCreditBalance() : 0.0;
-                user.setCreditBalance(currentBalance - creditAmount);
-                userRepository.save(user);
-                return user.getCreditBalance();
         }
 
         private String mapSessionStatus(com.saasai.entity.ChatSession.SessionStatus status) {

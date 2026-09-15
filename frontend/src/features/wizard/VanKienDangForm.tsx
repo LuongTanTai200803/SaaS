@@ -11,6 +11,7 @@ import { CreditEstimator } from '../../components/CreditEstimator';
 import { UploadingFile, uploadFileToServer, deleteFileFromServer } from '../../services/fileUpload';
 import { DocumentWorkspace } from '../../components/DocumentWorkspace';
 import { sessionApi } from '../../api/sessionAPi';
+import { getApiErrorMessage } from '../../api/axiosClient';
 
 interface VanKienDangFormProps {
   onGenerate?: (data: any) => void;
@@ -515,7 +516,7 @@ export function VanKienDangForm({
 
       const completeResult = await sessionApi.completeSession({
         sessionUuid: activeSessionUuid,
-        promptCommand: promptCommand,
+        userText: promptCommand,
         model: 'claude-sonnet-4.6',
       });
 
@@ -538,8 +539,10 @@ export function VanKienDangForm({
           formData
         }
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[Complete] failed:', error);
+
+      alert(getApiErrorMessage(error, 'Không thể tạo văn bản bằng AI. Vui lòng thử lại.'));
     } finally {
       setIsAiGenerating(false);
     }

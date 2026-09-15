@@ -3,6 +3,7 @@ package com.saasai.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import com.saasai.entity.ChatSession;
 
 @Entity
 @Table(name = "credit_transactions")
@@ -22,11 +23,44 @@ public class CreditTransaction {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    // =========================
+    // AI Usage
+    // =========================
+
+    @Column(name = "model", length = 255)
+    private String model;
+
+    @Column(name = "model_package_id")
+    private Long modelPackageId;
+
+    @Column(name = "prompt_tokens")
+    private Integer promptTokens;
+
+    @Column(name = "completion_tokens")
+    private Integer completionTokens;
+
+    @Column(name = "total_tokens")
+    private Integer totalTokens;
+
+    // =========================
+    // Credit pricing
+    // =========================
+
     @Column(name = "input_credit")
     private Double inputCredit;
 
     @Column(name = "output_credit")
     private Double outputCredit;
+
+    @Column(name = "credit_rate")
+    private Double creditRate;
+
+    @Column(name = "output_weight")
+    private Double outputWeight;
+
+    // =========================
+    // Credit lifecycle
+    // =========================
 
     @Column(name = "total_credit_hold")
     private Double totalCreditHold;
@@ -37,9 +71,12 @@ public class CreditTransaction {
     @Column(name = "refunded_credit")
     private Double refundedCredit;
 
-    // enum for transaction type
+    // =========================
+    // Transaction info
+    // =========================
+
     @Enumerated(EnumType.STRING)
-    @Column(length = 50)
+    @Column(name = "type", length = 50)
     private TransactionType type;
 
     @Column(columnDefinition = "LONGTEXT")
@@ -59,4 +96,8 @@ public class CreditTransaction {
         DEDUCT,
         REFUND
     }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "session_id")
+    private ChatSession session;
 }

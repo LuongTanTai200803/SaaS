@@ -4,23 +4,31 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.saasai.feature.ai.AiCompletionRequestDTO;
+import com.saasai.dto.CreditSettleRequestDTO;
 import com.saasai.dto.DocumentFormDTO;
 import com.saasai.dto.ModelRoute;
 import com.saasai.feature.ai.AiProviderResultDTO;
 import com.saasai.entity.ChatSession;
 import com.saasai.entity.ChatSession.SessionStatus;
+import com.saasai.entity.CreditTransaction;
 import com.saasai.entity.FileMetadata;
 import com.saasai.entity.User;
 import com.saasai.feature.ai.client.OpenRouterClient;
 import com.saasai.feature.ai.openrouter.OpenRouterMessageDTO;
 import com.saasai.feature.ai.openrouter.OpenRouterRequestDTO;
+import com.saasai.feature.payment.CreditAccountRepository;
 import com.saasai.repository.ChatSessionRepository;
+import com.saasai.repository.UserRepository;
 import com.saasai.service.ChatSessionFileService;
 import com.saasai.service.ChatSessionService;
+import com.saasai.service.CreditPricingService;
+import com.saasai.service.CreditService;
 import com.saasai.service.DraftFileService;
 import com.saasai.service.FileTextService;
 import com.saasai.service.PackageRoutingService;
 import com.saasai.service.PromptBuilderService;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
@@ -47,6 +55,13 @@ public class AiCompletionService {
     private final FileTextService fileTextService;
     private final String promptTemplate;
 
+    private final CreditService creditService;
+
+    private final CreditPricingService creditPricingService;
+
+    @Autowired
+    private final UserRepository userRepository;
+
     public record AiPromptContext(
             AiTemplateContent templateContent,
             String promptTemplate,
@@ -65,7 +80,10 @@ public class AiCompletionService {
             ChatSessionService chatSessionService,
             ObjectMapper objectMapper,
             FileTextService fileTextService,
-            ResourceLoader resourceLoader
+            CreditService creditService,
+            CreditPricingService creditPricingService,
+            ResourceLoader resourceLoader,
+            UserRepository userRepository
     ) throws IOException {
 
         this.packageRoutingService = packageRoutingService;
@@ -78,6 +96,9 @@ public class AiCompletionService {
         this.chatSessionService = chatSessionService;
         this.objectMapper = objectMapper;
         this.fileTextService = fileTextService;
+        this.creditService = creditService;
+        this.creditPricingService = creditPricingService;
+        this.userRepository = userRepository;
 
         Resource resource = resourceLoader.getResource(
                 "classpath:ai-resources/global/Prompt_common.txt"
@@ -157,8 +178,8 @@ public class AiCompletionService {
         validateFormData(formData);
 
         // 7. Model
-        ModelRoute modelRoute =
-                packageRoutingService.resolveRoute(user);
+        String modelOption = input.getModel();
+        ModelRoute modelRoute = packageRoutingService.resolveRoute(user, modelOption);
 
         // 8 + 9 + 10. Template + file context
         AiPromptContext context =
@@ -281,7 +302,7 @@ public class AiCompletionService {
 
         // 6. Model
         ModelRoute modelRoute =
-                packageRoutingService.resolveRoute(user);
+                packageRoutingService.resolveRoute(user, input.getModel());
 
         // Gọi AI + save result + mark EDITING + response
         return executeAI(
@@ -529,6 +550,27 @@ public class AiCompletionService {
             List<OpenRouterMessageDTO> messages
     ) {
 
+        // compute hold
+        double baseHold = creditPricingService.getBaseHoldDefault();
+        double creditRate = modelRoute.creditRate() != null ? modelRoute.creditRate() : 1.0;
+        double outputWeight = creditPricingService.getOutputWeightDefault();
+        double holdAmount = creditPricingService.calculateHoldFromBaseHold(baseHold, creditRate);
+
+        // prepare hold DTO and create transaction
+        CreditSettleRequestDTO holdReq = new CreditSettleRequestDTO();
+        holdReq.setModel(null);
+        holdReq.setModelPackageId(modelRoute.modelPackageId());
+        holdReq.setCreditRate(creditRate);
+        holdReq.setOutputWeight(outputWeight);
+        holdReq.setEstimatedHold(holdAmount);
+        holdReq.setInputCredit(0.0);
+        holdReq.setOutputCredit(0.0);
+        holdReq.setDescription("AI HOLD - session " + session.getSessionUuid());
+        holdReq.setSessionUuid(session.getSessionUuid());
+        holdReq.setModel(modelRoute.primaryModel());
+
+        CreditTransaction holdTx = creditService.recordHoldTransactionWithSnapshot(user.getUserId(), session.getSessionId(), holdReq);
+
         // 12. Tạo OpenRouter request
         OpenRouterRequestDTO request =
                 new OpenRouterRequestDTO(
@@ -544,29 +586,58 @@ public class AiCompletionService {
                 objectMapper.writerWithDefaultPrettyPrinter()
                         .writeValueAsString(request);
 
-                System.out.println("=== OPENROUTER REQUEST ===");
-                System.out.println(requestJson);
-                System.out.println("=== END OPENROUTER REQUEST ===");
+        System.out.println("=== OPENROUTER REQUEST ===");
+        System.out.println(requestJson);
+        System.out.println("=== END OPENROUTER REQUEST ===");
         } catch (Exception e) {
-                System.err.println("Không in được payload OpenRouter: " + e.getMessage());
-                e.printStackTrace();
+        System.err.println("Không in được payload OpenRouter: " + e.getMessage());
+        e.printStackTrace();
         }
 
         // 13. Gọi AI
-        AiProviderResultDTO aiResult =
-                openRouterClient.complete(request);
-
-        if (aiResult == null) {
-            throw new IllegalStateException(
-                    "AI không trả về kết quả"
-            );
+        AiProviderResultDTO aiResult;
+        try {
+        aiResult = openRouterClient.complete(request);
+        } catch (Exception ex) {
+        // provider error -> refund full hold and rethrow
+        try {
+                creditService.refundHold(holdTx.getTransactionId());
+        } catch (Exception ignore) {}
+        throw ex;
         }
 
-        // 14. Lưu kết quả AI
+        if (aiResult == null) {
+        // provider returned null -> refund and fail
+        try {
+                creditService.refundHold(holdTx.getTransactionId());
+        } catch (Exception ignore) {}
+        throw new IllegalStateException("AI không trả về kết quả");
+        }
+
+        // 14. On success: compute pricing and settle
+        long promptTokens = aiResult.promptTokens();
+        long completionTokens = aiResult.completionTokens();
+        long totalTokens = aiResult.totalTokens();
+
+        double baseCredit = creditPricingService.calculateBaseCredit(promptTokens, completionTokens, outputWeight);
+        double actualCredit = creditPricingService.calculateActualCredit(baseCredit, creditRate);
+
+        // settle (updates same transaction, deducts actual credit and sets refunded)
+        creditService.settleTransaction(
+                holdTx.getTransactionId(),
+                promptTokens,
+                completionTokens,
+                totalTokens,
+                actualCredit,
+                aiResult.model()
+        );
+
+        // save model into transaction if needed (ensure settleTransaction handles model persist)
+        // Chuyển session sang EDITING (save result)
         if (aiResult.content() != null
                 && !aiResult.content().isBlank()) {
 
-            try {
+        try {
 
                 chatSessionService.saveAiResult(
                         session.getSessionId(),
@@ -574,7 +645,7 @@ public class AiCompletionService {
                         aiResult.content()
                 );
 
-            } catch (Exception e) {
+        } catch (Exception e) {
 
                 System.err.println(
                         "Không thể lưu kết quả AI vào session "
@@ -582,10 +653,9 @@ public class AiCompletionService {
                                 + ": "
                                 + e.getMessage()
                 );
-            }
+        }
         }
 
-        // Chuyển session sang EDITING
         SessionStatus sessionStatus =
                 chatSessionService.markEditing(
                         session.getSessionId(),
@@ -602,7 +672,7 @@ public class AiCompletionService {
                 .totalTokens(aiResult.totalTokens())
                 .sessionStatus(sessionStatus)
                 .build();
-    }
+        }
 
     // =========================================================
     // VALIDATION

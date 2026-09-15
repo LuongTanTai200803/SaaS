@@ -1,6 +1,7 @@
 package com.saasai.feature.payment;
 
-
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import com.saasai.entity.*;
@@ -12,100 +13,80 @@ import java.time.ZoneId;
 
 @Component
 public class MonthlyQuotaPolicy implements CreditAllocationPolicy {
+        @PersistenceContext
+        private EntityManager entityManager;
+
     private final CreditAccountRepository creditAccountRepository;
 
     public MonthlyQuotaPolicy(CreditAccountRepository creditAccountRepository) { this.creditAccountRepository = creditAccountRepository; }
 
     @Override
     @Transactional
-    public void allocateSubscriptionCredits(
-            User user,
-            AdminPackageConfig pkg) {
+        public void allocateSubscriptionCredits(
+                User user,
+                AdminPackageConfig pkg
+        ) {
 
-        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
         if (pkg == null) {
-            throw new IllegalArgumentException(
-                    "Package không được null"
-            );
+                throw new IllegalArgumentException("Package không được null");
         }
 
-        // Lấy credit limit của gói subscription
+        LocalDateTime now =
+                LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+
         double monthly = pkg.getCreditLimit() == null
                 ? 0.0
                 : pkg.getCreditLimit();
 
-        CreditAccount acc = creditAccountRepository.findById(user.getUserId())
-                .orElse(
-                        CreditAccount.builder()
-                                .user(user)
-                                .monthlyQuotaAllocated(0.0)
-                                .monthlyQuotaRemaining(0.0)
-                                .purchasedCreditBalance(0.0)
-                                .build()
-                );
+        CreditAccount account = getOrCreateAccount(user);
 
-        // Reset quota tháng
-        acc.setMonthlyQuotaAllocated(monthly);
-        acc.setMonthlyQuotaRemaining(monthly);
+        account.setMonthlyQuotaAllocated(monthly);
+        account.setMonthlyQuotaRemaining(monthly);
+        account.setMonthlyQuotaCycleStart(now);
+        account.setMonthlyQuotaCycleEnd(now.plusMonths(1));
 
-        // Chu kỳ của quota hiện tại: 1 tháng
-        acc.setMonthlyQuotaCycleStart(now);
-        acc.setMonthlyQuotaCycleEnd(
-                now.plusMonths(1)
-        );
-
-        creditAccountRepository.save(acc);
-    }
+        creditAccountRepository.save(account);
+        }
 
     @Override
     @Transactional
-    public void allocateCreditPack(
-            User user,
-            double credits,
-            int durationDays) {
-
+        public void allocateCreditPack(
+                User user,
+                double credits,
+                int durationDays
+        ) {
         if (credits <= 0) {
-            throw new IllegalArgumentException(
-                    "Số credit phải lớn hơn 0"
-            );
+                throw new IllegalArgumentException(
+                        "Số credit phải lớn hơn 0"
+                );
         }
 
         if (durationDays <= 0) {
-            throw new IllegalArgumentException(
-                    "Thời hạn credit pack phải lớn hơn 0 ngày"
-            );
+                throw new IllegalArgumentException(
+                        "Thời hạn credit pack phải lớn hơn 0 ngày"
+                );
         }
 
-        CreditAccount acc = creditAccountRepository.findById(user.getUserId())
-                .orElse(
-                        CreditAccount.builder()
-                                .user(user)
-                                .build()
-                );
+        CreditAccount account = getOrCreateAccount(user);
 
-        // Lấy số credit hiện tại, nếu null thì mặc định 0.0
         double currentBalance =
-                acc.getPurchasedCreditBalance() == null
+                account.getPurchasedCreditBalance() == null
                         ? 0.0
-                        : acc.getPurchasedCreditBalance();
+                        : account.getPurchasedCreditBalance();
 
-        // Cộng credit
-        acc.setPurchasedCreditBalance(
+        account.setPurchasedCreditBalance(
                 currentBalance + credits
         );
 
-        // Thời điểm mua mới
-        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
-        acc.setPurchasedCreditPurchasedAt(now);
+        LocalDateTime now =
+                LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
-        // Reset expiry
-        acc.setPurchasedCreditExpireAt(
+        account.setPurchasedCreditPurchasedAt(now);
+        account.setPurchasedCreditExpireAt(
                 now.plusDays(durationDays)
         );
-
-        creditAccountRepository.save(acc);
-    }
+        }
 
     @Override
     @Transactional
@@ -151,4 +132,58 @@ public class MonthlyQuotaPolicy implements CreditAllocationPolicy {
 
         creditAccountRepository.save(acc);
     }
+
+    // Lấy CreditAccount của user, nếu chưa tồn tại thì tạo mới.
+    private CreditAccount getOrCreateAccount(User user) {
+
+    if (user == null || user.getUserId() == null) {
+        throw new IllegalArgumentException(
+                "User phải được lưu trước khi tạo CreditAccount"
+        );
+    }
+
+    User managedUser = entityManager.find(
+            User.class,
+            user.getUserId()
+    );
+
+    if (managedUser == null) {
+        throw new IllegalArgumentException(
+                "Không tìm thấy User: " + user.getUserId()
+        );
+    }
+
+    CreditAccount account = creditAccountRepository
+            .findById(managedUser.getUserId())
+            .orElse(null);
+
+    if (account == null) {
+
+        System.out.println(
+                "[CREDIT] Creating CreditAccount for userId="
+                        + managedUser.getUserId()
+        );
+
+        account = CreditAccount.builder()
+                .userId(managedUser.getUserId())
+                .user(managedUser)
+                .monthlyQuotaAllocated(0.0)
+                .monthlyQuotaRemaining(0.0)
+                .purchasedCreditBalance(0.0)
+                .build();
+
+        entityManager.persist(account);
+        entityManager.flush();
+
+    } else {
+
+        account.setUser(managedUser);
+        account.setUserId(managedUser.getUserId());
+    }
+
+    // Quan trọng: cập nhật quan hệ 2 chiều
+    managedUser.setCreditAccount(account);
+
+    return account;
+}
 }

@@ -49,15 +49,20 @@ public class ChatSessionController {
         }
 
         @GetMapping
-        public ResponseEntity<ApiResponseDTO<List<ChatSessionDTO>>> getSessions() {
-
+        public ResponseEntity<ApiResponseDTO<List<ChatSessionDTO>>> getSessions(
+                @RequestParam Integer assistantId
+        ) {
         List<ChatSessionDTO> sessions =
-                        chatSessionService.getSessionsByUser(currentUserId());
-
-                return ResponseEntity.ok(
-                        ApiResponseDTO.success(sessions)
+                chatSessionService.getSessionsByUser(
+                        currentUserId(),
+                        assistantId
                 );
-                }
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(sessions)
+        );
+        }
+        
         @DeleteMapping("/{sessionUuid}")
         public ResponseEntity<ApiResponseDTO<Object>> deleteSession(
                         @PathVariable String sessionUuid

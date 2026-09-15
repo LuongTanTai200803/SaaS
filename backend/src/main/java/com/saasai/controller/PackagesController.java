@@ -52,23 +52,20 @@ public class PackagesController {
     }
 
     private PackageDTO toDto(AdminPackageConfig cfg) {
-        List<String> allowedModels = Collections.emptyList();
-        if (cfg.getAllowedModels() != null && !cfg.getAllowedModels().isBlank()) {
-            try {
-                allowedModels = objectMapper.readValue(cfg.getAllowedModels(), new TypeReference<List<String>>() {});
-            } catch (Exception e) {
-                allowedModels = Collections.emptyList();
-            }
-        }
 
         Long price = cfg.getPrice();
+
         boolean isFree = price == null || price == 0L;
+
         String displayPrice;
+
         if (isFree) {
             displayPrice = "Miễn phí";
         } else {
             displayPrice = numberFormat.format(price) + " ₫";
-            if (cfg.getPackageCategory() == AdminPackageConfig.PackageCategory.SUBSCRIPTION) {
+
+            if (cfg.getPackageCategory()
+                    == AdminPackageConfig.PackageCategory.SUBSCRIPTION) {
                 displayPrice += "/tháng";
             }
         }
@@ -78,27 +75,26 @@ public class PackagesController {
             case CREDIT_PACK -> cfg.getDuration() + " ngày";
         };
 
-        // badge and canPurchase left for server/ADMIN logic; default values:
         String badge = null;
         Boolean canPurchase = true;
 
         return new PackageDTO(
-                cfg.getId(),
-                cfg.getPackageType(),
-                cfg.getPackageCategory() != null ? cfg.getPackageCategory().name() : null,
-                price,
-                displayPrice,
-                cfg.getCreditLimit(),
-                cfg.getDuration(),
-                durationHuman,
-                allowedModels,
-                cfg.getDescription(),
-                cfg.getStorageQuotaMb(),
-                isFree,
-                canPurchase,
-                cfg.getCreatedAt(),
-                cfg.getUpdatedAt(),
-                badge
+                    cfg.getId(),
+                    cfg.getPackageType(),
+                    cfg.getPackageCategory() != null ? cfg.getPackageCategory().name() : null,
+                    price,
+                    displayPrice,
+                    cfg.getCreditLimit(),
+                    cfg.getDuration(),
+                    durationHuman,
+                    cfg.getDescription(),
+                    cfg.getStorageQuotaMb(),
+                    isFree,
+                    canPurchase,
+                    cfg.getCreatedAt(),
+                    cfg.getUpdatedAt(),
+                    badge
         );
     }
+
 }

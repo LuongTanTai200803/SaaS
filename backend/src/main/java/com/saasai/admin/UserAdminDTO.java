@@ -7,6 +7,6 @@ public record UserAdminDTO(
     String email,
     String packageType,
     LocalDateTime expireDate,
-    Double credits,
+    Double creditsRemaining,
     String status // e.g. ACTIVE, SUSPENDED
 ) {}

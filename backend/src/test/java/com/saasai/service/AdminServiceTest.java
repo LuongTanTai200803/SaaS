@@ -29,21 +29,42 @@ class AdminServiceTest {
     private AdminService adminService;
 
     @Test
-    void getPackageConfig_shouldBackfillMissingQuota() {
-        AdminPackageConfig config = AdminPackageConfig.builder()
-                .packageType("FREE")
-                .price(0L)
-                .creditLimit(0.0)
-                .storageQuotaMb(null)
-                .build();
+    void getPackageConfig_shouldReturnExistingPackageConfig() {
+        AdminPackageConfig config = new AdminPackageConfig();
+        config.setPackageType("FREE");
+        config.setPackageCategory(
+                AdminPackageConfig.PackageCategory.SUBSCRIPTION
+        );
+        config.setPrice(0L);
+        config.setCreditLimit(0.0);
+        config.setDuration(30);
+        config.setStorageQuotaMb(100L);
 
         when(adminPackageConfigRepository.findByPackageType("FREE"))
                 .thenReturn(Optional.of(config));
-        when(adminPackageConfigRepository.save(config)).thenReturn(config);
 
-        AdminPackageConfig result = adminService.getPackageConfig("FREE");
+        AdminPackageConfig result =
+                adminService.getPackageConfig("FREE");
 
+        assertThat(result).isSameAs(config);
+        assertThat(result.getPackageType()).isEqualTo("FREE");
         assertThat(result.getStorageQuotaMb()).isEqualTo(100L);
-        verify(adminPackageConfigRepository).save(config);
+
+        verify(adminPackageConfigRepository)
+                .findByPackageType("FREE");
+    }
+
+    @Test
+    void getPackageConfig_shouldReturnNullWhenPackageDoesNotExist() {
+        when(adminPackageConfigRepository.findByPackageType("UNKNOWN"))
+                .thenReturn(Optional.empty());
+
+        AdminPackageConfig result =
+                adminService.getPackageConfig("UNKNOWN");
+
+        assertThat(result).isNull();
+
+        verify(adminPackageConfigRepository)
+                .findByPackageType("UNKNOWN");
     }
 }

@@ -41,4 +41,26 @@ public class UserAdminController {
         adminService.deleteUser(userId);
         return ResponseEntity.ok(ApiResponseDTO.success("Deleted", null));
     }
+
+    @GetMapping("/{userId}/payments")
+    public ResponseEntity<ApiResponseDTO<List<UserPaymentHistoryDTO>>>
+    listUserPayments(@PathVariable String userId) {
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "OK",
+                        adminService.listUserPayments(userId)
+                )
+        );
+    }
+
+    @GetMapping("/{userId}/ai-usage")
+    public ResponseEntity<ApiResponseDTO<List<UserAiUsageDTO>>>
+    listUserAiUsage(@PathVariable String userId) {
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "OK",
+                        adminService.listUserAiUsage(userId)
+                )
+        );
+    }
 }

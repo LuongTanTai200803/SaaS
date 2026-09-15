@@ -16,6 +16,7 @@ public class AdminPackageConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Loại gói (ví dụ: FREE, BASIC, PROFESSIONAL, ENTERPRISE)
     @Column(name = "package_type", unique = true, nullable = false)
     private String packageType;
 
@@ -37,8 +38,12 @@ public class AdminPackageConfig {
     @Column(name = "duration", nullable = false)
     private Integer duration;
 
-    @Column(columnDefinition = "JSON")
-    private String allowedModels;
+    /**
+     * Maximum allowed AI model package level.
+     * e.g. 1, 2, 3 (max allowed model package level)
+     */
+    @Column(name = "model_package_level")
+    private Integer modelPackageLevel; 
 
     private String description;
 
