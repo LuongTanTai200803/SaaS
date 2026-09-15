@@ -489,7 +489,7 @@ export function HomePage({ onNavigate, initialShowDashboard = false }: HomePageP
                   onClick={() => handleProtectedNavigate('wizard')}
                   className="px-8 py-3.5 bg-white text-[#1E3A8A] rounded-xl font-semibold hover:bg-gray-50 transition-colors shadow-lg"
                 >
-                  Dùng thử 3 lần miễn phí
+                  Dùng thử miễn phí
                 </button>
                 <button className="px-8 py-3.5 border-2 border-white/40 text-white rounded-xl font-semibold hover:bg-white/10 transition-colors">
                   Liên hệ tư vấn
