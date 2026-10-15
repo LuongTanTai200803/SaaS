@@ -2,6 +2,7 @@
 import ht from './axiosClient';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import type { PackageLevel } from './sessionAPi';
 
 export type FileCategory = 'INPUT_DIRECTIVE' | 'EVIDENCE' | 'CONTENT' | 'TEMPLATE' | 'RELATED' | 'LEGAL';
 
@@ -12,6 +13,25 @@ export type UploadFileResponse = {
   fileSize: number;
   category?: FileCategory;
 };
+
+export interface UploadConfig {
+  packageType: string;
+  modelPackageLevel: PackageLevel;
+  maxFileSize: number;
+  maxFiles: number;
+  maxText: number;
+  allowedExtensions: string[];
+  storageQuota: number;
+  usedStorage: number;
+  remainingStorage: number;
+}
+
+export interface SessionFile {
+  fileId: string;
+  fileName: string;
+  extractionStatus: 'PROCESSING' | 'EXTRACTED' | 'FAILED';
+  extractionError: string | null;
+}
 
 export const fileApi = {
   uploadFiles: (formData: FormData, onUploadProgress?: (progressEvent: any) => void) => {
@@ -36,4 +56,18 @@ export const fileApi = {
         Authorization: `Bearer ${localStorage.getItem('access_token')}`
       }
     }),
+    
+    scanDocumentBatch: (formData: FormData) =>
+    ht.post('/files/scan-documents/ai-text', formData, {
+      headers: { 'Content-Type': undefined },
+    }),
+
+    getUploadConfig: () =>
+    ht.get<UploadConfig>('/files/upload/config'),
+
+    getFilesBySession: (sessionUuid: string) =>
+    ht.get<SessionFile[]>('/files', {
+      params: { sessionUuid },
+    }),
+
 };

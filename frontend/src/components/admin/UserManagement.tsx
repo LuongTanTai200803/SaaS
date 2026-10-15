@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Edit, Ban, DollarSign, ChevronDown, MoreVertical, Clock } from 'lucide-react';
 import api  from '../../api';
+import { AdminUser } from '../../api/adminApi';
+import { CreditSummary } from '../../api/userApi';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
+
+interface User extends AdminUser {
+  displayName: string;
   avatar: string;
-  agency: string;
-  plan: 'Basic' | 'Pro' | 'Enterprise';
-  creditBalance: number;
-  creditLimit: number;
-  status: 'ACTIVE' | 'PENDING_VERIFY' | 'EXPIRED' | 'SUSPENDED';
-  lastActive: string;
 }
 
 const assistantHistory = [
@@ -30,37 +25,88 @@ const assistantHistory = [
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
 
+  const getUserInitials = (email: string, userId: string) => {
+    const source = email || userId;
+
+    return source
+      .split(/[\s@._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('');
+  };
+
+  const mapAdminUser = (
+    user: AdminUser,
+    creditSummary?: CreditSummary
+  ): User => ({
+    ...user,
+    displayName: user.email || user.userId,
+    avatar: getUserInitials(user.email, user.userId),
+    creditSummary,
+  });
+
+
+  // Fetch and map admin users to include displayName and avatar
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false;
 
-  const fetchUsers = async () => {
-    try {
-      const response = await api.adminApi.getUsers({
-        page: 0,
-        size: 20,
-      });
+    const fetchUsers = async () => {
+      try {
+        const response = await api.adminApi.getUsers({
+          page: 0,
+          size: 20,
+        });
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      const users = Array.isArray(response)
-        ? response
-        : response?.data ?? [];
+        const userList: AdminUser[] = Array.isArray(response)
+          ? response
+          : response?.data ?? [];
 
-      setUsers(users);
-    } catch (error) {
-      if (!cancelled) {
-        console.error('[UserManagement] Không thể tải users:', error);
-        setUsers([]);
+        const usersWithCreditSummary = await Promise.all(
+          userList.map(async (user) => {
+            try {
+              const creditResponse =
+                await api.adminApi.getUserCreditSummary(user.userId);
+
+              return mapAdminUser(
+                user,
+                creditResponse?.data ?? undefined
+              );
+            } catch (error) {
+              console.error(
+                `[UserManagement] Không thể tải credit của user ${user.userId}:`,
+                error
+              );
+
+              return mapAdminUser(user);
+            }
+          })
+        );
+
+        if (!cancelled) {
+          setUsers(usersWithCreditSummary);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            '[UserManagement] Không thể tải danh sách users:',
+            error
+          );
+          setUsers([]);
+        }
       }
-    }
-  };
+    };
 
-  fetchUsers();
+    fetchUsers();
 
-  return () => {
-    cancelled = true;
-  };
-}, []);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPlan, setFilterPlan] = useState<string>('all');
@@ -69,29 +115,32 @@ export function UserManagement() {
   const [selectedHistoryUserId, setSelectedHistoryUserId] = useState<string | null>(null);
 
 
-  const getPlanColor = (plan: string) => {
-    switch (plan) {
-      case 'Enterprise':
+  const getPlanColor = (packageType: string) => {
+    switch (packageType) {
+      case 'PREMIUM':
+      case 'ENTERPRISE':
         return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
-      case 'Pro':
-        return 'bg-slate-500/20 text-cyan-300 border-cyan-500/30';
-      case 'Basic':
+      case 'STANDARD':
+        return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
+      case 'FREE':
         return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
       default:
         return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
     }
   };
 
-  const getPlanLabel = (plan: string) => {
-    switch (plan) {
-      case 'Enterprise':
+  const getPlanLabel = (packageType: string) => {
+    switch (packageType) {
+      case 'FREE':
+        return 'Miễn phí';
+      case 'STANDARD':
+        return 'Tiêu chuẩn';
+      case 'PREMIUM':
+        return 'Cao cấp';
+      case 'ENTERPRISE':
         return 'Doanh nghiệp';
-      case 'Pro':
-        return 'Pro';
-      case 'Basic':
-        return 'Cơ bản';
       default:
-        return plan;
+        return packageType;
     }
   };
 
@@ -125,322 +174,436 @@ export function UserManagement() {
     }
   };
 
+  // Calculate the total credits for a user by summing the remaining monthly credits and purchased balance.
+  const getTotalCredits = (user: User) => {
+    return (
+      Number(user.creditSummary?.monthly.remaining ?? 0) +
+      Number(user.creditSummary?.purchased.balance ?? 0)
+    );
+  };
+
   const getCreditStatus = (user: User) => {
-    const ratio = user.creditLimit === 0 ? 0 : user.creditBalance / user.creditLimit;
-    if (ratio === 0) return 'zero';
-    if (ratio < 0.1) return 'low';
+    const totalCredits = getTotalCredits(user);
+
+    if (totalCredits <= 0) return 'zero';
+    if (totalCredits < 100) return 'low';
+
     return 'healthy';
   };
 
-  const matchesDepartment = (agency: string) => {
-    switch (filterDepartment) {
-      case 'ministry':
-        return agency.includes('Bộ');
-      case 'provincial':
-        return agency.includes('Tỉnh') || agency.includes('Sở');
-      case 'district':
-        return agency.includes('Quận') || agency.includes('Huyện');
-      case 'school_public':
-        return agency.includes('Trường');
-      case 'school_private':
-        return agency.includes('Tư thục');
-      default:
-        return true;
-    }
-  };
 
   const matchesCreditFilter = (user: User) => {
-    switch (filterCreditStatus) {
-      case 'low':
-        return getCreditStatus(user) === 'low';
-      case 'zero':
-        return getCreditStatus(user) === 'zero';
+  switch (filterCreditStatus) {
+    case 'zero':
+      return getTotalCredits(user) <= 0;
+    case 'low':
+      return getTotalCredits(user) > 0 && getTotalCredits(user) < 100;
+    default:
+      return true;
+  }
+};
+
+  // đồng bộ 
+  const matchesDepartment = (agency: string | null | undefined) => {
+    const normalizedAgency = agency?.toLowerCase() ?? '';
+
+    switch (filterDepartment) {
+      case 'ministry':
+        return normalizedAgency.includes('bộ');
+
+      case 'provincial':
+        return (
+          normalizedAgency.includes('tỉnh') ||
+          normalizedAgency.includes('sở')
+        );
+
+      case 'district':
+        return (
+          normalizedAgency.includes('quận') ||
+          normalizedAgency.includes('huyện')
+        );
+
+      case 'school_public':
+        return normalizedAgency.includes('trường');
+
+      case 'school_private':
+        return normalizedAgency.includes('tư thục');
+
       default:
         return true;
     }
   };
 
   const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPlan = filterPlan === 'all' || user.plan.toLowerCase() === filterPlan;
-    return matchesSearch && matchesPlan && matchesDepartment(user.agency) && matchesCreditFilter(user);
-  });
+  const query = searchQuery.toLowerCase();
 
-  const selectedHistoryUser = selectedHistoryUserId ? users.find((user) => user.id === selectedHistoryUserId) : null;
+  const matchesSearch =
+    user.displayName.toLowerCase().includes(query) ||
+    user.email.toLowerCase().includes(query) ||
+    user.userId.toLowerCase().includes(query);
+
+  const matchesPlan =
+    filterPlan === 'all' ||
+    user.packageType.toLowerCase() === filterPlan;
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between text-slate-100">
+    matchesSearch &&
+    matchesPlan &&
+    matchesDepartment(user.agency) &&
+    matchesCreditFilter(user)
+  );
+});
+  
+
+
+  const selectedHistoryUser = selectedHistoryUserId
+  ? users.find((user) => user.userId === selectedHistoryUserId)
+  : null;
+
+
+  return (
+  <div className="space-y-6">
+    {/* Page Header */}
+    <div className="flex items-center justify-between text-black">
+      <div>
+        <h1 className="text-2xl font-bold text-black">
+          Quản lý Người dùng & Đăng ký
+        </h1>
+        <p className="text-sm text-slate-600 mt-1">
+          Quản lý người dùng, credit và đăng ký
+        </p>
+      </div>
+
+      <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+        + Thêm người dùng mới
+      </button>
+    </div>
+
+    {/* Filters & Search */}
+    <div className="bg-white ring-1 ring-slate-200 rounded-xl p-4 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Search */}
+        <div className="md:col-span-2">
+          <div className="relative">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+            />
+
+            <input
+              type="text"
+              placeholder="Tìm theo tên, email hoặc ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black placeholder:text-slate-400"
+            />
+          </div>
+        </div>
+
+        {/* Filter by Plan */}
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Quản lý Người dùng & Đăng ký</h1>
-          <p className="text-sm text-slate-400 mt-1">Quản lý người dùng, credit và đăng ký</p>
-        </div>
-        <button className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors">
-          + Thêm người dùng mới
-        </button>
-      </div>
-
-      {/* Filters & Search */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Search */}
-          <div className="md:col-span-2">
-            <div className="relative">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="text"
-                placeholder="Tìm theo tên, email hoặc ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-slate-100 placeholder:text-slate-500"
-              />
-            </div>
-          </div>
-
-          {/* Filter by Plan */}
-          <div>
-            <select
-              value={filterPlan}
-              onChange={(e) => setFilterPlan(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 text-slate-100"
-            >
-              <option value="all">Tất cả gói</option>
-              <option value="basic">Cơ bản</option>
-              <option value="pro">Pro</option>
-              <option value="enterprise">Doanh nghiệp</option>
-            </select>
-          </div>
-
-          {/* Filter by Department */}
-          <div>
-            <select
-              value={filterDepartment}
-              onChange={(e) => setFilterDepartment(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 text-slate-100"
-            >
-              <option value="all">Tất cả đơn vị</option>
-              <optgroup label="Cơ quan">
-                <option value="ministry">Bộ</option>
-                <option value="provincial">Tỉnh/TP</option>
-                <option value="district">Quận/Huyện</option>
-              </optgroup>
-              <optgroup label="Trường học">
-                <option value="school_public">Trường công lập</option>
-                <option value="school_private">Trường tư thục</option>
-              </optgroup>
-            </select>
-          </div>
-
-          <div>
-            <select
-              value={filterCreditStatus}
-              onChange={(e) => setFilterCreditStatus(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 text-slate-100"
-            >
-              <option value="all">Tất cả tình trạng tín dụng</option>
-              <option value="low">Sắp hết hạn {'<10%'} </option>
-              <option value="zero">Đã hết Credits (0%)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Data Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-slate-800/50 border-b border-slate-700">
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Người dùng
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Đơn vị
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Gói
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Số dư credit
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Trạng thái
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Hành động
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-800/50 transition-colors">
-                    {/* User Info */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-slate-700 flex items-center justify-center text-white font-semibold">
-                          {user.avatar}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-slate-100">{user.name}</div>
-                          <div className="text-xs text-slate-400">{user.email}</div>
-                        </div>
-                      </div>
-                    </td>
-
-                  {/* Agency */}
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-slate-300">{user.agency}</div>
-                    <div className="text-xs text-slate-400">ID: {user.id}</div>
-                  </td>
-
-                  {/* Plan */}
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${getPlanColor(user.plan)}`}>
-                      {getPlanLabel(user.plan)}
-                    </span>
-                  </td>
-
-                  {/* Credit Balance */}
-                  <td className="px-6 py-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400">
-                          {user.creditBalance.toLocaleString()} / {user.creditLimit.toLocaleString()}
-                        </span>
-                        <span className="text-slate-400">
-                          {Math.round((user.creditBalance / user.creditLimit) * 100)}%
-                        </span>
-                      </div>
-                      <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all ${
-                            user.creditBalance / user.creditLimit > 0.7
-                              ? 'bg-green-500'
-                              : user.creditBalance / user.creditLimit > 0.3
-                              ? 'bg-yellow-500'
-                              : 'bg-red-500'
-                          }`}
-                          style={{ width: `${(user.creditBalance / user.creditLimit) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Status */}
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(user.status)}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${
-                        user.status === 'ACTIVE' ? 'bg-green-500' : user.status === 'PENDING_VERIFY' ? 'bg-sky-500' : user.status === 'EXPIRED' ? 'bg-orange-500' : 'bg-rose-500'
-                      }`} />
-                      {getStatusLabel(user.status)}
-                    </span>
-                  </td>
-
-                  {/* Actions */}
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-slate-100"
-                        title="Chỉnh sửa người dùng"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-green-400"
-                        title="Nạp thêm credit"
-                      >
-                        <DollarSign size={16} />
-                      </button>
-                      <button
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-amber-300"
-                        title="Xem lịch sử hoạt động"
-                        onClick={() => setSelectedHistoryUserId(user.id)}
-                      >
-                        <Clock size={16} />
-                      </button>
-                      <button
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-red-400"
-                        title="Khóa tài khoản"
-                      >
-                        <Ban size={16} />
-                      </button>
-                      <button
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300"
-                        title="Thêm hành động"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                    Không tìm thấy người dùng phù hợp với bộ lọc hiện tại.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <select
+            value={filterPlan}
+            onChange={(e) => setFilterPlan(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+          >
+            <option value="all">Tất cả gói</option>
+            <option value="free">FREE</option>
+            <option value="standard">STANDARD</option>
+            <option value="premium">PREMIUM</option>
+            <option value="enterprise">ENTERPRISE</option>
+          </select>
         </div>
 
-        {selectedHistoryUserId && (
-          <div className="bg-slate-950 border-t border-slate-800 p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-              <div>
-                <p className="text-lg font-semibold text-slate-100">Lịch sử tài liệu gần nhất của {selectedHistoryUser?.name ?? 'người dùng'}</p>
-                <p className="text-sm text-slate-400">
-                  Danh sách văn bản mà người dùng đã tạo với 9 trợ lý AI để minh bạch dữ liệu.
-                </p>
-              </div>
-              <button
-                className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
-                onClick={() => setSelectedHistoryUserId(null)}
-              >
-                Đóng lịch sử
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {assistantHistory.map((entry) => (
-                <div key={`${entry.assistant}-${entry.document}`} className="rounded-3xl border border-slate-800 bg-slate-900 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{entry.assistant}</p>
-                  <p className="mt-3 text-sm font-semibold text-slate-100">{entry.document}</p>
-                  <p className="mt-2 text-xs text-slate-500">{entry.date}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Filter by Department */}
+        <div>
+          <select
+            value={filterDepartment}
+            onChange={(e) => setFilterDepartment(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+          >
+            <option value="all">Tất cả đơn vị</option>
 
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-between">
-          <div className="text-sm text-slate-400">
-            Hiển thị <span className="font-medium text-slate-300">1-{Math.max(1, filteredUsers.length)}</span> trong tổng số{' '}
-            <span className="font-medium text-slate-300">{filteredUsers.length}</span> người dùng
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-sm transition-colors">
-              Trước
-            </button>
-            <button className="px-3 py-1.5 bg-cyan-600 text-white rounded text-sm">1</button>
-            <button className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-sm transition-colors">
-              2
-            </button>
-            <button className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-sm transition-colors">
-              3
-            </button>
-            <button className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-sm transition-colors">
-              Sau
-            </button>
-          </div>
+            <optgroup label="Cơ quan">
+              <option value="ministry">Bộ</option>
+              <option value="provincial">Tỉnh/TP</option>
+              <option value="district">Quận/Huyện</option>
+            </optgroup>
+
+            <optgroup label="Trường học">
+              <option value="school_public">Trường công lập</option>
+              <option value="school_private">Trường tư thục</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div>
+          <select
+            value={filterCreditStatus}
+            onChange={(e) => setFilterCreditStatus(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+          >
+            <option value="all">Tất cả tình trạng tín dụng</option>
+            <option value="low">Sắp hết hạn {'<10%'}</option>
+            <option value="zero">Đã hết Credits (0%)</option>
+          </select>
         </div>
       </div>
     </div>
-  );
+
+    {/* Data Table */}
+    <div className="bg-white ring-1 ring-slate-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+      <tr className="bg-slate-100 border-b border-slate-200">
+        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+          Người dùng
+        </th>
+
+        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+          Thông tin
+        </th>
+
+        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+          Gói
+        </th>
+          {/* Total Credit */}
+
+        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+          Số dư credit
+        </th>
+
+        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+          Trạng thái
+        </th>
+
+        <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+          Hành động
+        </th>
+      </tr>
+    </thead>
+
+          <tbody className="divide-y divide-slate-200">
+            {filteredUsers.length > 0 ? (
+              filteredUsers.map((user) => (
+                <tr
+                  key={user.userId}
+                  className="hover:bg-slate-50 transition-colors"
+                >
+                  {/* User Info */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-semibold">
+                        {user.avatar}
+                      </div>
+
+                      <div>
+                        <div className="text-sm font-medium text-black">
+                          {user.displayName}
+                        </div>
+
+                        <div className="text-xs text-slate-600">
+                          {user.email}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Agency and Expiration Info */}
+                 <td className="px-6 py-4">
+                  <div className="text-sm text-slate-800">
+                    {user.agency || 'Chưa cập nhật đơn vị'}
+                  </div>
+
+                  <div className="text-xs text-slate-600">
+                    ID: {user.userId}
+                  </div>
+
+                  <div className="text-xs text-slate-600">
+                    Hết hạn:{' '}
+                    {user.expireDate
+                      ? new Date(user.expireDate).toLocaleDateString('vi-VN')
+                      : 'Không có thời hạn'}
+                  </div>
+                </td>
+
+                  {/* Plan */}
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${getPlanColor(
+                          user.packageType
+                        )}`}
+                      >
+                        {getPlanLabel(user.packageType)}
+                      </span>
+                    </td>
+
+                    {/* Total Credit */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-semibold text-slate-800">
+                        {getTotalCredits(user).toLocaleString('vi-VN')} credits
+                      </div>
+
+                      <div className="text-xs text-slate-500">
+                        Monthly:{' '}
+                        {Number(user.creditSummary?.monthly?.remaining ?? 0).toLocaleString(
+                          'vi-VN'
+                        )}
+                      </div>
+
+                      <div className="text-xs text-slate-500">
+                        Đã nạp:{' '}
+                        {Number(user.creditSummary?.purchased?.balance ?? 0).toLocaleString(
+                          'vi-VN'
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(
+                          user.status
+                        )}`}
+                      >
+                        <div
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            user.status === 'ACTIVE'
+                              ? 'bg-green-500'
+                              : user.status === 'PENDING_VERIFY'
+                              ? 'bg-sky-500'
+                              : user.status === 'EXPIRED'
+                              ? 'bg-orange-500'
+                              : 'bg-rose-500'
+                          }`}
+                        />
+
+                        {getStatusLabel(user.status)}
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-green-600"
+                          title="Nạp thêm credit"
+                        >
+                          <DollarSign size={16} />
+                        </button>
+
+                        <button
+                          className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-amber-600"
+                          title="Xem lịch sử hoạt động"
+                          onClick={() => setSelectedHistoryUserId(user.userId)}
+                        >
+                          <Clock size={16} />
+                        </button>
+                      </div>
+                    </td>
+
+                
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-6 py-12 text-center text-slate-600"
+                >
+                  Không tìm thấy người dùng phù hợp với bộ lọc hiện tại.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* User History */}
+      {selectedHistoryUserId && (
+        <div className="bg-slate-50 border-t border-slate-200 p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div>
+              <p className="text-lg font-semibold text-black">
+                Lịch sử tài liệu gần nhất của{' '}
+                {selectedHistoryUser?.displayName ?? 'người dùng'}
+              </p>
+
+              <p className="text-sm text-slate-600">
+                Danh sách văn bản mà người dùng đã tạo với 9 trợ lý AI để
+                minh bạch dữ liệu.
+              </p>
+            </div>
+
+            <button
+              className="inline-flex items-center gap-2 rounded-full bg-white ring-1 ring-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+              onClick={() => setSelectedHistoryUserId(null)}
+            >
+              Đóng lịch sử
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {assistantHistory.map((entry) => (
+              <div
+                key={`${entry.assistant}-${entry.document}`}
+                className="rounded-2xl ring-1 ring-slate-200 bg-white p-4 shadow-sm"
+              >
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  {entry.assistant}
+                </p>
+
+                <p className="mt-3 text-sm font-semibold text-black">
+                  {entry.document}
+                </p>
+
+                <p className="mt-2 text-xs text-slate-600">
+                  {entry.date}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+        <div className="text-sm text-slate-600">
+          Hiển thị{' '}
+          <span className="font-medium text-black">
+            1-{Math.max(1, filteredUsers.length)}
+          </span>{' '}
+          trong tổng số{' '}
+          <span className="font-medium text-black">
+            {filteredUsers.length}
+          </span>{' '}
+          người dùng
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button className="px-3 py-1.5 bg-white ring-1 ring-slate-300 hover:bg-slate-100 text-slate-700 rounded text-sm transition-colors">
+            Trước
+          </button>
+
+          <button className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm shadow-sm">
+            1
+          </button>
+
+          <button className="px-3 py-1.5 bg-white ring-1 ring-slate-300 hover:bg-slate-100 text-slate-700 rounded text-sm transition-colors">
+            2
+          </button>
+
+          <button className="px-3 py-1.5 bg-white ring-1 ring-slate-300 hover:bg-slate-100 text-slate-700 rounded text-sm transition-colors">
+            3
+          </button>
+
+          <button className="px-3 py-1.5 bg-white ring-1 ring-slate-300 hover:bg-slate-100 text-slate-700 rounded text-sm transition-colors">
+            Sau
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 }

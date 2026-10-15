@@ -1,17 +1,30 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   FileText, Upload, Calendar, ChevronDown, Info,
-  CheckCircle2, ArrowRight, ArrowLeft, Sparkles, X, File, Eye
+  CheckCircle2, ArrowRight, ArrowLeft, Sparkles, X, File, Eye, Maximize2 
 } from 'lucide-react';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import { toast } from 'sonner';
+
+
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { ContextualHelpPanel } from '../../components/ContextualHelpPanel';
-import { fileApi } from '../../api/fileApi';
+import { fileApi, UploadConfig } from '../../api/fileApi';
 import { CreditEstimator } from '../../components/CreditEstimator';
-import { UploadingFile, uploadFileToServer, deleteFileFromServer } from '../../services/fileUpload';
+import { UploadingFile, uploadFileToServer, ExtractionStatus, } from '../../services/fileUpload';
 import { DocumentWorkspace } from '../../components/DocumentWorkspace';
-import { sessionApi } from '../../api/sessionAPi';
+import { sessionApi, DEFAULT_PACKAGE_LEVEL, } from '../../api/sessionAPi';
 import { getApiErrorMessage } from '../../api/axiosClient';
+import type { PackageLevel } from '../../api/sessionAPi';
+
+
 
 interface VanKienDangFormProps {
   onGenerate?: (data: any) => void;
@@ -23,7 +36,7 @@ interface VanKienDangFormProps {
 }
 
 type MenuSection = 1 | 2 | 3 | 4 | 5 | 6;
-export type FileCategory = 'DIRECTIVE' | 'LEGAL' | 'CONTENT' | 'TEMPLATE' | 'RELATED' | 'EVIDENCE';
+export type FileCategory = 'DIRECTIVE' | 'LEGAL' | 'CONTENT' | 'TEMPLATE' | 'RELATED' | 'EVIDENCE' | 'OUTLINE';
 
 export const FIELD_CODE_BY_CATEGORY = {
   DIRECTIVE: "DIRECTIVE",
@@ -32,6 +45,7 @@ export const FIELD_CODE_BY_CATEGORY = {
   TEMPLATE: "TEMPLATE",
   RELATED: "REFERENCE",
   EVIDENCE: "STATISTICS",
+  OUTLINE: "OUTLINE",
   } as const satisfies Record<FileCategory, string>;
 
 export const CATEGORY_BY_FIELD_CODE = Object.fromEntries(
@@ -73,7 +87,7 @@ interface FormData {
   // Menu 3
   noiDungChinh: string;
   bangBieuSoLieu: string;
-  taiLieuMinhChungFileIds: string[];
+  taiLieuMinhChung: string;
 
   // Menu 4
   mauVanBan: string;
@@ -86,11 +100,13 @@ interface FormData {
   bamCanCu: boolean;
   theThuc: boolean;
 
+  fileID: string[];
+
   // Menu 6
   phongCach: string;
   doDai: string;
   mucDoHoanChinh: string;
-  selectedModel: string;
+  selectedModel: PackageLevel;
   outputSize: string;
 }
 
@@ -113,7 +129,41 @@ export function VanKienDangForm({
         : 1;
     };
 
+    // State for upload configuration
+    const [uploadConfig, setUploadConfig] = useState<UploadConfig | null>(null);
+
+
+    // Maximum package level based on the upload configuration
+    const maxPackageLevel: PackageLevel =
+    uploadConfig?.modelPackageLevel ?? DEFAULT_PACKAGE_LEVEL;
+
     const [currentMenu, setCurrentMenu] = useState<MenuSection>(getStepFromUrl());
+    
+    
+    useEffect(() => {
+      let cancelled = false;
+
+      const loadUploadConfig = async () => {
+        try {
+          const config = await fileApi.getUploadConfig();
+
+          if (!cancelled) {
+            setUploadConfig(config);
+          }
+        } catch (error) {
+          console.error('[Upload config] failed:', error);
+        }
+      };
+
+      loadUploadConfig();
+
+      return () => {
+        cancelled = true;
+      };
+    }, []);
+
+    // Sync the selected model in the form data with the upload configuration
+   
 
     const syncStepInUrl = (step: MenuSection) => {
       const params = new URLSearchParams(location.search);
@@ -136,6 +186,8 @@ export function VanKienDangForm({
     }, [location.search]);
 
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isTextExpanded, setIsTextExpanded] = useState(false);
+
   const [draftMeta, setDraftMeta] = useState<{
     status?: string;
     updatedAt?: string;
@@ -158,6 +210,7 @@ export function VanKienDangForm({
     TEMPLATE: [],
     RELATED: [],
     EVIDENCE: [],
+    OUTLINE: [],
   });
   const [formData, setFormData] = useState<FormData>({
     loaiVanBan: '',
@@ -174,7 +227,7 @@ export function VanKienDangForm({
     vanBanPhapLy: '',
     noiDungChinh: '',
     bangBieuSoLieu: '',
-    taiLieuMinhChungFileIds: [],
+    taiLieuMinhChung: '',
     mauVanBan: '',
     deCuongDanY: '',
     vanBanLienQuan: '',
@@ -182,10 +235,11 @@ export function VanKienDangForm({
     doiChieu: false,
     bamCanCu: false,
     theThuc: false,
+    fileID: [],
     phongCach: '',
     doDai: '',
     mucDoHoanChinh: '',
-    selectedModel: 'claude-sonnet-4.6',
+    selectedModel: DEFAULT_PACKAGE_LEVEL,
     outputSize: '',
   });
 
@@ -204,7 +258,7 @@ export function VanKienDangForm({
     vanBanPhapLy: '',
     noiDungChinh: '',
     bangBieuSoLieu: '',
-    taiLieuMinhChungFileIds: [],
+    taiLieuMinhChung: '',
     mauVanBan: '',
     deCuongDanY: '',
     vanBanLienQuan: '',
@@ -212,12 +266,42 @@ export function VanKienDangForm({
     doiChieu: false,
     bamCanCu: false,
     theThuc: false,
+    fileID: [],
     phongCach: '',
     doDai: '',
     mucDoHoanChinh: '',
-    selectedModel: 'claude-sonnet-4.6',
+    selectedModel: DEFAULT_PACKAGE_LEVEL,
     outputSize: '',
+    
   };
+
+  const uploadedFileIds = useMemo(() => {
+  const ids = Object.values(filesMap)
+    .flat()
+    .map(file => file.backendFileId)
+    .filter((fileId): fileId is string => Boolean(fileId));
+
+  return [...new Set(ids)];
+}, [filesMap]);
+
+useEffect(() => {
+  setFormData(prev => {
+    const currentIds = prev.fileID ?? [];
+
+    const isSame =
+      currentIds.length === uploadedFileIds.length &&
+      currentIds.every((id, index) => id === uploadedFileIds[index]);
+
+    if (isSame) {
+      return prev;
+    }
+
+    return {
+      ...prev,
+      fileID: uploadedFileIds,
+    };
+  });
+}, [uploadedFileIds]);
 
   // const validateField = (field: keyof FormData, value: any) => {
   //   let error = '';
@@ -333,7 +417,7 @@ export function VanKienDangForm({
 
   const handleSaveSessionName = async () => {
     if (!activeSessionUuid) {
-      alert('Không tìm thấy session');
+      toast.error('Không tìm thấy session', { duration: 5000 });
       return;
     }
     try {
@@ -345,10 +429,10 @@ export function VanKienDangForm({
       // tùy chọn: giữ title document (tenVanBan) hoặc đồng bộ với sessionName nếu bạn muốn
       setFormData(prev => ({ ...prev, tenVanBan: prev.tenVanBan || returnedName }));
       setIsEditingName(false);
-      alert('Đã đổi tên phiên thành công');
+      toast.success('Đã đổi tên phiên thành công', { duration: 5000 });
     } catch (err) {
       console.error('Update session name failed', err);
-      alert('Lỗi khi đổi tên phiên');
+      toast.error('Lỗi khi đổi tên phiên', { duration: 5000 });
     }
   }; // end of handleSaveSessionName
 
@@ -428,19 +512,31 @@ export function VanKienDangForm({
   ];
 
   const loaiVanBanOptions = [
-    {
-      value: 'NGHI_QUYET',
-      label: 'Nghị quyết'
-    },
-    {
-      value: 'QUYET_DINH',
-      label: 'Quyết định'
-    },
-    {
-      value: 'CHI_THI',
-      label: 'Chỉ thị'
-    }
-  ];
+  {
+    value: 'NGHI_QUYET',
+    label: 'Nghị quyết',
+  },
+  {
+    value: 'QUYET_DINH',
+    label: 'Quyết định',
+  },
+  {
+    value: 'CHI_THI',
+    label: 'Chỉ thị',
+  },
+  {
+    value: 'BAO_CAO',
+    label: 'Báo cáo',
+  },
+  {
+    value: 'KE_HOACH',
+    label: 'Kế hoạch',
+  },
+  {
+    value: 'KET_LUAN',
+    label: 'Kết luận',
+  },
+];
 
   const updateField = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -497,7 +593,7 @@ export function VanKienDangForm({
 
     if (missing.length > 0) {
       const missingNames = missing.map(field => field.label).join(', ');
-      alert(`Thiếu thông tin: ${missingNames}`);
+      toast.error(`Thiếu thông tin: ${missingNames}`, { duration: 5000 });
       return;
     }
 
@@ -511,13 +607,24 @@ export function VanKienDangForm({
         fieldCode: draftMeta?.fieldCode || 'MAIN_CONTENT',
       };
 
-      const savedDraft = await sessionApi.saveDraft(savePayload);
-      console.log('[Draft] saved:', savedDraft);
+      const formDataToSave = {
+      ...formData,
+      fileID: uploadedFileIds.length > 0
+        ? uploadedFileIds
+        : formData.fileID ?? [],
+    };
+
+      const savedDraft = await sessionApi.saveDraft({
+              sessionUuid: activeSessionUuid,
+              editorText: draftMeta?.editorText ?? null,
+              formData: formDataToSave,
+              fieldCode: draftMeta?.fieldCode || 'MAIN_CONTENT',
+            });
 
       const completeResult = await sessionApi.completeSession({
         sessionUuid: activeSessionUuid,
         userText: promptCommand,
-        model: 'claude-sonnet-4.6',
+        model: formData.selectedModel,
       });
 
       console.log('[Complete] response:', completeResult);
@@ -542,7 +649,7 @@ export function VanKienDangForm({
     } catch (error: unknown) {
       console.error('[Complete] failed:', error);
 
-      alert(getApiErrorMessage(error, 'Không thể tạo văn bản bằng AI. Vui lòng thử lại.'));
+      toast.error(getApiErrorMessage(error, 'Không thể tạo văn bản bằng AI. Vui lòng thử lại.'), { duration: 5000 });
     } finally {
       setIsAiGenerating(false);
     }
@@ -553,7 +660,7 @@ export function VanKienDangForm({
   // Lưu draft trước khi mở Workspace để tránh mất dữ liệu[cite: 2]
   const handleOpenWorkspace = async () => {
     if (!activeSessionUuid) {
-      alert('Không tìm thấy session');
+      toast.error('Không tìm thấy session', { duration: 5000 });
       return;
     }
 
@@ -602,7 +709,7 @@ export function VanKienDangForm({
       });
     } catch (error) {
       console.error('[Draft] save before workspace failed:', error);
-      alert('Lưu nháp trước khi mở Workspace không thành công.');
+      toast.error('Lưu nháp trước khi mở Workspace không thành công.', { duration: 5000 });
     }
   };
 
@@ -621,7 +728,7 @@ export function VanKienDangForm({
       '8': 'vanBanChiDao',
       '9': 'vanBanPhapLy',
       '10': 'noiDungChinh',
-      '11': 'bangBieuSoLieu',
+      '11': 'taiLieuMinhChung',
       '12': 'mauVanBan',
       '13': 'deCuongDanY',
       '14': 'vanBanLienQuan',
@@ -877,7 +984,9 @@ export function VanKienDangForm({
                     <TooltipIcon text="Upload tối đa 5 file văn bản chỉ đạo hoặc nhập nội dung" />
                   </label>
                   <FileUploadZone
-  maxFiles={5}
+  multiple
+  maxFiles={uploadConfig?.maxFiles ?? 5}
+  maxFileSize={uploadConfig?.maxFileSize}
   category="DIRECTIVE"
   sessionUuid={activeSessionUuid}
   fieldCode="DIRECTIVE"
@@ -907,7 +1016,9 @@ export function VanKienDangForm({
                   </label>
                   {/* Văn bản pháp lý */}
                     <FileUploadZone
-  maxFiles={5}
+              multiple
+  maxFiles={uploadConfig?.maxFiles ?? 5}
+  maxFileSize={uploadConfig?.maxFileSize}
   category="LEGAL"
   sessionUuid={activeSessionUuid}
   fieldCode="LEGAL_BASIS"
@@ -944,6 +1055,9 @@ export function VanKienDangForm({
                     <TooltipIcon text="Nhập nội dung chính của văn bản hoặc upload file" />
                   </label>
  <FileUploadZone
+ multiple
+  maxFiles={uploadConfig?.maxFiles ?? 5}
+  maxFileSize={uploadConfig?.maxFileSize}
   category="CONTENT"
   sessionUuid={activeSessionUuid}
   fieldCode={getFieldCodeByCategory("CONTENT")}
@@ -954,7 +1068,7 @@ export function VanKienDangForm({
       CONTENT: typeof newFiles === 'function' ? newFiles(prev.CONTENT) : newFiles
     }))
   }
-  multiple
+
 />
                   <textarea
                     value={formData.noiDungChinh}
@@ -971,6 +1085,9 @@ export function VanKienDangForm({
                     <TooltipIcon text="Tài liệu minh chứng cho nội dung (phụ lục, bảng biểu, ảnh...)" />
                   </label>
                   <FileUploadZone
+multiple
+  maxFileSize={uploadConfig?.maxFileSize}
+  maxFiles={uploadConfig?.maxFiles ?? 5}
   acceptedTypes=".txt,.doc,.docx,.pdf,.xls"
   category="EVIDENCE"
   sessionUuid={activeSessionUuid}
@@ -982,11 +1099,10 @@ export function VanKienDangForm({
       EVIDENCE: typeof newFiles === 'function' ? newFiles(prev.EVIDENCE) : newFiles
     }))
   }
-  multiple
 />
                   <textarea
-                    value={formData.bangBieuSoLieu}
-                    onChange={e => updateField('bangBieuSoLieu', e.target.value)}
+                    value={formData.taiLieuMinhChung}
+                    onChange={e => updateField('taiLieuMinhChung', e.target.value)}
                     onFocus={() => setFocusedField('11')}
                     placeholder="Xác định cách thức AI khai thác tệp văn bản pháp lý luận cứ vững chắc, bám sát luật hiện hành"
                     rows={4}
@@ -1004,22 +1120,48 @@ export function VanKienDangForm({
                 </div>
 
                 <div>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Mẫu văn bản áp dụng [12]
-                    <TooltipIcon text="Upload file mẫu hoặc nhập nội dung mẫu tham khảo" />
-                  </label>
+
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      Mẫu văn bản áp dụng [12]
+                      <TooltipIcon text="Upload file mẫu hoặc nhập nội dung mẫu tham khảo" />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsTextExpanded(true)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 shadow-sm transition-colors hover:border-blue-500 hover:bg-blue-50"
+                    >
+                      <Maximize2 size={14} />
+                      Mở rộng
+                    </button>
+                  </div>
+
                   <FileUploadZone
+multiple={false}
+  maxFiles={1}
+  maxFileSize={uploadConfig?.maxFileSize}
   category="TEMPLATE"
   sessionUuid={activeSessionUuid}
-  fieldCode={getFieldCodeByCategory("TEMPLATE")}
+  fieldCode={getTemplateFieldCode('main')}
   files={filesMap.TEMPLATE}
-  onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) =>
-    setFilesMap(prev => ({
-      ...prev,
-      TEMPLATE: typeof newFiles === 'function' ? newFiles(prev.TEMPLATE) : newFiles
-    }))
-  }
-  multiple
+  onFilesChange={(
+  newFiles:
+    | UploadingFile[]
+    | ((prev: UploadingFile[]) => UploadingFile[])
+) =>
+  setFilesMap(prev => ({
+    ...prev,
+    TEMPLATE:
+      typeof newFiles === 'function'
+        ? newFiles(prev.TEMPLATE)
+        : newFiles,
+  }))
+}
+  onTextExtracted={text => {
+    updateField('mauVanBan', text);
+  }}
+  
 />
                   <textarea
                     value={formData.mauVanBan}
@@ -1029,6 +1171,29 @@ export function VanKienDangForm({
                     rows={8}
                     className="w-full mt-3 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white resize-none"
                   />
+
+    <Dialog open={isTextExpanded} onOpenChange={setIsTextExpanded}>
+    <DialogContent className="flex h-[90vh] w-[98vw] max-w-none flex-col"
+    style={{
+    width: '36vw',
+    maxWidth: 'none',
+  }}
+    >
+
+  <DialogHeader>
+    <DialogTitle className="text-xl">
+      Nội dung mẫu văn bản
+    </DialogTitle>
+  </DialogHeader>
+
+  <textarea
+    value={formData.mauVanBan}
+    onChange={e => updateField('mauVanBan', e.target.value)}
+    className="min-h-0 flex-1 w-full resize-none rounded-lg border border-gray-300 px-5 py-4 text-base leading-7 text-gray-900 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500"
+  />
+</DialogContent>
+  </Dialog>
+
                 </div>
                 
               <div>
@@ -1037,17 +1202,20 @@ export function VanKienDangForm({
                     <TooltipIcon text="Upload file mẫu hoặc nhập nội dung mẫu tham khảo" />
                   </label>
                   <FileUploadZone
-                      category="TEMPLATE"
+                  multiple
+  maxFiles={uploadConfig?.maxFiles ?? 5}
+  maxFileSize={uploadConfig?.maxFileSize}
+                      category="OUTLINE"
                       sessionUuid={activeSessionUuid}
-                      fieldCode={getFieldCodeByCategory("TEMPLATE")}
-                      files={filesMap.TEMPLATE}
+                      fieldCode={getTemplateFieldCode('outline')}
+                      files={filesMap.OUTLINE}
                       onFilesChange={(newFiles: UploadingFile[] | ((prev: UploadingFile[]) => UploadingFile[])) => 
                         setFilesMap(prev => ({ 
                           ...prev, 
-                          TEMPLATE: typeof newFiles === 'function' ? newFiles(prev.TEMPLATE) : newFiles 
+                          OUTLINE: typeof newFiles === 'function' ? newFiles(prev.OUTLINE) : newFiles 
                         }))
                       }
-                      multiple
+                      
                     />
                   <textarea
                     value={formData.deCuongDanY}
@@ -1077,7 +1245,8 @@ export function VanKienDangForm({
                   </label>
                   <FileUploadZone
   multiple
-  maxFiles={150}
+  maxFiles={uploadConfig?.maxFiles ?? 5}
+  maxFileSize={uploadConfig?.maxFileSize}
   category="RELATED"
   sessionUuid={activeSessionUuid}
   fieldCode="REFERENCE"
@@ -1104,8 +1273,8 @@ export function VanKienDangForm({
                   <label className="flex items-start gap-3 cursor-pointer group">
                     <input
                       type="checkbox"
-                      checked={formData.taophuluc}
-                      onChange={e => updateField('taophuluc', e.target.checked)}
+                      checked={formData.taoPhuLuc}
+                      onChange={e => updateField('taoPhuLuc', e.target.checked)}
                       className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 rounded"
                     />
                     <div className="flex-1">
@@ -1141,8 +1310,8 @@ export function VanKienDangForm({
                   <label className="flex items-start gap-3 cursor-pointer group">
                     <input
                       type="checkbox"
-                      checked={formData.theThucc}
-                      onChange={e => updateField('theThucc', e.target.checked)}
+                      checked={formData.theThuc}
+                      onChange={e => updateField('theThuc', e.target.checked)}
                       className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 rounded"
                     />
                     <div className="flex-1">
@@ -1169,22 +1338,25 @@ export function VanKienDangForm({
                   </label>
 
                   <select
-                    value={formData.selectedModel}
-                    onChange={e => updateField('selectedModel', e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm text-gray-900 bg-white"
-                  >
-                    <option value="claude-sonnet-4.6">
-                      Claude Sonnet 4.6 (Khuyến nghị)
-                    </option>
+  value={formData.selectedModel}
+  onChange={e =>
+    updateField(
+      'selectedModel',
+      Number(e.target.value) as PackageLevel
+    )
+  }
+>
+  {Array.from({ length: maxPackageLevel }, (_, index) => {
+    const level = (index + 1) as PackageLevel;
 
-                    <option value="gpt-5.4-mini">
-                      GPT-5.4 Mini
-                    </option>
+    return (
+      <option key={level} value={level}>
+        Gói {level}
+      </option>
+    );
+  })}
+</select>
 
-                    <option value="deepseek-v4-flash">
-                      DeepSeek V4 Flash
-                    </option>
-                  </select>
                 </div>
 
                 <div>
@@ -1341,7 +1513,7 @@ export function VanKienDangForm({
                 <button
                   onClick={async () => {
                     if (!activeSessionUuid) {
-                      alert('Không tìm thấy session');
+                      toast.error('Không tìm thấy session', { duration: 5000 });
                       return;
                     }
 
@@ -1365,10 +1537,10 @@ export function VanKienDangForm({
                     link.remove();
                     window.URL.revokeObjectURL(downloadUrl);
 
-                    alert('Đã xuất file Word thành công!');
+                    toast.success('Đã xuất file Word thành công!', { duration: 5000 });
                   } catch (error) {
                     console.error('Lỗi khi gọi API xuất file Word:', error);
-                    alert('Có lỗi xảy ra khi xuất file Word!');
+                    toast.error('Có lỗi xảy ra khi xuất file Word!', { duration: 5000 });
                   }
                   }}
                   className="flex items-center gap-2 px-5 py-2.5 text-gray-700 bg-green-300 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
@@ -1633,35 +1805,64 @@ function TooltipIcon({ text }: { text: string }) {
   );
 }
 
+function formatFileSize(bytes?: number) {
+  if (!bytes) return '';
+
+  const megabytes = bytes / (1024 * 1024);
+
+  return megabytes >= 1
+    ? `${megabytes.toFixed(1)} MB`
+    : `${(bytes / 1024).toFixed(0)} KB`;
+}
+
 function FileUploadZone({
   multiple = false,
   maxFiles = 5,
+  maxFileSize,
   acceptedTypes = '.txt,.doc,.docx,.pdf,.xls,.xlsx',
   category,
   files = [],
   sessionUuid,
   fieldCode,
-  onFilesChange
+  onFilesChange,
+  onTextExtracted,
+
 }: {
   multiple?: boolean;
   maxFiles?: number;
+  maxFileSize?: number;
   acceptedTypes?: string;
   category: FileCategory;
   sessionUuid?: string | null;
   fieldCode?: string;
   files: UploadingFile[];
   onFilesChange: React.Dispatch<React.SetStateAction<UploadingFile[]>> | ((files: UploadingFile[]) => void);
+  onTextExtracted?: (text: string) => void;
 }) {
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length === 0) return;
+
+    const oversizedFile = selectedFiles.find(
+      file => maxFileSize && file.size > maxFileSize
+    );
+
+    if (oversizedFile) {
+      toast.error(
+  `File "${oversizedFile.name}" vượt quá dung lượng tối đa ${formatFileSize(maxFileSize)}`,
+  {
+    duration: 5000,
+  }
+);
+      return;
+    }
 
     const currentCount = files.length;
     const availableSlots = maxFiles - currentCount;
     const filesToAdd = selectedFiles.slice(0, availableSlots);
 
     if (filesToAdd.length === 0) {
-      alert(`Đã đạt giới hạn tối đa ${maxFiles} file`);
+      toast.error(`Đã đạt giới hạn tối đa ${maxFiles} file`, { duration: 5000 });
       return;
     }
     
@@ -1723,20 +1924,57 @@ function FileUploadZone({
         category,
         sessionUuid,
         fieldCode,
+
+        // Progress
         (fileId, progress) => {
-          if (typeof onFilesChange === 'function') {
-            safelyUpdateFiles(onFilesChange, (prev) =>
-              prev.map((f) => (f.id === fileId ? { ...f, progress } : f))
-            );
-          }
+          safelyUpdateFiles(onFilesChange, prev =>
+            prev.map(file =>
+              file.id === fileId
+                ? { ...file, progress }
+                : file
+            )
+          );
         },
+
+        // Upload status
         (fileId, status, backendFileId, error) => {
-          if (typeof onFilesChange === 'function') {
-            safelyUpdateFiles(onFilesChange, (prev) =>
-              prev.map((f) =>
-                f.id === fileId ? { ...f, status, backendFileId, error } : f
-              )
-            );
+          safelyUpdateFiles(onFilesChange, prev =>
+            prev.map(file =>
+              file.id === fileId
+                ? {
+                    ...file,
+                    status,
+                    backendFileId,
+                    error,
+                  }
+                : file
+            )
+          );
+        },
+
+        // Extraction response
+        (_fileId, extraction) => {
+          safelyUpdateFiles(onFilesChange, prev =>
+            prev.map(file =>
+              file.id === fileItem.id
+                ? {
+                    ...file,
+                    backendFileId: extraction.fileId,
+                    fileName: extraction.fileName,
+                    fileSize: extraction.fileSize,
+                    rawText: extraction.rawText ?? null,
+                    extractionStatus: extraction.extractionStatus,
+                    extractionError: extraction.extractionError ?? null,
+                  }
+                : file
+            )
+          );
+
+          if (
+            extraction.extractionStatus === 'EXTRACTED' &&
+            extraction.rawText?.trim()
+          ) {
+            onTextExtracted?.(extraction.rawText);
           }
         }
       );
@@ -1761,16 +1999,11 @@ function FileUploadZone({
     handleFileInput({ target: input } as any);
   };
 
-  const removeFile = async (fileItem: UploadingFile, index: number) => {
-    if (fileItem.status === 'SUCCESS' && fileItem.backendFileId) {
-      await deleteFileFromServer(fileItem.backendFileId);
-    }
-
-    const newFiles = files.filter((_, i) => i !== index);
-    if (typeof onFilesChange === 'function') {
-      onFilesChange(newFiles);
-    }
-  };
+  // Remove a file from the list and optionally delete it from the server
+  const removeFile = (fileItem: UploadingFile, index: number) => {
+  const newFiles = files.filter((_, fileIndex) => fileIndex !== index);
+  onFilesChange(newFiles);
+};
   
   return (
     <div>
@@ -1790,13 +2023,15 @@ function FileUploadZone({
         <p className="text-sm font-medium text-gray-700 mb-1">
           Kéo thả file vào đây hoặc click để chọn
         </p>
+
         <p className="text-xs text-gray-500">
-          {multiple && `Hỗ trợ nhiều file (tối đa ${maxFiles}) • `}
-          {acceptedTypes}
-        </p>
+  {multiple && `Hỗ trợ nhiều file (tối đa ${maxFiles}) • `}
+  Dung lượng tối đa mỗi file: {formatFileSize(maxFileSize)} • {acceptedTypes}
+</p>
+
         {files.length > 0 && (
           <p className="text-xs text-blue-600 mt-1 font-medium">
-            Đã tải: {files.filter(f => f.status === 'SUCCESS').length}/{files.length}
+           Đã tải: {files.filter(f => f.status === 'SUCCESS').length}/{maxFiles}
           </p>
         )}
       </label>

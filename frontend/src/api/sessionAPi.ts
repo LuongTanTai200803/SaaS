@@ -1,11 +1,14 @@
 import ht from './axiosClient';
 
 export type DraftStatus = 'DRAFT' | 'EDITING' | string;
+export type PackageLevel = 1 | 2 | 3;
+export const DEFAULT_PACKAGE_LEVEL: PackageLevel = 1;
+
 
 export type CompleteSessionRequest = {
   sessionUuid: string;
   userText: string;
-  model: string;
+  model: PackageLevel;
 };
 
 export type SaveDraftRequest = {
@@ -24,6 +27,14 @@ export type DraftStateDTO = {
   updatedAt: string;
   fieldCode: string;
 };
+
+export type RefineWorkspaceRequest = {
+  sessionUuid: string;
+  userText: string;
+  model: PackageLevel;
+  fileIds: string[];
+};
+
 
 export const sessionApi = {
   createSession: (assistantId: string, sessionName: string) =>
@@ -55,6 +66,7 @@ export const sessionApi = {
 
   completeSession: (data: CompleteSessionRequest) =>
     ht.post('/ai/completions', data),
-  refineWorkspace: (data: CompleteSessionRequest) =>
+  
+  refineWorkspace: (data: RefineWorkspaceRequest) =>
     ht.post('/ai/workspace/refine', data)
 };

@@ -1,13 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Save, Download, FileText, MessageSquare, Send, Paperclip,
+  Save, Download, Upload, FileText, MessageSquare, Send, Paperclip,
   Mic, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
   List, ListOrdered, Table, ChevronDown, Copy, Check, X, Keyboard
 } from 'lucide-react';
+
+import { toast } from 'sonner';
+
 import api from '../api'; // Import đối tượng 'api' tổng hợp
 import { aiApi } from '../api/aiApi';
-import { sessionApi } from '../api/sessionAPi';
+import { sessionApi, DEFAULT_PACKAGE_LEVEL } from '../api/sessionAPi';
+import { fileApi, SessionFile, UploadConfig} from '../api/fileApi';
+
 
 import { getApiErrorMessage } from '../api/axiosClient';
 
@@ -149,11 +154,113 @@ export function DocumentWorkspace({
   assistantType,
 }: DocumentWorkspaceProps) {
 
+  // =========================================================
+  // 0. FILES STATE
+  // =========================================================
+  const [sessionFiles, setSessionFiles] = useState<SessionFile[]>([]);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
+
+  const [uploadConfig, setUploadConfig] = useState<UploadConfig | null>(null);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(false);
+
+  const maxFiles = uploadConfig?.maxFiles ?? 5;
+  const fileIdsForRequest = selectedFileIds.slice(0, maxFiles);
+
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+
+  const packageLevel =
+    uploadConfig?.modelPackageLevel ?? DEFAULT_PACKAGE_LEVEL;
+
   const { sessionUuid: routeSessionUuid } = useParams<{
     sessionUuid: string;
   }>();
 
   const activeSessionUuid = sessionUuid || routeSessionUuid;
+
+  useEffect(() => {
+  let cancelled = false;
+
+  const loadUploadConfig = async () => {
+    setIsLoadingConfig(true);
+
+    try {
+      const config = await fileApi.getUploadConfig();
+
+      if (!cancelled) {
+        setUploadConfig(config);
+      }
+    } catch (error) {
+      console.error('[Workspace] Không thể tải upload config:', error);
+    } finally {
+      if (!cancelled) {
+        setIsLoadingConfig(false);
+      }
+    }
+  };
+
+  loadUploadConfig();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+  // =========================================================
+  // 0.1. LOAD SESSION FILES
+  // =========================================================
+  // Load session files when the active session changes
+  useEffect(() => {
+    if (!activeSessionUuid) return;
+
+    const loadSessionFiles = async () => {
+      setIsLoadingFiles(true);
+
+      try {
+        const files = await fileApi.getFilesBySession(activeSessionUuid);
+        setSessionFiles(files ?? []);
+      } catch (error) {
+        console.error('[Workspace] Không thể tải danh sách file:', error);
+        setSessionFiles([]);
+      } finally {
+        setIsLoadingFiles(false);
+      }
+    };
+
+    loadSessionFiles();
+  }, [activeSessionUuid]);
+  const handleUploadFile = async (
+  event: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = event.target.files?.[0];
+
+  if (!file || !activeSessionUuid) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('sessionUuid', activeSessionUuid);
+  formData.append('category', 'CONTENT');
+  formData.append('fieldCode', 'MAIN_CONTENT');
+
+  setIsUploadingFile(true);
+
+  try {
+    await fileApi.uploadFiles(formData);
+
+    const files = await fileApi.getFilesBySession(activeSessionUuid);
+    setSessionFiles(files ?? []);
+
+    toast.success('Upload file thành công', { duration: 5000 });
+  } catch (error) {
+    console.error('[Workspace] Upload file failed:', error);
+    toast.error('Upload file thất bại', { duration: 5000 });
+  } finally {
+    setIsUploadingFile(false);
+    event.target.value = '';
+  }
+};
 
   // =========================================================
   // 1. REFS
@@ -777,10 +884,34 @@ export function DocumentWorkspace({
   }, [workspaceContent]);
 
   // =========================================================
-  const handleSave = () => {
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2000);
-    console.log('Saving content:', documentContentRef.current);
+  const handleSave = async (): Promise<boolean> => {
+    const currentHtml = editorRef.current?.innerHTML ?? documentContentRef.current;
+    documentContentRef.current = currentHtml;
+
+    if (!activeSessionUuid) {
+      setIsSaved(true);
+      window.setTimeout(() => setIsSaved(false), 2000);
+      return true;
+    }
+
+    try {
+      await sessionApi.saveDraft({
+        sessionUuid: activeSessionUuid,
+        editorText: currentHtml,
+        formData: formData ?? {},
+        fieldCode: 'MAIN_CONTENT',
+      });
+
+      loadedEditorTextRef.current = currentHtml;
+      lastSavedHtmlRef.current = currentHtml;
+      setIsSaved(true);
+      window.setTimeout(() => setIsSaved(false), 2000);
+      return true;
+    } catch (error) {
+      console.error('[Workspace] save draft failed:', error);
+      alert(getApiErrorMessage(error, 'Lưu bản nháp thất bại. Vui lòng thử lại.'));
+      return false;
+    }
   };
 
   // ========================================================
@@ -808,6 +939,8 @@ export function DocumentWorkspace({
   // 15. HANDLE SEND MESSAGE TO AI ASSISTANT
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isSending || !activeSessionUuid) return;
+
+   
 
     const userText = chatInput.trim();
 
@@ -837,7 +970,8 @@ export function DocumentWorkspace({
       const result = await sessionApi.refineWorkspace({
         sessionUuid: activeSessionUuid,
         userText,
-        model: 'gpt-4o',
+        model: packageLevel,
+        fileIds: fileIdsForRequest,
       });
 
       const wrapper = result?.data ? result.data : result;
@@ -851,6 +985,10 @@ export function DocumentWorkspace({
       const html = renderDocumentHtml(bodyHtml, formData);
 
       setWorkspaceContent(html);
+
+
+      setSelectedFileIds([]);
+      setIsFilePickerOpen(false);
 
       setChatMessages(prev =>
         prev.map(message =>
@@ -898,6 +1036,9 @@ export function DocumentWorkspace({
     }
 
     try {
+      const saved = await handleSave();
+      if (!saved) return;
+
       const response = await api.fileApi.exportWordDraft({
         sessionUuid: activeSessionUuid,
         exportFormat: 'WORD',
@@ -1097,6 +1238,92 @@ export function DocumentWorkspace({
                 <div ref={chatEndRef} />
               </div>
 
+                {/* FILE SELECTION AREA */}
+{isFilePickerOpen && (
+  <div className="border-t border-slate-200 bg-white px-4 py-3">
+    <div className="mb-2 flex items-center justify-between">
+      <span className="text-xs font-semibold text-slate-700">
+        Chọn file để tinh chỉnh
+      </span>
+
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500">
+          {selectedFileIds.length}/{maxFiles}
+        </span>
+
+        <label className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700">
+          <Upload size={13} />
+          {isUploadingFile ? 'Đang upload...' : 'Upload file'}
+
+          <input
+            type="file"
+            className="hidden"
+            disabled={isUploadingFile}
+            onChange={handleUploadFile}
+            accept=".txt,.doc,.docx,.pdf,.xls,.xlsx"
+          />
+        </label>
+      </div>
+    </div>
+
+    {isLoadingFiles ? (
+      <div className="py-2 text-xs text-slate-500">
+        Đang tải danh sách file...
+      </div>
+    ) : sessionFiles.length > 0 ? (
+      <div className="max-h-32 space-y-1 overflow-y-auto">
+        {sessionFiles.map(file => {
+          const checked = selectedFileIds.includes(file.fileId);
+
+          return (
+            <label
+              key={file.fileId}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-slate-50"
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={event => {
+                  if (event.target.checked) {
+                    if (selectedFileIds.length >= maxFiles) {
+                      toast.error(
+                        `Chỉ được chọn tối đa ${maxFiles} file.`,
+                        { duration: 5000 }
+                      );
+                      return;
+                    }
+
+                    setSelectedFileIds(prev => [
+                      ...prev,
+                      file.fileId,
+                    ]);
+                  } else {
+                    setSelectedFileIds(prev =>
+                      prev.filter(id => id !== file.fileId)
+                    );
+                  }
+                }}
+              />
+
+              <span className="min-w-0 flex-1 truncate text-xs text-slate-700">
+                {file.fileName}
+              </span>
+
+              <span className="text-[10px] text-slate-400">
+                {file.extractionStatus}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    ) : (
+      <div className="py-2 text-xs text-slate-500">
+        Chưa có file nào. Hãy upload file để bắt đầu.
+      </div>
+    )}
+  </div>
+)}
+
               {/* Context cố định dưới */}
               <div className="px-4 py-2 border-t border-slate-150 bg-slate-50/80 flex-shrink-0">
                 <label className="flex items-center gap-2.5 cursor-pointer">
@@ -1149,9 +1376,18 @@ export function DocumentWorkspace({
                   />
 
                   <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
-                    <button className="p-1 text-slate-400 hover:text-slate-600">
-                      <Paperclip size={20} />
-                    </button>
+                    <button
+  type="button"
+  onClick={() => setIsFilePickerOpen(prev => !prev)}
+  className={`p-1 transition-colors ${
+    isFilePickerOpen
+      ? 'text-blue-600'
+      : 'text-slate-400 hover:text-slate-600'
+  }`}
+  title="Chọn file trong session"
+>
+  <Paperclip size={20} />
+</button>
 
                     <button
                       onClick={handleSendMessage}

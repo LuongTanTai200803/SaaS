@@ -337,6 +337,31 @@ export const adminApi: AdminApiContract = {
     errorType: null,
   }),
 
+  getUserCreditSummary: async (userId: string) => ({
+    success: true,
+    message: 'OK',
+    data: {
+      userId,
+      packageType: 'PREMIUM',
+      subscriptionExpireDate: '2026-10-15T23:00:00',
+      monthly: {
+        allocated: 1000,
+        remaining: 850,
+        cycleStart: '2026-09-15T23:00:00',
+        cycleEnd: '2026-10-15T23:00:00',
+      },
+      purchased: {
+        balance: 500,
+        purchasedAt: '2026-09-15T23:00:00',
+        expireAt: '2026-10-15T23:00:00',
+      },
+      aiCallCount: 12,
+      recentInvoices: [],
+    },
+    statusCode: 200,
+    errorType: null,
+  }),
+
   updateUser: async (userId, data) => ({
     success: true,
     message: 'Updated',

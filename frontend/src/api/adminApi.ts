@@ -1,4 +1,5 @@
 import axiosClient from './axiosClient';
+import type { CreditSummary } from './userApi';
 
 export interface AdminApiResponse<T> {
   success: boolean;
@@ -30,11 +31,14 @@ export interface AdminDashboard {
 export interface AdminUser {
   userId: string;
   email: string;
+  agency: string;
   packageType: string;
   expireDate: string | null;
   creditsRemaining: number;
   status: string;
+  creditSummary?: CreditSummary;
 }
+
 
 export interface UpdateAdminUserRequest {
   packageType?: string;
@@ -172,6 +176,9 @@ export interface AdminApiContract {
   range: 'today' | '7days' | '30days'
 ) => Promise<AdminApiResponse<AdminTopAssistant[]>>;
 
+  getUserCreditSummary: (
+  userId: string
+) => Promise<AdminApiResponse<CreditSummary>>;
 }
 
 export const adminApi: AdminApiContract = {
@@ -187,6 +194,12 @@ export const adminApi: AdminApiContract = {
   getUser(userId: string) {
     return axiosClient.get<AdminApiResponse<AdminUser>>(
       `/admin/users/${userId}`
+    );
+  },
+
+  getUserCreditSummary(userId: string) {
+    return axiosClient.get<AdminApiResponse<CreditSummary>>(
+      `/admin/users/${encodeURIComponent(userId)}/credit-summary`
     );
   },
 
