@@ -200,6 +200,9 @@ export function VanKienDangForm({
   const isDraft = normalizedStatus === 'DRAFT';
   const isEditing = normalizedStatus === 'EDITING';
 
+  // State for the raw template text before any processing
+  const [rawTemplateText, setRawTemplateText] = useState('');
+
   const [generatedDocument, setGeneratedDocument] = useState<string | Record<string, any>>('');
 
   // 🎯 QUY HOẠCH TẬP TRUNG: Gom 6 mảng file upload rời rạc thành 1 State Map duy nhất
@@ -1159,8 +1162,8 @@ multiple={false}
   }))
 }
   onTextExtracted={text => {
-    updateField('mauVanBan', text);
-  }}
+  setRawTemplateText(text);
+}}
   
 />
                   <textarea
@@ -1187,10 +1190,10 @@ multiple={false}
   </DialogHeader>
 
   <textarea
-    value={formData.mauVanBan}
-    onChange={e => updateField('mauVanBan', e.target.value)}
-    className="min-h-0 flex-1 w-full resize-none rounded-lg border border-gray-300 px-5 py-4 text-base leading-7 text-gray-900 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500"
-  />
+  value={rawTemplateText}
+  readOnly
+  className="min-h-0 flex-1 w-full resize-none rounded-lg border border-gray-300 px-5 py-4 text-base leading-7 text-gray-900"
+/>
 </DialogContent>
   </Dialog>
 

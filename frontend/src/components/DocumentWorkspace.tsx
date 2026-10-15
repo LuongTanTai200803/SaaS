@@ -161,6 +161,7 @@ export function DocumentWorkspace({
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
 
+
   const [uploadConfig, setUploadConfig] = useState<UploadConfig | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(false);
 
