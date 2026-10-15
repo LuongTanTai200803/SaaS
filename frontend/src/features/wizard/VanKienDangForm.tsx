@@ -319,6 +319,8 @@ useEffect(() => {
   //   return error === '';
   // };
 
+  const lastSavedFormRef = useRef(JSON.stringify(formData));
+
   // 📝 LOAD DRAFT: Khi activeSessionUuid thay đổi, tải dữ liệu nháp từ Backend và đổ vào formData
   useEffect(() => {
   if (!activeSessionUuid) return;
@@ -334,9 +336,9 @@ useEffect(() => {
           : null);
 
 
-
       if (parsedFormData) {
         const normalized = { ...DEFAULT_FORM, ...parsedFormData };
+        lastSavedFormRef.current = JSON.stringify(normalized);
         setFormData(prev => ({
           ...prev,
           ...normalized
@@ -372,43 +374,6 @@ useEffect(() => {
     latestFormRef.current = formData;
   }, [formData]);
 
-  useEffect(() => {
-    if (!activeSessionUuid) return;
-    if (normalizedStatus !== 'DRAFT') return;
-
-    const timer = setInterval(async () => {
-      try {
-
-        // autosave draft
-        const payload = {
-          sessionUuid: activeSessionUuid,
-          editorText: draftMeta?.editorText ?? null,
-          formData: latestFormRef.current,
-          fieldCode: draftMeta?.fieldCode || 'MAIN_CONTENT',
-        };
-        const saved = await sessionApi.saveDraft(payload);
-
-        console.log('Auto save draft thành công:', saved);
-        setDraftMeta({
-          status: saved?.status,
-          updatedAt: saved?.updatedAt,
-          fieldCode: saved?.fieldCode,
-          editorText: saved?.editorText ?? null
-        });
-
-        onSessionStatusChange?.(String(saved?.status || '').toUpperCase());
-        console.log('Auto save draft status:', saved?.status);
-        if (String(saved?.status || '').toUpperCase() === 'EDITING') {
-          clearInterval(timer);
-        }
-      } catch (e) {
-        console.error('Auto save draft lỗi:', e);
-      }
-    }, 60000);
-
-    return () => clearInterval(timer);
-  }, [activeSessionUuid, normalizedStatus, onSessionStatusChange]);
-
   // Đổi tên session
   const [sessionName, setSessionName] = useState<string>('');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -443,6 +408,7 @@ useEffect(() => {
   useEffect(() => {
     if (initialSessionData) {
       if (initialSessionData.formData) {
+        lastSavedFormRef.current = JSON.stringify(initialSessionData.formData);
         setFormData(initialSessionData.formData);
       }
       if (initialSessionData.filesMap) {
@@ -499,9 +465,9 @@ useEffect(() => {
     const allFiles = Object.values(filesMap).flat();
     return {
       total: allFiles.length,
-      uploading: allFiles.filter(f => f.status === 'UPLOADING').length,
-      success: allFiles.filter(f => f.status === 'SUCCESS').length,
-      failed: allFiles.filter(f => f.status === 'FAILED').length,
+      uploading: allFiles.filter(f => f.status === 'ĐANG TẢI').length,
+      success: allFiles.filter(f => f.status === 'ĐÃ TẢI XONG').length,
+      failed: allFiles.filter(f => f.status === 'THẤT BẠI').length,
     };
   }, [filesMap]);
 
@@ -565,6 +531,34 @@ useEffect(() => {
   const [promptCommand, setPromptCommand] = useState('Viết tóm tắt 3 đoạn cho nội dung trong draft.');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiElapsedSeconds, setAiElapsedSeconds] = useState(0);
+
+
+
+
+useEffect(() => {
+  if (!activeSessionUuid || normalizedStatus !== 'DRAFT') return;
+
+  const timer = setInterval(async () => {
+    const currentForm = latestFormRef.current;
+    const currentSnapshot = JSON.stringify(currentForm);
+
+    if (currentSnapshot === lastSavedFormRef.current) {
+      return;
+    }
+
+    const saved = await sessionApi.saveDraft({
+      sessionUuid: activeSessionUuid,
+      editorText: draftMeta?.editorText ?? null,
+      formData: currentForm,
+      fieldCode: draftMeta?.fieldCode || 'MAIN_CONTENT',
+    });
+
+    lastSavedFormRef.current = currentSnapshot;
+    onSessionStatusChange?.(String(saved?.status || '').toUpperCase());
+  }, 60000);
+
+  return () => clearInterval(timer);
+}, [activeSessionUuid, normalizedStatus, onSessionStatusChange]);
 
   // Đếm thời gian AI đang tạo nội dung để hiển thị cho người dùng
   useEffect(() => {
@@ -2034,7 +2028,7 @@ function FileUploadZone({
 
         {files.length > 0 && (
           <p className="text-xs text-blue-600 mt-1 font-medium">
-           Đã tải: {files.filter(f => f.status === 'SUCCESS').length}/{maxFiles}
+           Đã tải: {files.filter(f => f.status === 'ĐÃ TẢI XONG').length}/{maxFiles}
           </p>
         )}
       </label>
@@ -2046,9 +2040,13 @@ function FileUploadZone({
               <div className="flex justify-between items-center mb-1">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <File size={14} className={`flex-shrink-0 ${
-                    fileItem.status === 'SUCCESS' ? 'text-green-600' :
-                    fileItem.status === 'FAILED' ? 'text-red-500' :
-                    'text-blue-600'
+                    fileItem.extractionStatus === 'PROCESSING'
+  ? 'text-green-600'
+  : fileItem.status === 'ĐÃ TẢI XONG'
+    ? 'text-green-600'
+    : fileItem.status === 'THẤT BẠI'
+      ? 'text-red-500'
+      : 'text-blue-600'
                   }`} />
                   <span className="font-medium text-slate-700 truncate">{fileItem.file.name}</span>
                   <span className="text-xs text-slate-400 flex-shrink-0">
@@ -2065,16 +2063,29 @@ function FileUploadZone({
               </div>
 
               <div className="flex items-center justify-between">
-                <span className={`text-xs font-semibold ${
-                  fileItem.status === 'SUCCESS' ? 'text-green-600' :
-                  fileItem.status === 'FAILED' ? 'text-red-500' :
-                  fileItem.status === 'UPLOADING' ? 'text-blue-600' : 'text-gray-500'
-                }`}>
-                  {fileItem.status === 'SUCCESS' && '✓ Đã lên hệ thống'}
-                  {fileItem.status === 'UPLOADING' && `Đang tải... ${fileItem.progress}%`}
-                  {fileItem.status === 'FAILED' && `✕ Lỗi: ${fileItem.error || 'Upload failed'}`}
-                  {fileItem.status === 'PENDING' && 'Chờ tải...'}
-                </span>
+              <span
+  className={`text-xs font-semibold ${
+    fileItem.extractionStatus === 'PROCESSING' ||
+    fileItem.extractionStatus === 'EXTRACTED' ||
+    fileItem.status === 'ĐÃ TẢI XONG'
+      ? 'text-green-600'
+      : fileItem.status === 'THẤT BẠI'
+        ? 'text-red-500'
+        : fileItem.status === 'ĐANG TẢI'
+          ? 'text-blue-600'
+          : 'text-gray-500'
+  }`}
+>
+  {fileItem.extractionStatus === 'PROCESSING'
+    ? 'PROCESSING'
+    : fileItem.extractionStatus === 'EXTRACTED' || fileItem.status === 'ĐÃ TẢI XONG'
+      ? 'ĐÃ TẢI XONG'
+      : fileItem.status === 'THẤT BẠI'
+        ? `Lỗi: ${fileItem.error || fileItem.extractionError || 'Upload failed'}`
+        : fileItem.status === 'ĐANG TẢI'
+          ? `ĐANG TẢI... ${fileItem.progress}%`
+          : 'CHỜ TẢI...'}
+</span>
 
                 {fileItem.backendFileId && (
                   <span className="text-xs text-gray-400 font-mono">ID: {fileItem.backendFileId.slice(0, 12)}...</span>

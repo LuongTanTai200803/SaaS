@@ -70,4 +70,7 @@ export const fileApi = {
       params: { sessionUuid },
     }),
 
+    getScanStatus: (fileId: string) =>
+  ht.get(`/files/${fileId}/scan-status`),
+
 };

@@ -108,48 +108,94 @@ export function uploadFileToServer(
         const pages = await renderPdfToImages(fileItem.file);
 
         for (let start = 0; start < pages.length; start += 5) {
-          const batch = pages.slice(start, start + 5);
-          const isLastBatch = start + batch.length >= pages.length;
+  const batch = pages.slice(start, start + 5);
+  const isLastBatch = start + batch.length >= pages.length;
 
-          const scanForm = new FormData();
+  const scanForm = new FormData();
 
-          scanForm.append('fileId', fileId);
-          scanForm.append('sessionUuid', sessionUuid);
-          scanForm.append('isLastBatch', String(isLastBatch));
+  scanForm.append('fileId', fileId);
+  scanForm.append('sessionUuid', sessionUuid);
+  scanForm.append('isLastBatch', String(isLastBatch));
 
-          batch.forEach(page => {
-            scanForm.append(
-              'images',
-              page.image,
-              `page-${page.pageIndex}.png`
-            );
+  batch.forEach(page => {
+    scanForm.append(
+      'images',
+      page.image,
+      `page-${page.pageIndex}.png`
+    );
 
-            scanForm.append(
-              'pageIndexes',
-              String(page.pageIndex)
-            );
-          });
+    scanForm.append(
+      'pageIndexes',
+      String(page.pageIndex)
+    );
+  });
 
-          const scanResponse =
-            await fileApi.scanDocumentBatch(scanForm);
+  await fileApi.scanDocumentBatch(scanForm);
+}
 
-          const scanResult = scanResponse?.data ?? scanResponse;
+// Chỉ polling sau khi đã gửi patch cuối
+let extractionCompleted = false;
 
-          if (scanResult.completed === true) {
-            onStatusChange(fileItem.id, 'SUCCESS', fileId);
+for (let attempt = 0; attempt < 10; attempt++) {
+  const statusResponse = await fileApi.getScanStatus(fileId);
+  const statusResult = statusResponse?.data ?? statusResponse;
 
-            onExtractionChange?.(fileItem.id, {
-              fileId,
-              fileName: payload.fileName,
-              fileSize: payload.fileSize,
-              rawText: scanResult.fullText ?? '',
-              extractionStatus: 'EXTRACTED',
-              extractionError: null,
-            });
+  if (statusResult.extractionStatus === 'EXTRACTED') {
+    onStatusChange(fileItem.id, 'SUCCESS', fileId);
 
-            break;
-          }
-        }
+    onExtractionChange?.(fileItem.id, {
+      fileId,
+      fileName: payload.fileName,
+      fileSize: payload.fileSize,
+      rawText: statusResult.fullText ?? '',
+      extractionStatus: 'EXTRACTED',
+      extractionError: null,
+    });
+
+    // Dừng polling nếu OCR thành công
+    extractionCompleted = true;
+    break;
+  }
+
+  if (statusResult.extractionStatus === 'FAILED') {
+    const errorMessage =
+      statusResult.extractionError ?? 'OCR không thể nhận diện file';
+
+    onStatusChange(fileItem.id, 'FAILED', fileId, errorMessage);
+
+    onExtractionChange?.(fileItem.id, {
+      fileId,
+      fileName: payload.fileName,
+      fileSize: payload.fileSize,
+      rawText: null,
+      extractionStatus: 'FAILED',
+      extractionError: errorMessage,
+    });
+
+    // Dừng polling nếu OCR thất bại
+    extractionCompleted = true;
+    break;
+  }
+
+  if (attempt < 9) {
+    await new Promise(resolve => setTimeout(resolve, 30_000));
+  }
+}
+
+if (!extractionCompleted) {
+  const timeoutMessage = 'OCR timeout sau 10 lần kiểm tra';
+
+  onStatusChange(fileItem.id, 'FAILED', fileId, timeoutMessage);
+
+  onExtractionChange?.(fileItem.id, {
+    fileId,
+    fileName: payload.fileName,
+    fileSize: payload.fileSize,
+    rawText: null,
+    extractionStatus: 'FAILED',
+    extractionError: timeoutMessage,
+  });
+}
       }
       
 
