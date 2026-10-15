@@ -45,6 +45,15 @@ export type DocumentsResponse = {
   totalElements: number;
 };
 
+export interface RecentInvoice {
+  invoiceId: string;
+  packageType: string;
+  finalAmount: number;
+  status: string;
+  createdAt: string;
+  paymentDate?: string | null;
+}
+
 export type CreditSummary = {
   userId: string;
   packageType: string;
@@ -60,6 +69,8 @@ export type CreditSummary = {
     purchasedAt?: string | null;
     expireAt?: string | null;
   };
+  aiCallCount: number;
+  recentInvoices: RecentInvoice[];
 };
 
 export type CreditSummaryResponse = {

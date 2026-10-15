@@ -5,6 +5,7 @@ import { DocumentWorkspace } from './components/DocumentWorkspace';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { Dashboard } from './components/Dashboard';
 import { AuthProvider } from './context/AuthContext';
+import { Toaster } from './components/ui/sonner';
 
 function AppRoutes() {
   const navigate = useNavigate();
@@ -109,6 +110,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
+        <Toaster position="top-right" />
       </AuthProvider>
     </BrowserRouter>
   );

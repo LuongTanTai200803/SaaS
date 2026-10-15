@@ -66,8 +66,8 @@ interface BillingInvoice {
 
 const monthOptions = [
   { value: 1, label: '1 tháng', discount: 0 },
-  { value: 6, label: '6 tháng', discount: 0.1 },
-  { value: 12, label: '12 tháng', discount: 0.2 }
+  { value: 6, label: '6 tháng', discount: 0 },
+  { value: 12, label: '12 tháng', discount: 0 }
 ];
 
 const creditOnlyMonthOptions = [{ value: 1, label: '1 tháng', discount: 0 }];
@@ -498,7 +498,7 @@ export function BillingModal({ isOpen, onClose }: BillingModalProps) {
         <div className="bg-white border-b border-gray-100 px-8 py-5 flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              {showCheckout ? 'Thanh toán đơn hàng bảo mật' : 'Nâng cấp gói dịch vụ Trợ lý AI'}
+              {showCheckout ? 'Thanh toán đơn hàng' : 'Nâng cấp gói dịch vụ Trợ lý AI'}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               {showCheckout
