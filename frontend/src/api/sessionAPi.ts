@@ -7,7 +7,7 @@ export const DEFAULT_PACKAGE_LEVEL: PackageLevel = 1;
 
 export type CompleteSessionRequest = {
   sessionUuid: string;
-  userText: string;
+  userText: string | null;
   model: PackageLevel;
 };
 
