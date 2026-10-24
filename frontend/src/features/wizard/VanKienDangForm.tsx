@@ -146,10 +146,27 @@ export function VanKienDangForm({
       const loadUploadConfig = async () => {
         try {
           const config = await fileApi.getUploadConfig();
+         
 
           if (!cancelled) {
-            setUploadConfig(config);
-          }
+          setUploadConfig(config);
+
+  const packageLevel = config?.modelPackageLevel;
+
+  //console.log('[Upload config] response:', config);
+
+// console.log('[Upload config] modelPackageLevel:', {
+//   value: config?.modelPackageLevel,
+//   type: typeof config?.modelPackageLevel,
+// });
+
+  if (packageLevel === 1 || packageLevel === 2 || packageLevel === 3) {
+    setFormData(prev => ({
+      ...prev,
+      selectedModel: packageLevel,
+    }));
+  }
+}
         } catch (error) {
           console.error('[Upload config] failed:', error);
         }
@@ -337,7 +354,10 @@ useEffect(() => {
 
 
       if (parsedFormData) {
-        const normalized = { ...DEFAULT_FORM, ...parsedFormData };
+      const normalized = {
+  ...DEFAULT_FORM,
+  ...parsedFormData,
+};;
         lastSavedFormRef.current = JSON.stringify(normalized);
         setFormData(prev => ({
           ...prev,
@@ -358,7 +378,7 @@ useEffect(() => {
         setSessionName(data.sessionName);
       }
 
-      console.log('Load draft/session thành công:', data);
+      //console.log('Load draft/session thành công:', data);
 
     } catch (e) {
       console.error('Load draft/session failed:', e);
@@ -528,7 +548,7 @@ useEffect(() => {
     }
   };
 
-  const [promptCommand, setPromptCommand] = useState('Viết tóm tắt 3 đoạn cho nội dung trong draft.');
+  const [promptCommand, setPromptCommand] = useState('');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiElapsedSeconds, setAiElapsedSeconds] = useState(0);
 
@@ -618,6 +638,13 @@ useEffect(() => {
               fieldCode: draftMeta?.fieldCode || 'MAIN_CONTENT',
             });
 
+     
+// console.log('[Complete] package level gửi lên:', {
+//   value: formData.selectedModel,
+//   type: typeof formData.selectedModel,
+// });
+
+
       const completeResult = await sessionApi.completeSession({
         sessionUuid: activeSessionUuid,
         userText: promptCommand,
@@ -625,6 +652,7 @@ useEffect(() => {
       });
 
       console.log('[Complete] response:', completeResult);
+      console.log('[Complete] response.content:', completeResult?.content);
 
       const wrapper = completeResult?.data ? completeResult.data : completeResult;
       const rawContent = wrapper?.content ?? wrapper?.data?.content;
@@ -634,7 +662,7 @@ useEffect(() => {
           ? JSON.parse(rawContent)
           : rawContent;
 
-      setGeneratedDocument(parsedContent ?? '');
+      
 
       navigate(`/workspace/${activeSessionUuid}`, {
         state: {
@@ -790,9 +818,11 @@ useEffect(() => {
             Đóng
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto">
-          <DocumentPreview formData={formData} />
-        </div>
+
+   <div className="flex-1 overflow-y-auto">
+  <DocumentPreview formData={formData} />
+</div>
+
       </div>
 
       {/* Center Form Content */}
@@ -1387,7 +1417,19 @@ multiple={false}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm text-gray-900 bg-white"
                   />
                 </div>
+              <div>
+  <label className="block text-sm font-semibold text-gray-700 mb-2">
+    Yêu cầu bổ sung cho AI
+  </label>
 
+  <textarea
+    value={promptCommand}
+    onChange={event => setPromptCommand(event.target.value)}
+    placeholder="Nhập yêu cầu bổ sung nếu cần..."
+    rows={4}
+    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900"
+  />
+</div>
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
                     Mức độ hoàn chỉnh [17]

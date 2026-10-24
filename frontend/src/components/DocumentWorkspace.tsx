@@ -444,52 +444,60 @@ export function DocumentWorkspace({
     // =====================================================
     // CÁC MỤC I, II, III...
     // =====================================================
-    if (Array.isArray(data.cacMuc)) {
-      data.cacMuc.forEach((item: any) => {
+    const renderSections = (sections: any[], level = 0): string => {
+  return sections
+    .map((item) => {
+      const prefix = item?.code ? `${item.code}. ` : '';
+      const headingTag = level === 0 ? 'h2' : 'h3';
 
-        // -------------------------------------------------
-        // TIÊU ĐỀ MỤC
-        // -------------------------------------------------
-        if (item?.tieuDeMuc) {
-          html += `
-            <h2
-              style="
-                margin: 18px 0 8px 0;
-                padding: 0;
-                text-align: left;
-                font-family: 'Times New Roman', serif;
-                font-size: 13pt;
-                line-height: 1.4;
-                font-weight: bold;
-              "
-            >
-              ${escapeHtml(item.tieuDeMuc)}
-            </h2>
-          `;
-        }
+      const title = item?.tieuDeMuc
+        ? `
+          <${headingTag}
+            style="
+              margin: ${level === 0 ? '18px 0 8px 0' : '10px 0 6px 18px'};
+              padding: 0;
+              text-align: left;
+              font-family: 'Times New Roman', serif;
+              font-size: ${level === 0 ? '13pt' : '12.5pt'};
+              line-height: 1.4;
+              font-weight: bold;
+            "
+          >
+            ${escapeHtml(`${prefix}${item.tieuDeMuc}`)}
+          </${headingTag}>
+        `
+        : '';
 
-        // -------------------------------------------------
-        // NỘI DUNG CHI TIẾT
-        // -------------------------------------------------
-        if (item?.noiDungChiTiet) {
-          html += `
-            <p
-              style="
-                margin: 0 0 10px 0;
-                padding: 0;
-                text-align: justify;
-                font-family: 'Times New Roman', serif;
-                font-size: 13pt;
-                line-height: 1.6;
-                white-space: pre-line;
-              "
-            >
-              ${escapeHtml(item.noiDungChiTiet)}
-            </p>
-          `;
-        }
-      });
-    }
+      const content = item?.noiDungChiTiet
+        ? `
+          <p
+            style="
+              margin: 0 0 10px ${level === 0 ? '0' : '18px'};
+              padding: 0;
+              text-align: justify;
+              font-family: 'Times New Roman', serif;
+              font-size: 13pt;
+              line-height: 1.6;
+              white-space: pre-line;
+            "
+          >
+            ${escapeHtml(item.noiDungChiTiet)}
+          </p>
+        `
+        : '';
+
+      const children = Array.isArray(item?.tieuMuc)
+        ? renderSections(item.tieuMuc, level + 1)
+        : '';
+
+      return `${title}${content}${children}`;
+    })
+    .join('');
+};
+
+if (Array.isArray(data.cacMuc)) {
+  html += renderSections(data.cacMuc);
+}
 
     // =====================================================
     // CÂU KẾT
@@ -796,6 +804,13 @@ export function DocumentWorkspace({
     if (!activeSessionUuid) return;
 
     const loadWorkspace = async () => {
+      if (initialContent) {
+    const bodyHtml = buildInitialContent(initialContent);
+    const html = renderDocumentHtml(bodyHtml, formData);
+
+    setWorkspaceContent(html);
+    return;
+  }
       const workspace = await fetchWorkspace();
 
       if (!workspace) return;
@@ -825,7 +840,7 @@ export function DocumentWorkspace({
 
     loadWorkspace();
 
-  }, [activeSessionUuid, formData]);
+  }, [activeSessionUuid, formData, initialContent]);
 
   // =========================================================
   // 13. CONTENT CHANGE
@@ -975,8 +990,12 @@ export function DocumentWorkspace({
         fileIds: fileIdsForRequest,
       });
 
-      const wrapper = result?.data ? result.data : result;
-      const rawContent = wrapper?.content ?? wrapper?.data?.content ?? wrapper?.editorText;
+      const wrapper = completeResult?.data ?? completeResult;
+
+const rawContent =
+  wrapper?.content ??
+  wrapper?.data?.content ??
+  wrapper;
       const parsedContent =
         typeof rawContent === 'string' && rawContent.trim().startsWith('{')
           ? JSON.parse(rawContent)
