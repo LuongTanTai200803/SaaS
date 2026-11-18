@@ -983,14 +983,20 @@ if (Array.isArray(data.cacMuc)) {
     setChatMessages(prev => [...prev, assistantPlaceholder]);
 
     try {
-      const result = await sessionApi.refineWorkspace({
-        sessionUuid: activeSessionUuid,
-        userText,
-        model: packageLevel,
-        fileIds: fileIdsForRequest,
-      });
+      const refinePayload = {
+  sessionUuid: activeSessionUuid,
+  userText,
+  model: packageLevel,
+  fileId: fileIdsForRequest,
+};
 
-      const wrapper = completeResult?.data ?? completeResult;
+console.log('[Workspace] selectedFileIds:', selectedFileIds);
+console.log('[Workspace] fileIdsForRequest:', fileIdsForRequest);
+console.log('[Workspace] refine payload:', refinePayload);
+
+      const result = await sessionApi.refineWorkspace(refinePayload);
+
+      const wrapper = result?.data ?? result;
 
 const rawContent =
   wrapper?.content ??

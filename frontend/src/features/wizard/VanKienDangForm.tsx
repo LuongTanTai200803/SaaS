@@ -863,7 +863,7 @@ useEffect(() => {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Tên văn bản [1] <span className="text-red-500">*</span>
+                    Tên văn bản <span className="text-red-500">*</span>
                     <TooltipIcon text="Tên văn bản muốn ban hành" />
                   </label>
                   <input
@@ -878,7 +878,7 @@ useEffect(() => {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Cơ quan chủ quản [2]
+                    Cơ quan chủ quản
                     <TooltipIcon text="Tổ chức Đảng quản lý cấp trên trực tiếp" />
                   </label>
                   <input
@@ -893,7 +893,7 @@ useEffect(() => {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Cơ quan ban hành [3]
+                    Cơ quan ban hành
                     <TooltipIcon text="Chọn File trong các File đã lưu hoặc tạo mới đơn vị ban hành văn bản (Quy định 399/QĐTW)" />
                   </label>
                   <input
@@ -908,7 +908,7 @@ useEffect(() => {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Địa danh [4]
+                    Địa danh
                     <TooltipIcon text="Địa danh nơi ban hành văn bản" />
                   </label>
                   <input
@@ -939,7 +939,7 @@ useEffect(() => {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Số, ký hiệu văn bản [5]
+                    Số, ký hiệu văn bản
                     <TooltipIcon text="Số văn bản. Ký hiệu" />
                   </label>
                   <input
@@ -954,7 +954,7 @@ useEffect(() => {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Kinh gửi / Nơi nhận chính [6]
+                    Kinh gửi / Nơi nhận chính
                     <TooltipIcon text="Cơ quan, đơn vị, cá nhân nhận văn bản" />
                   </label>
                   <textarea
@@ -969,7 +969,7 @@ useEffect(() => {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Nơi nhận (báo cáo / biết / thực hiện) [7]
+                    Nơi nhận (báo cáo / biết / thực hiện)
                     <TooltipIcon text="Nơi nhận (báo cáo / biết / thực hiện)" />
                   </label>
                   <textarea
@@ -1007,7 +1007,7 @@ useEffect(() => {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Văn bản chỉ đạo trực tiếp [8]
+                    Văn bản chỉ đạo trực tiếp 
                     <TooltipIcon text="Upload tối đa 5 file văn bản chỉ đạo hoặc nhập nội dung" />
                   </label>
                   <FileUploadZone
@@ -1038,7 +1038,7 @@ useEffect(() => {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Văn bản pháp lý [9]
+                    Văn bản pháp lý 
                     <TooltipIcon text="Căn cứ liên quan" />
                   </label>
                   {/* Văn bản pháp lý */}
@@ -1078,7 +1078,7 @@ useEffect(() => {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Nội dung chính [10] <span className="text-red-500">*</span>
+                    Nội dung chính <span className="text-red-500">*</span>
                     <TooltipIcon text="Nhập nội dung chính của văn bản hoặc upload file" />
                   </label>
  <FileUploadZone
@@ -1108,7 +1108,7 @@ useEffect(() => {
                 </div>
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Tài liệu minh chứng [11]
+                    Tài liệu minh chứng 
                     <TooltipIcon text="Tài liệu minh chứng cho nội dung (phụ lục, bảng biểu, ảnh...)" />
                   </label>
                   <FileUploadZone
@@ -1150,7 +1150,7 @@ multiple
 
                   <div className="flex items-center justify-between mb-2">
                     <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                      Mẫu văn bản áp dụng [12]
+                      Mẫu văn bản áp dụng 
                       <TooltipIcon text="Upload file mẫu hoặc nhập nội dung mẫu tham khảo" />
                     </label>
 
@@ -1225,7 +1225,7 @@ multiple={false}
                 
               <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Chọn Đề cương; Dàn ý văn bản [13]
+                    Chọn Đề cương; Dàn ý văn bản 
                     <TooltipIcon text="Upload file mẫu hoặc nhập nội dung mẫu tham khảo" />
                   </label>
                   <FileUploadZone
@@ -1267,7 +1267,7 @@ multiple={false}
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Văn bản / Tài liệu liên quan [14]
+                    Văn bản / Tài liệu liên quan 
                     <TooltipIcon text="Yêu cầu theo từng văn bản dùng để làm gì?" />
                   </label>
                   <FileUploadZone
@@ -1388,7 +1388,7 @@ multiple={false}
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Phong cách trình bày [15]
+                    Phong cách trình bày 
                     <TooltipIcon text="Sử dụng văn phong chính luận - hành chính Đảng" />
                   </label>
 
@@ -1404,7 +1404,7 @@ multiple={false}
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Độ dài văn bản đầu ra [16]
+                    Độ dài văn bản đầu ra 
                     <TooltipIcon text="Chỉ định độ dài văn bản mong muốn" />
                   </label>
 
@@ -1432,7 +1432,7 @@ multiple={false}
 </div>
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Mức độ hoàn chỉnh [17]
+                    Mức độ hoàn chỉnh 
                     <TooltipIcon text="Trạng thái văn bản đầu ra" />
                   </label>
 

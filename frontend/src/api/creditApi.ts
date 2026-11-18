@@ -10,31 +10,6 @@ export const creditApi = {
     const url = '/credits/balance';
     return axiosClient.get(url);
   },
-  createInvoice: async (data: {
-  packageType: string;
-  durationMonths: number;
-}) => ({
-  data: {
-    invoiceId: `mock-invoice-${Date.now()}`,
-    packageType: data.packageType,
-    durationMonths: data.durationMonths,
-    memoId: 'MOCK-PAYMENT',
-    originalAmount: 100000,
-    discountAmount: 0,
-    finalAmount: 100000,
-    qrCodeUrl: 'mock_qr_code_url',
-    status: 'PENDING',
-  },
-  status: 200,
-}),
-
-getInvoiceStatus: async (_invoiceId: string) => ({
-  data: {
-    status: 'PENDING',
-  },
-  status: 200,
-}),
-
 
   getPackages() {
     return axiosClient.get('/packages').catch((error) => {

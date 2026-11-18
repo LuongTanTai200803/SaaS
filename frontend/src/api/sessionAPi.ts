@@ -32,7 +32,7 @@ export type RefineWorkspaceRequest = {
   sessionUuid: string;
   userText: string;
   model: PackageLevel;
-  fileIds: string[];
+  fileId: string[];
 };
 
 

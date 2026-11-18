@@ -8,6 +8,11 @@ export const authApi = {
   login: (credentials: any) => {
     return ht.post('/auth/login', credentials);
   },
+  googleLogin: (googleIdToken: string) => {
+  return ht.post(
+    `/auth/google?token=${encodeURIComponent(googleIdToken)}`
+  );
+},
   logout: () => {
     return ht.post('/auth/logout');
   },
@@ -18,6 +23,7 @@ export const authApi = {
     const url = `/auth/verify-email?token=${token}`;
     return ht.get(url);
   },
+  
 };
 
 export type LoginResponse = {
@@ -26,3 +32,4 @@ export type LoginResponse = {
   token?: string;
   data?: { token?: string };
 };
+
