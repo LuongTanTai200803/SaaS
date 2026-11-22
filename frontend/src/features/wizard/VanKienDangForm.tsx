@@ -24,6 +24,95 @@ import { sessionApi, DEFAULT_PACKAGE_LEVEL, } from '../../api/sessionAPi';
 import { getApiErrorMessage } from '../../api/axiosClient';
 import type { PackageLevel } from '../../api/sessionAPi';
 
+import api from '../../api';
+
+
+const TEMPLATE_CACHE_KEY = 'ai-document-template-cache';
+
+interface TemplateCache {
+  topicCode: string;
+  templates: any[];
+  invalidTemplates: string[];
+  cachedAt: number;
+}
+function readTemplateCache(): TemplateCache | null {
+  const raw = localStorage.getItem(TEMPLATE_CACHE_KEY);
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const cache = JSON.parse(raw) as TemplateCache;
+
+    if (
+      !cache ||
+      typeof cache.topicCode !== 'string' ||
+      !Array.isArray(cache.templates)
+    ) {
+      localStorage.removeItem(TEMPLATE_CACHE_KEY);
+      return null;
+    }
+
+    return cache;
+  } catch (error) {
+    console.error('[TemplateCache] Không đọc được cache:', error);
+    localStorage.removeItem(TEMPLATE_CACHE_KEY);
+    return null;
+  }
+}
+
+function saveTemplateCache(cache: TemplateCache): void {
+  try {
+    localStorage.setItem(
+      TEMPLATE_CACHE_KEY,
+      JSON.stringify(cache)
+    );
+  } catch (error) {
+    console.error('[TemplateCache] Không lưu được cache:', error);
+  }
+}
+// Render template as text
+function renderTemplateText(template: any): string {
+  const lines: string[] = [];
+
+  if (template.doanCanCu?.trim()) {
+    lines.push(template.doanCanCu.trim());
+  }
+
+  if (template.cauDanChuyenTiep?.trim()) {
+    lines.push(template.cauDanChuyenTiep.trim());
+  }
+
+  for (const section of template.cacMuc ?? []) {
+    lines.push('');
+    lines.push(`**${section.code}. ${section.tieuDeMuc}**`);
+    lines.push('');
+
+    if (section.noiDungChiTiet?.trim()) {
+      lines.push(section.noiDungChiTiet.trim());
+      lines.push('');
+    }
+
+    for (const subSection of section.tieuMuc ?? []) {
+      lines.push(`**${subSection.code}. ${subSection.tieuDeMuc}**`);
+
+      if (subSection.noiDungChiTiet?.trim()) {
+        lines.push(subSection.noiDungChiTiet.trim());
+      } else {
+        lines.push('*[Nội dung chi tiết...]*');
+      }
+
+      lines.push('');
+    }
+  }
+
+  if (template.cauKetHanhChinh?.trim()) {
+    lines.push(template.cauKetHanhChinh.trim());
+  }
+
+  return lines.join('\n').trim();
+}
 
 
 interface VanKienDangFormProps {
@@ -110,6 +199,7 @@ interface FormData {
   outputSize: string;
 }
 
+
 export function VanKienDangForm({
     onGenerate,
     initialSessionData,
@@ -139,7 +229,8 @@ export function VanKienDangForm({
 
     const [currentMenu, setCurrentMenu] = useState<MenuSection>(getStepFromUrl());
     
-    
+  
+
     useEffect(() => {
       let cancelled = false;
 
@@ -218,7 +309,22 @@ export function VanKienDangForm({
   const isEditing = normalizedStatus === 'EDITING';
 
   // State for the raw template text before any processing
-  const [rawTemplateText, setRawTemplateText] = useState('');
+    const [rawTemplateText, setRawTemplateText] = useState('');
+
+    // available templates
+    const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
+    // selected template
+    const [selectedTemplateCode, setSelectedTemplateCode] = useState('');
+    // loading state for template
+    const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
+    // error for template
+    const [templateError, setTemplateError] = useState('');
+    // ref for loading template
+    const loadingTemplateRef = useRef<string | null>(null);
+    // hiện picker template
+    const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
+    // saving template state
+    const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   const [generatedDocument, setGeneratedDocument] = useState<string | Record<string, any>>('');
 
@@ -531,6 +637,195 @@ useEffect(() => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  useEffect(() => {
+  if (!formData.loaiVanBan) {
+    localStorage.removeItem(TEMPLATE_CACHE_KEY);
+    return;
+  }
+
+  void loadTemplatesByTopic(formData.loaiVanBan);
+}, [formData.loaiVanBan]);
+
+  // Load templates for a topic, with caching
+  const loadTemplatesByTopic = async (topicCode: string) => {
+  if (!topicCode) {
+    localStorage.removeItem(TEMPLATE_CACHE_KEY);
+    return;
+  }
+
+  const currentCache = readTemplateCache();
+
+  if (currentCache?.topicCode === topicCode) {
+  console.log('[Template] Dùng cache:', topicCode);
+
+  setAvailableTemplates(currentCache.templates);
+  setSelectedTemplateCode('');
+
+  return;
+}
+
+  if (loadingTemplateRef.current === topicCode) {
+    return;
+  }
+
+  loadingTemplateRef.current = topicCode;
+  setIsLoadingTemplate(true);
+  setTemplateError('');
+
+  // Loại văn bản mới: xóa cache loại cũ trước khi gọi API
+  localStorage.removeItem(TEMPLATE_CACHE_KEY);
+  setAvailableTemplates([]);
+  setSelectedTemplateCode('');
+
+
+  try {
+    const response = await api.aiApi.getTemplates(topicCode);
+    const result = response?.data;
+
+    if (!result || result.topicCode !== topicCode) {
+      throw new Error('Dữ liệu template trả về không hợp lệ.');
+    }
+
+    saveTemplateCache({
+      topicCode: result.topicCode,
+      templates: result.templates ?? [],
+      invalidTemplates: result.invalidTemplates ?? [],
+      cachedAt: Date.now(),
+    });
+
+    setAvailableTemplates(result.templates ?? []);
+    setSelectedTemplateCode('');
+
+    console.log('[Template] Đã tải và lưu cache:', {
+      topicCode: result.topicCode,
+      templateCount: result.templates?.length ?? 0,
+      invalidTemplateCount: result.invalidTemplates?.length ?? 0,
+    });
+  } catch (error: unknown) {
+    console.error('[Template] Không thể tải template:', error);
+    setTemplateError(
+      'Không thể tải mẫu văn bản. Vui lòng thử lại.'
+    );
+  } finally {
+    loadingTemplateRef.current = null;
+    setIsLoadingTemplate(false);
+  }
+};
+
+  // Chọn template và render nội dung
+  const handleSelectTemplate = (template: any) => {
+    setSelectedTemplateCode(template.templateCode);
+
+    const renderedText = renderTemplateText(template);
+
+    setRawTemplateText(renderedText);
+    updateField('mauVanBan', renderedText);
+
+    setIsTemplatePickerOpen(false);
+
+    toast.success(`Đã chọn mẫu ${template.tenLoaiVanBan}`, {
+      duration: 3000,
+    });
+  };
+
+  // Lưu template đã chọn vào session
+  const handleSaveSelectedTemplate = async () => {
+  if (!activeSessionUuid) {
+    toast.error('Không tìm thấy session hiện tại.', {
+      duration: 5000,
+    });
+    return;
+  }
+
+  if (!formData.loaiVanBan) {
+    toast.error('Vui lòng chọn loại văn bản trước.', {
+      duration: 5000,
+    });
+    return;
+  }
+
+  if (!selectedTemplateCode) {
+    toast.error('Vui lòng chọn một mẫu văn bản trước.', {
+      duration: 5000,
+    });
+    return;
+  }
+
+  setIsSavingTemplate(true);
+
+  try {
+    await api.aiApi.selectTemplate({
+      sessionUuid: activeSessionUuid,
+      topicCode: formData.loaiVanBan,
+      templateCode: selectedTemplateCode,
+    });
+
+    toast.success('Đã lưu mẫu vào session.', {
+      duration: 3000,
+    });
+  } catch (error: unknown) {
+    console.error('[Template] Không thể lưu mẫu vào session:', error);
+
+    toast.error(
+      getApiErrorMessage(
+        error,
+        'Không thể lưu mẫu vào session. Vui lòng thử lại.'
+      ),
+      {
+        duration: 5000,
+      }
+    );
+  } finally {
+    setIsSavingTemplate(false);
+  }
+};
+
+  // Sửa chính tả Nội dung chính
+  const handleProofreadMainContent = async () => {
+  if (!activeSessionUuid) {
+    toast.error('Không tìm thấy session hiện tại.', { duration: 5000 });
+    return;
+  }
+
+  const text = formData.noiDungChinh.trim();
+
+  if (!text) {
+    toast.error('Vui lòng nhập Nội dung chính trước khi sửa chính tả.', {
+      duration: 5000,
+    });
+    return;
+  }
+
+  setIsProofreading(true);
+
+  try {
+    const response = await aiApi.proofread({
+      sessionUuid: activeSessionUuid,
+      text,
+    });
+
+    const correctedText = response?.data?.correctedText;
+
+    if (typeof correctedText !== 'string') {
+      throw new Error('API không trả về nội dung đã sửa chính tả.');
+    }
+
+    updateField('noiDungChinh', correctedText);
+    toast.success('Đã sửa chính tả Nội dung chính.', { duration: 4000 });
+  } catch (error: unknown) {
+    console.error('[Proofread] Failed:', error);
+    toast.error(
+      getApiErrorMessage(
+        error,
+        'Không thể sửa chính tả. Vui lòng thử lại.'
+      ),
+      { duration: 5000 }
+    );
+  } finally {
+    setIsProofreading(false);
+  }
+};
+
   // Xử lý chuyển bước tiếp theo trong wizard
   const handleNext = () => {
     if (currentMenu < 6) {
@@ -552,6 +847,7 @@ useEffect(() => {
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiElapsedSeconds, setAiElapsedSeconds] = useState(0);
 
+  const [isProofreading, setIsProofreading] = useState(false);
 
 
 
@@ -843,11 +1139,29 @@ useEffect(() => {
                     Loại văn bản <span className="text-red-500">*</span>
                     <TooltipIcon text="Chọn loại văn bản: Nghị quyết, Quyết định, Chỉ thị, Kế hoạch, Báo cáo, Tờ trình, Công văn, Thông báo, v.v..." />
                   </label>
+
                  <select
-                  value={formData.loaiVanBan}
-                  onChange={e => updateField('loaiVanBan', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg ..."
-                >
+  value={formData.loaiVanBan}
+  onChange={e => {
+    const nextDocumentType = e.target.value;
+
+    if (nextDocumentType !== formData.loaiVanBan) {
+      // Xóa mẫu cũ đang hiển thị
+      updateField('mauVanBan', '');
+      setRawTemplateText('');
+
+      // Reset trạng thái chọn mẫu
+      setSelectedTemplateCode('');
+      setAvailableTemplates([]);
+      setTemplateError('');
+      setIsTemplatePickerOpen(false);
+    }
+
+    updateField('loaiVanBan', nextDocumentType);
+  }}
+  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg ..."
+>
+
                   <option value="">-- Chọn loại văn bản --</option>
 
                   {loaiVanBanOptions.map(option => (
@@ -1077,10 +1391,33 @@ useEffect(() => {
                 </div>
 
                 <div>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Nội dung chính <span className="text-red-500">*</span>
-                    <TooltipIcon text="Nhập nội dung chính của văn bản hoặc upload file" />
-                  </label>
+
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      Nội dung chính <span className="text-red-500">*</span>
+                      <TooltipIcon text="Nhập nội dung chính của văn bản hoặc upload file" />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={handleProofreadMainContent}
+                      disabled={
+                        isProofreading ||
+                        !activeSessionUuid ||
+                        !formData.noiDungChinh.trim()
+                      }
+                      className="inline-flex items-center gap-2 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isProofreading ? (
+                        <>
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-red-300 border-t-red-700" />
+                          Đang sửa...
+                        </>
+                      ) : (
+                        'Sửa chính tả'
+                      )}
+                    </button>
+                  </div>
  <FileUploadZone
  multiple
   maxFiles={uploadConfig?.maxFiles ?? 5}
@@ -1154,15 +1491,58 @@ multiple
                       <TooltipIcon text="Upload file mẫu hoặc nhập nội dung mẫu tham khảo" />
                     </label>
 
-                    <button
-                      type="button"
-                      onClick={() => setIsTextExpanded(true)}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 shadow-sm transition-colors hover:border-blue-500 hover:bg-blue-50"
-                    >
-                      <Maximize2 size={14} />
-                      Mở rộng
-                    </button>
+                    <div className="flex items-center gap-2">
+  <button
+    type="button"
+    onClick={() => setIsTemplatePickerOpen(true)}
+    disabled={isLoadingTemplate || availableTemplates.length === 0}
+    className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm transition-colors hover:border-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    <FileText size={14} />
+
+    {isLoadingTemplate
+      ? 'Đang tải mẫu...'
+      : availableTemplates.length > 0
+        ? 'Chọn mẫu'
+        : 'Chưa có mẫu'}
+  </button>
+  <button
+    type="button"
+    onClick={() => {
+      void handleSaveSelectedTemplate();
+    }}
+    disabled={
+      isSavingTemplate ||
+      !activeSessionUuid ||
+      !selectedTemplateCode
+    }
+    className="inline-flex items-center gap-1.5 rounded-md border border-green-300 bg-white px-3 py-1.5 text-xs font-medium text-green-700 shadow-sm transition-colors hover:border-green-500 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    {isSavingTemplate ? (
+      <>
+        <span className="h-3 w-3 animate-spin rounded-full border-2 border-green-300 border-t-green-700" />
+        Đang lưu...
+      </>
+    ) : (
+      'Lưu Mẫu'
+    )}
+  </button>
+  <button
+    type="button"
+    onClick={() => setIsTextExpanded(true)}
+    className="inline-flex items-center gap-1.5 rounded-md border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 shadow-sm transition-colors hover:border-blue-500 hover:bg-blue-50"
+  >
+    <Maximize2 size={14} />
+    Mở rộng
+  </button>
+</div>
                   </div>
+
+{templateError && (
+  <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+    {templateError}
+  </div>
+)}
 
                   <FileUploadZone
 multiple={false}
@@ -1190,6 +1570,55 @@ multiple={false}
 }}
   
 />
+
+<Dialog
+  open={isTemplatePickerOpen}
+  onOpenChange={setIsTemplatePickerOpen}
+>
+  <DialogContent className="max-h-[85vh] w-[95vw] max-w-2xl overflow-hidden">
+    <DialogHeader>
+      <DialogTitle>
+        Chọn mẫu văn bản
+      </DialogTitle>
+    </DialogHeader>
+
+    <div className="max-h-[65vh] space-y-3 overflow-y-auto pr-2">
+      {availableTemplates.map(template => (
+        <button
+          key={template.templateCode}
+          type="button"
+          onClick={() => handleSelectTemplate(template)}
+          className={`w-full rounded-lg border p-4 text-left transition-colors ${
+            selectedTemplateCode === template.templateCode
+              ? 'border-red-500 bg-red-50 ring-2 ring-red-200'
+              : 'border-gray-300 bg-white hover:border-red-300 hover:bg-red-50'
+          }`}
+        >
+          <div className="font-semibold text-gray-900">
+            {template.tenLoaiVanBan}
+          </div>
+
+          {template.trichYeu && (
+            <div className="mt-1 text-sm leading-5 text-gray-600">
+              {template.trichYeu}
+            </div>
+          )}
+
+          <div className="mt-2 text-xs text-gray-500">
+            Mã mẫu: {template.templateCode}
+          </div>
+        </button>
+      ))}
+
+      {availableTemplates.length === 0 && (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+          Chưa có mẫu văn bản cho loại đã chọn.
+        </div>
+      )}
+    </div>
+  </DialogContent>
+</Dialog>
+
                   <textarea
                     value={formData.mauVanBan}
                     onChange={e => updateField('mauVanBan', e.target.value)}
@@ -1432,7 +1861,7 @@ multiple={false}
 </div>
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    Mức độ hoàn chỉnh 
+                    Mức độ hoàn chỉnh  
                     <TooltipIcon text="Trạng thái văn bản đầu ra" />
                   </label>
 
