@@ -291,6 +291,33 @@ export const aiApi = {
       }, MOCK_DELAY);
     });
   },
+  getTemplates: async (topicCode: string) => {
+  return {
+    success: true,
+    message: 'Templates loaded from mock',
+    data: {
+      topicCode,
+      templates: [],
+      invalidTemplates: [],
+    },
+    statusCode: 200,
+    errorType: null,
+  };
+},
+selectTemplate: async (data: {
+  sessionUuid: string;
+  topicCode: string;
+  templateCode: string;
+}) => {
+  return {
+    success: true,
+    message: 'Template selected successfully (mock)',
+    data,
+    statusCode: 200,
+    errorType: null,
+  };
+},
+
   pinContext: async (sessionId: string, data: { documentId: string; content: string }) => {
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -361,6 +388,7 @@ export const adminApi: AdminApiContract = {
     statusCode: 200,
     errorType: null,
   }),
+  
 
   updateUser: async (userId, data) => ({
     success: true,
